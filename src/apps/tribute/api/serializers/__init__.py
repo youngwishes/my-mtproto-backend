@@ -1,0 +1,1 @@
+from .tribute_webhook import TributeDigitalPaymentSerializer
