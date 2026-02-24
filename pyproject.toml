@@ -7,5 +7,6 @@ requires-python = ">=3.13"
 dependencies = [
     "django>=6.0.2",
     "djangorestframework>=3.16.1",
+    "pytelegrambotapi>=4.31.0",
     "requests>=2.32.5",
 ]
