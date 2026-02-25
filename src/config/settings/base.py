@@ -26,7 +26,7 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG") == "0"
 
-ALLOWED_HOSTS = ["79.174.81.80"]
+ALLOWED_HOSTS = ["beatvault.online", "www.beatvault.online"]
 
 # Application definition
 
