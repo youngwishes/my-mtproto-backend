@@ -1,5 +1,7 @@
 from dataclasses import asdict, dataclass
 
+from django.db import transaction
+
 from apps.core.bot import TelegramBot
 from apps.core.service import log_service_error
 from apps.tribute.models import TributeDigitalPayment
@@ -12,6 +14,7 @@ from apps.vds.services import get_add_new_key_service_factory
 @dataclass(kw_only=True, slots=True, frozen=True)
 class TributeDigitalPaymentService:
     @log_service_error
+    @transaction.atomic
     def __call__(self, *, new_digital_payment: NewDigitalPaymentDTO) -> None:
         payment = TributeDigitalPayment.objects.create(**asdict(new_digital_payment))
         try:
@@ -37,6 +40,7 @@ class TributeDigitalPaymentService:
             chat_id=user.username,
             link=mtproto_key.get_proxy_link(),
         )
+
 
 def get_tribute_digital_payment_service() -> TributeDigitalPaymentService:
     return TributeDigitalPaymentService()
