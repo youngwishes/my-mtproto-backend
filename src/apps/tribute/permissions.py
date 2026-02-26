@@ -1,6 +1,5 @@
 import hashlib
 import hmac
-import json
 
 from django.conf import settings
 from rest_framework.exceptions import PermissionDenied
