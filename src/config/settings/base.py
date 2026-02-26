@@ -24,9 +24,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv("DEBUG") == "0"
+DEBUG = os.getenv("DEBUG") == "1"
 
-ALLOWED_HOSTS = ["beatvault.ru", "www.beatvault.ru", "127.0.0.1"]
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+    "beatvault.ru",
+    "www.beatvault.ru",
+    "django",
+]
 
 # Application definition
 
@@ -79,7 +85,7 @@ WSGI_APPLICATION = "config.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        'NAME': os.path.join(BASE_DIR, 'data', 'db.sqlite3'),
+        "NAME": os.path.join(BASE_DIR, "data", "db.sqlite3"),
     }
 }
 
@@ -123,6 +129,6 @@ STATIC_ROOT = "static/"
 
 AUTH_USER_MODEL = "users.SystemUser"
 
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
