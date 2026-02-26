@@ -32,6 +32,7 @@ ALLOWED_HOSTS = [
     "beatvault.ru",
     "www.beatvault.ru",
     "django",
+    "79.174.81.80",
 ]
 
 # Application definition
