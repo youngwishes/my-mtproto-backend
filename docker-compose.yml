@@ -5,7 +5,7 @@ services:
     build: .
     volumes:
       - static_volume:/app/static
-      - ./src/db.sqlite3:/app/db.sqlite3
+      - ./data:/app/data
     env_file:
       - .env
     expose:
