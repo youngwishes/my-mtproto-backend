@@ -14,7 +14,6 @@ from apps.vds.services import get_add_new_key_service_factory
 @dataclass(kw_only=True, slots=True, frozen=True)
 class TributeDigitalPaymentService:
     @log_service_error
-    @transaction.atomic
     def __call__(self, *, new_digital_payment: NewDigitalPaymentDTO) -> None:
         payment = TributeDigitalPayment.objects.create(**asdict(new_digital_payment))
         try:
@@ -23,23 +22,25 @@ class TributeDigitalPaymentService:
             user = SystemUser.objects.create(
                 username=new_digital_payment.telegram_user_id
             )
-
-        server = VDSInstance.objects.get_least_populated()
-        response = get_add_new_key_service_factory()(
-            server=server,
-            username=str(user.username),
-        )
-        mtproto_key = MTPRotoKey.objects.create(
-            vds=server,
-            user=user,
-            payment=payment,
-            token=response.key,
-            tls_domain=response.tls_domain,
-        )
-        TelegramBot().send_proxy_link(
-            chat_id=user.username,
-            link=mtproto_key.get_proxy_link(),
-        )
+        with transaction.atomic():
+            server = VDSInstance.objects.get_least_populated()
+            response = get_add_new_key_service_factory()(
+                server=server,
+                username=str(user.username),
+            )
+            mtproto_key = MTPRotoKey.objects.create(
+                vds=server,
+                user=user,
+                payment=payment,
+                token=response.key,
+                tls_domain=response.tls_domain,
+            )
+            TelegramBot().send_proxy_link(
+                chat_id=user.username,
+                link=mtproto_key.get_proxy_link(),
+            )
+            payment.is_success = True
+            payment.save(update_fields=["is_success"])
 
 
 def get_tribute_digital_payment_service() -> TributeDigitalPaymentService:

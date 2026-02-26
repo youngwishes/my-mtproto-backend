@@ -3,12 +3,14 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core.bot import notify_bad_request
 from apps.tribute.api.serializers import TributeDigitalPaymentSerializer
 from apps.tribute.services import get_tribute_digital_payment_service
 from apps.tribute.services.dtos import NewDigitalPaymentDTO
 
 
 class TributeWebhookView(APIView):
+    @notify_bad_request
     def post(self, request: Request) -> Response:
         serializer = TributeDigitalPaymentSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

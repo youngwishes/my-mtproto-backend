@@ -11,6 +11,7 @@ class TributeDigitalPayment(BaseDjangoModel):
     currency = models.CharField("валюта")
     telegram_user_id = models.CharField("ID пользователя в Telegram")
     purchase_created_at = models.DateTimeField("дата оплаты на Tribute")
+    is_success = models.BooleanField("ссылка отправлена пользователю", default=False)
 
     class Meta:
         verbose_name = "платеж на Tribute"

@@ -10,3 +10,4 @@ class NewDigitalPaymentDTO:
     currency: str
     telegram_user_id: str
     purchase_created_at: str
+    is_success: bool = False

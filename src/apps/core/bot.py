@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from django.conf import settings
+from rest_framework.exceptions import ValidationError
 from telebot import TeleBot
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
 
@@ -36,9 +38,21 @@ class TelegramBot:
     @classmethod
     def log_error(cls, exc: BaseServiceError) -> None:
         bot.send_message(
-            chat_id=1487189460,
-            text=f"🔥🔥🔥 Ошибка на сервере:\n\n```json\n{exc.to_dict()}```",
-            parse_mode="MarkdownV2"
+            chat_id=settings.MY_TELEGRAM_ID,
+            text=f"🔥🔥🔥 SERVER INTERNAL ERROR:\n\n```json\n{exc.to_dict()}```",
+            parse_mode="MarkdownV2",
+        )
+
+    @classmethod
+    def log_bad_request(cls, request: dict, response: Exception) -> None:
+        bot.send_message(
+            chat_id=settings.MY_TELEGRAM_ID,
+            text=(
+                f"🔥 <b>BAD REQUEST:</b>\n\n"
+                f"<b>Request:</b>\n<pre>{request}</pre>\n\n"
+                f"<b>Response:</b>\n<pre>{response}</pre>"
+            ),
+            parse_mode="HTML",
         )
 
     @classmethod
@@ -52,5 +66,24 @@ class TelegramBot:
                 "Вам выдадут ссылку на подключение в ручном режиме.\n\n"
                 "🤝 <i>Связь через личные сообщения канала:\n@mtproto_keys.</i>"
             ),
-            parse_mode="HTML"
+            parse_mode="HTML",
         )
+
+
+def notify_bad_request(view: Callable) -> Callable:
+    def _wrapped(self, *args, **kwargs) -> Callable:
+        try:
+            return view(self, *args, **kwargs)
+        except ValidationError as exc:
+            try:
+                request = getattr(self, "request", None)
+                data = getattr(request, "data", None)
+                TelegramBot.log_bad_request(
+                    request=data,
+                    response=exc,
+                )
+            except Exception:
+                pass
+        return view(self, *args, **kwargs)
+
+    return _wrapped

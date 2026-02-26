@@ -32,13 +32,14 @@ def payload() -> dict:
 
 
 @mock.patch("apps.core.bot.TelegramBot.send_proxy_link")
+@mock.patch("apps.core.bot.TelegramBot.send_sorry")
 class TestWebhookView(APITestCase):
     url = reverse("tribute-webhook")
 
     def setUp(self) -> None:
         self.vds = VDSInstanceFactory()
 
-    def test_webhook_tribute_object(self, tgbot) -> None:
+    def test_webhook_tribute_object(self, a,b) -> None:
         self.assertEqual(TributeDigitalPayment.objects.count(), 0)
 
         with mock.patch(
@@ -63,8 +64,9 @@ class TestWebhookView(APITestCase):
         self.assertEqual(
             str(payment.purchase_created_at), "2025-03-20 01:15:58.332460+00:00"
         )
+        self.assertTrue(payment.is_success)
 
-    def test_webhook_system_user(self, tgbot) -> None:
+    def test_webhook_system_user(self, a,b) -> None:
         self.assertEqual(SystemUser.objects.count(), 0)
 
         with mock.patch(
@@ -84,7 +86,7 @@ class TestWebhookView(APITestCase):
         self.assertFalse(user.is_superuser)
         self.assertEqual(user.keys.all().count(), 1)
 
-    def test_webhook_mtproto_key(self, tgbot) -> None:
+    def test_webhook_mtproto_key(self, a,b) -> None:
         self.assertEqual(MTPRotoKey.objects.count(), 0)
         key = str(os.urandom(16).hex())
         with mock.patch(
@@ -105,7 +107,7 @@ class TestWebhookView(APITestCase):
             mtproto_key.payment, TributeDigitalPayment.objects.get(product_id=456)
         )
 
-    def test_webhook_vds_500(self, tgbot) -> None:
+    def test_webhook_vds_500(self, a,b) -> None:
         self.assertEqual(MTPRotoKey.objects.count(), 0)
         self.assertEqual(SystemUser.objects.count(), 0)
         self.assertEqual(TributeDigitalPayment.objects.count(), 0)
@@ -117,5 +119,6 @@ class TestWebhookView(APITestCase):
             )
 
         self.assertEqual(MTPRotoKey.objects.count(), 0)
-        self.assertEqual(SystemUser.objects.count(), 0)
-        self.assertEqual(TributeDigitalPayment.objects.count(), 0)
+        self.assertEqual(SystemUser.objects.count(), 1)
+        self.assertEqual(TributeDigitalPayment.objects.count(), 1)
+        self.assertFalse(TributeDigitalPayment.objects.first().is_success)
