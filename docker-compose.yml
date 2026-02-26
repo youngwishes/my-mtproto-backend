@@ -16,7 +16,7 @@ services:
     build: ./nginx
     volumes:
       - static_volume:/static:ro
-      - ./ssl:/etc/nginx/ssl:ro
+      - ./root/certbot/conf/live/beatvault.ru:/etc/nginx/ssl:ro
     ports:
       - "80:80"
       - "443:443"
