@@ -18,5 +18,32 @@ services:
       - "80:80"
       - "443:443"
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+  celery-worker:
+    build: .
+    command: celery -A config worker --loglevel=info
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      - redis
+    env_file:
+      - .env
+    restart: unless-stopped
+
+  celery-beat:
+    build: .
+    command: celery -A config beat --loglevel=info
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      - redis
+      - celery-worker
+    env_file:
+      - .env
+    restart: unless-stopped
+
 volumes:
   static_volume:

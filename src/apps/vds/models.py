@@ -53,6 +53,7 @@ class MTPRotoKey(BaseDjangoModel):
         verbose_name="оплата на Tribute",
         related_name="key",
     )
+    was_deleted = models.BooleanField("удален", default=False)
     tls_domain = models.CharField("домен ключа в telemt")
 
     def get_proxy_link(self) -> str:

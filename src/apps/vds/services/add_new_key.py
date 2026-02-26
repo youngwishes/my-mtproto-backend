@@ -2,12 +2,8 @@ from dataclasses import dataclass
 
 import requests
 
-from apps.core.service import BaseServiceError
 from apps.vds.models import VDSInstance
-
-
-class VDSNotAvailable(BaseServiceError):
-    """VDS not available"""
+from apps.vds.services.exceptions import VDSNotAvailable
 
 
 @dataclass(kw_only=True, slots=True, frozen=True)
@@ -25,9 +21,11 @@ class AddNewKeyService:
                 json={"username": username},
                 timeout=5,
             )
+            response.raise_for_status()
             return Response(**response.json())
         except Exception as exc:
             raise VDSNotAvailable(
+                method="add-user",
                 base_error=str(exc),
                 telegram_id=username,
                 server=dict(

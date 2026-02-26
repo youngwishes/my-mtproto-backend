@@ -15,7 +15,7 @@ class IService(Protocol):
 
 
 class BaseServiceError(Exception):
-    def __init__(self, telegram_id: int | str, message: str = None, **context) -> None:
+    def __init__(self, telegram_id: int | str | list[int | str], message: str = None, **context) -> None:
         self.telegram_id = telegram_id
         self.message = message or self.__doc__
         self.context = context

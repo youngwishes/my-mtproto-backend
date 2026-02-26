@@ -1,1 +1,2 @@
 from .add_new_key import AddNewKeyService, get_add_new_key_service_factory
+from .remove_key_from_vds import RemoveUserKeyService, get_remove_user_key_service
