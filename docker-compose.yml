@@ -5,8 +5,6 @@ services:
     build: .
     volumes:
       - static_volume:/app/static
-    environment:
-      - DEBUG=0
     env_file:
       - .env
     expose:
