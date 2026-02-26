@@ -1,4 +1,5 @@
 import os
+import uuid
 from unittest import mock
 
 from django.urls import reverse
@@ -6,6 +7,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.tribute.models import TributeDigitalPayment
+from apps.tribute.tests.base import TributeSignMixin
 from apps.tribute.tests.factories import VDSInstanceFactory
 from apps.users.models import SystemUser
 from apps.vds.models import MTPRotoKey
@@ -33,13 +35,13 @@ def payload() -> dict:
 
 @mock.patch("apps.core.bot.TelegramBot.send_proxy_link")
 @mock.patch("apps.core.bot.TelegramBot.send_sorry")
-class TestWebhookView(APITestCase):
+class TestWebhookView(TributeSignMixin, APITestCase):
     url = reverse("tribute-webhook")
 
     def setUp(self) -> None:
         self.vds = VDSInstanceFactory()
 
-    def test_webhook_tribute_object(self, a,b) -> None:
+    def test_webhook_tribute_object(self, a, b) -> None:
         self.assertEqual(TributeDigitalPayment.objects.count(), 0)
 
         with mock.patch(
@@ -48,7 +50,12 @@ class TestWebhookView(APITestCase):
                 key=str(os.urandom(16).hex()), tls_domain="petrovich.ru"
             ),
         ):
-            response = self.client.post(self.url, data=payload(), format="json")
+            response = self.client.post(
+                self.url,
+                data=payload(),
+                format="json",
+                headers=self.get_sign_headers(payload()),
+            )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(TributeDigitalPayment.objects.count(), 1)
@@ -66,7 +73,7 @@ class TestWebhookView(APITestCase):
         )
         self.assertTrue(payment.is_success)
 
-    def test_webhook_system_user(self, a,b) -> None:
+    def test_webhook_system_user(self, a, b) -> None:
         self.assertEqual(SystemUser.objects.count(), 0)
 
         with mock.patch(
@@ -75,7 +82,12 @@ class TestWebhookView(APITestCase):
                 key=str(os.urandom(16).hex()), tls_domain="petrovich.ru"
             ),
         ):
-            response = self.client.post(self.url, data=payload(), format="json")
+            response = self.client.post(
+                self.url,
+                data=payload(),
+                format="json",
+                headers=self.get_sign_headers(payload()),
+            )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(SystemUser.objects.count(), 1)
@@ -86,14 +98,19 @@ class TestWebhookView(APITestCase):
         self.assertFalse(user.is_superuser)
         self.assertEqual(user.keys.all().count(), 1)
 
-    def test_webhook_mtproto_key(self, a,b) -> None:
+    def test_webhook_mtproto_key(self, a, b) -> None:
         self.assertEqual(MTPRotoKey.objects.count(), 0)
         key = str(os.urandom(16).hex())
         with mock.patch(
             "apps.vds.services.add_new_key.AddNewKeyService.__call__",
             return_value=Response(key=key, tls_domain="petrovich.ru"),
         ):
-            response = self.client.post(self.url, data=payload(), format="json")
+            response = self.client.post(
+                self.url,
+                data=payload(),
+                format="json",
+                headers=self.get_sign_headers(payload()),
+            )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(MTPRotoKey.objects.count(), 1)
@@ -107,13 +124,18 @@ class TestWebhookView(APITestCase):
             mtproto_key.payment, TributeDigitalPayment.objects.get(product_id=456)
         )
 
-    def test_webhook_vds_500(self, a,b) -> None:
+    def test_webhook_vds_500(self, a, b) -> None:
         self.assertEqual(MTPRotoKey.objects.count(), 0)
         self.assertEqual(SystemUser.objects.count(), 0)
         self.assertEqual(TributeDigitalPayment.objects.count(), 0)
 
         with self.assertRaises(VDSNotAvailable):
-            response = self.client.post(self.url, data=payload(), format="json")
+            response = self.client.post(
+                self.url,
+                data=payload(),
+                format="json",
+                headers=self.get_sign_headers(payload()),
+            )
             self.assertEqual(
                 response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR
             )
@@ -122,3 +144,28 @@ class TestWebhookView(APITestCase):
         self.assertEqual(SystemUser.objects.count(), 1)
         self.assertEqual(TributeDigitalPayment.objects.count(), 1)
         self.assertFalse(TributeDigitalPayment.objects.first().is_success)
+
+    def test_request_without_sign(self, a, b) -> None:
+        with mock.patch(
+            "apps.vds.services.add_new_key.AddNewKeyService.__call__",
+            return_value=None,
+        ):
+            response = self.client.post(
+                self.url,
+                data=payload(),
+                format="json",
+            )
+            self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_request_with_incorrect_sign(self, a, b) -> None:
+        with mock.patch(
+            "apps.vds.services.add_new_key.AddNewKeyService.__call__",
+            return_value=None,
+        ):
+            response = self.client.post(
+                self.url,
+                data=payload(),
+                format="json",
+                headers={"Trbt-Signature": str(uuid.uuid4())},
+            )
+            self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
