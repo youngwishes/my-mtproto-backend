@@ -14,7 +14,8 @@ services:
     build: ./nginx
     volumes:
       - static_volume:/static:ro
-      - ./certbot/live/beatvault.ru:/etc/nginx/ssl:ro
+      - ./certbot/conf:/etc/nginx/ssl:ro  # Изменено с ./certbot/live/beatvault.ru
+      - ./certbot/www:/var/www/certbot:ro  # Добавлено для проверки доменов
     ports:
       - "80:80"
       - "443:443"
