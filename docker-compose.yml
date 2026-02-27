@@ -1,6 +1,7 @@
 services:
   django:
     build: .
+    entrypoint: ["./entrypoint.sh"]
     volumes:
       - static_volume:/app/static
       - ./data:/app/data
@@ -44,6 +45,21 @@ services:
     env_file:
       - .env
     restart: unless-stopped
+
+  flower:
+    build: .
+    command: celery -A config flower --port=5555 --basic_auth=${FLOWER_USER}:${FLOWER_PASSWORD}
+    ports:
+      - "5555:5555"
+    depends_on:
+      - redis
+      - celery-worker
+      - celery-beat
+    env_file:
+      - .env
+    restart: unless-stopped
+    volumes:
+      - ./data:/app/data
 
 volumes:
   static_volume:

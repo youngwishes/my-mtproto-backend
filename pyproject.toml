@@ -9,6 +9,7 @@ dependencies = [
     "django>=5.2.11",
     "djangorestframework>=3.16.1",
     "factory-boy>=3.3.3",
+    "flower>=2.0.1",
     "gunicorn>=25.1.0",
     "pytelegrambotapi>=4.31.0",
     "redis>=7.2.1",

@@ -10,6 +10,6 @@ CELERY_RESULT_BACKEND = os.environ.get(
 CELERY_BEAT_SCHEDULE = {
     "run-my-task-every-minute": {
         "task": "apps.vds.tasks.remove_user_keys_daily",
-        'schedule': crontab(hour=6, minute=0),
+        'schedule': crontab(),
     },
 }
