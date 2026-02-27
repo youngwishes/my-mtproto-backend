@@ -52,8 +52,6 @@ services:
   flower:
     build: .
     command: celery -A config flower --port=5555 --url-prefix=flower --basic_auth=${FLOWER_USER}:${FLOWER_PASSWORD}
-    environment:
-      - FLOWER_URL_PREFIX=flower
     expose:
       - 5555
     depends_on:
