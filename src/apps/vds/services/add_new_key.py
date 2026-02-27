@@ -1,9 +1,10 @@
 from dataclasses import dataclass
 
 import requests
+from django.conf import settings
 
 from apps.vds.models import VDSInstance
-from apps.vds.services.exceptions import VDSNotAvailable
+from apps.vds.services.exceptions import VDSConnectionLimit, VDSNotAvailable
 
 
 @dataclass(kw_only=True, slots=True, frozen=True)
@@ -16,10 +17,11 @@ class Response:
 class AddNewKeyService:
     def __call__(self, *, server: VDSInstance, username: str) -> Response | None:
         try:
+            self._check_vds_limit(server=server, username=username)
             response = requests.post(
                 url=f"{server.url}/api/v1/add-new-user",
                 json={"username": username},
-                timeout=5,
+                timeout=settings.VDS_REQUEST_TIMEOUT,
             )
             response.raise_for_status()
             return Response(**response.json())
@@ -27,6 +29,21 @@ class AddNewKeyService:
             raise VDSNotAvailable(
                 method="add-user",
                 base_error=str(exc),
+                telegram_id=username,
+                server=dict(
+                    id=server.pk,
+                    name=server.name,
+                    ip=server.ip_address,
+                    port=server.port,
+                    url=server.url,
+                ),
+            )
+
+    @classmethod
+    def _check_vds_limit(cls, *, server: VDSInstance, username: str) -> None:
+        if server.keys.count() > settings.VDS_MAX_USERS_COUNT:
+            raise VDSConnectionLimit(
+                method="add-user",
                 telegram_id=username,
                 server=dict(
                     id=server.pk,

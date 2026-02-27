@@ -1,6 +1,7 @@
 from collections.abc import Iterable
 from dataclasses import dataclass
 import requests
+from django.conf import settings
 from django.db.models import QuerySet
 
 from apps.vds.models import VDSInstance, MTPRotoKey
@@ -25,7 +26,7 @@ class RemoveUserKeyService:
                 response = requests.post(
                     f"{server.url}/api/v1/remove-user",
                     json={"usernames": usernames},
-                    timeout=8,
+                    timeout=settings.VDS_REQUEST_TIMEOUT,
                 )
                 response.raise_for_status()
                 filtered_keys.update(is_active=False, was_deleted=True)

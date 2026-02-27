@@ -8,11 +8,11 @@ from rest_framework.test import APITestCase
 
 from apps.tribute.models import TributeDigitalPayment
 from apps.tribute.tests.base import TributeSignMixin
-from apps.vds.tests.factories import VDSInstanceFactory
 from apps.users.models import SystemUser
 from apps.vds.models import MTPRotoKey
 from apps.vds.services.add_new_key import Response
 from apps.vds.services.exceptions import VDSNotAvailable
+from apps.vds.tests.factories import VDSInstanceFactory
 
 
 def payload() -> dict:
@@ -125,26 +125,26 @@ class TestWebhookView(TributeSignMixin, APITestCase):
             mtproto_key.payment, TributeDigitalPayment.objects.get(product_id=456)
         )
 
-    # def test_webhook_vds_500(self, a, b) -> None:
-    #     self.assertEqual(MTPRotoKey.objects.count(), 0)
-    #     self.assertEqual(SystemUser.objects.count(), 0)
-    #     self.assertEqual(TributeDigitalPayment.objects.count(), 0)
-    #
-    #     with self.assertRaises(VDSNotAvailable):
-    #         response = self.client.post(
-    #             self.url,
-    #             data=payload(),
-    #             format="json",
-    #             headers=self.get_sign_headers(payload()),
-    #         )
-    #         self.assertEqual(
-    #             response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR
-    #         )
-    #
-    #     self.assertEqual(MTPRotoKey.objects.count(), 0)
-    #     self.assertEqual(SystemUser.objects.count(), 1)
-    #     self.assertEqual(TributeDigitalPayment.objects.count(), 1)
-    #     self.assertFalse(TributeDigitalPayment.objects.first().is_success)
+    def test_webhook_vds_500(self, a, b) -> None:
+        self.assertEqual(MTPRotoKey.objects.count(), 0)
+        self.assertEqual(SystemUser.objects.count(), 0)
+        self.assertEqual(TributeDigitalPayment.objects.count(), 0)
+
+        with self.assertRaises(VDSNotAvailable):
+            response = self.client.post(
+                self.url,
+                data=payload(),
+                format="json",
+                headers=self.get_sign_headers(payload()),
+            )
+            self.assertEqual(
+                response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        self.assertEqual(MTPRotoKey.objects.count(), 0)
+        self.assertEqual(SystemUser.objects.count(), 1)
+        self.assertEqual(TributeDigitalPayment.objects.count(), 1)
+        self.assertFalse(TributeDigitalPayment.objects.first().is_success)
 
     def test_request_without_sign(self, a, b) -> None:
         with mock.patch(

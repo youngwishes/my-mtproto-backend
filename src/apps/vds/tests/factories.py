@@ -7,7 +7,7 @@ from apps.vds.models import VDSInstance, MTPRotoKey
 
 class VDSInstanceFactory(factory.django.DjangoModelFactory):
     name = factory.Sequence(lambda n: f"vds-server-{n}")
-    number = factory.Sequence(lambda n: n + 1)
+    number = factory.Sequence(lambda n: n + 2)
     ip_address = factory.Sequence(lambda n: f"192.168.1.{n + 1}")
     port = 8000
 
