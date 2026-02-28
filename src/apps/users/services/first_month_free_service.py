@@ -9,7 +9,7 @@ from apps.vds.services import get_add_new_key_service_factory
 
 
 class AlreadyUsedFree(BaseServiceError):
-    """Вы уже использовали беплатную ссылку."""
+    """🔒 Вы уже получили беплатную ссылку."""
 
 
 @dataclass(kw_only=True, slots=True, frozen=True)
