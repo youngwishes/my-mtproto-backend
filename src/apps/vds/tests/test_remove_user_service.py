@@ -15,7 +15,7 @@ class TestRemoveUserService(TestCase):
     def _add_response(self):
         responses.add(
             method=responses.POST,
-            url=self.mtproto_key.vds.url + "/api/v1/remove-user",
+            url=self.mtproto_key.vds.internal_url + "/api/v1/remove-user",
         )
 
     @responses.activate
@@ -30,7 +30,7 @@ class TestRemoveUserService(TestCase):
         self.assertEqual(len(responses.calls), 1)
         self.assertEqual(
             responses.calls[0].request.url,
-            self.mtproto_key.vds.url + "/api/v1/remove-user",
+            self.mtproto_key.vds.internal_url + "/api/v1/remove-user",
         )
         self.assertEqual(responses.calls[0].request.method, "POST")
         request_body = json.loads(responses.calls[0].request.body)

@@ -17,7 +17,7 @@ class TestAddUserService(TestCase):
     def _add_request(self):
         responses.add(
             method=responses.POST,
-            url=self.vds.url + "/api/v1/add-new-user",
+            url=self.vds.internal_url + "/api/v1/add-new-user",
             json={"tls_domain": "petrovich.ru", "key": "test"},
         )
 
@@ -28,7 +28,7 @@ class TestAddUserService(TestCase):
         self.assertEqual(len(responses.calls), 1)
         self.assertEqual(
             responses.calls[0].request.url,
-            self.vds.url + "/api/v1/add-new-user",
+            self.vds.internal_url + "/api/v1/add-new-user",
         )
         self.assertEqual(responses.calls[0].request.method, "POST")
         request_body = json.loads(responses.calls[0].request.body)

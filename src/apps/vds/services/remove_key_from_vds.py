@@ -24,7 +24,7 @@ class RemoveUserKeyService:
                 if not usernames:
                     return
                 response = requests.post(
-                    f"{server.url}/api/v1/remove-user",
+                    f"{server.internal_url}/api/v1/remove-user",
                     json={"usernames": usernames},
                     timeout=settings.VDS_REQUEST_TIMEOUT,
                 )
@@ -41,7 +41,7 @@ class RemoveUserKeyService:
                         name=server.name,
                         ip=server.ip_address,
                         port=server.port,
-                        url=server.url,
+                        url=server.external_url,
                     ),
                 )
 

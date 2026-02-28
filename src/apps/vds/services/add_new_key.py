@@ -21,7 +21,7 @@ class AddNewKeyInfraService:
         self._check_vds_limit(server=server, username=username)
         try:
             response = requests.post(
-                url=f"{server.url}/api/v1/add-new-user",
+                url=f"{server.internal_url}/api/v1/add-new-user",
                 json={"username": username},
                 timeout=settings.VDS_REQUEST_TIMEOUT,
             )
@@ -37,7 +37,7 @@ class AddNewKeyInfraService:
                     name=server.name,
                     ip=server.ip_address,
                     port=server.port,
-                    url=server.url,
+                    url=server.external_url,
                 ),
             )
 
@@ -52,7 +52,7 @@ class AddNewKeyInfraService:
                     name=server.name,
                     ip=server.ip_address,
                     port=server.port,
-                    url=server.url,
+                    url=server.external_url,
                 ),
             )
 

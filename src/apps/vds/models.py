@@ -20,12 +20,17 @@ class VDSInstance(BaseDjangoModel):
     name = models.CharField("название сервера", unique=True)
     number = models.PositiveSmallIntegerField("порядковый номер", unique=True)
     ip_address = models.CharField("IP-адрес", unique=True)
+    internal_ip_address = models.CharField("внутренний IP-адрес", blank=True)
     port = models.SmallIntegerField("порт", default=8000)
 
     objects = VDSQuerySet.as_manager()
 
     @property
-    def url(self) -> str:
+    def internal_url(self) -> str:
+        return f"http://{self.internal_ip_address}:{self.port}"
+
+    @property
+    def external_url(self) -> str:
         return f"http://{self.ip_address}:{self.port}"
 
     class Meta:
