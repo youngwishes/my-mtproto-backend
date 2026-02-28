@@ -39,5 +39,5 @@ class TestAddUserService(TestCase):
         for _ in range(31):
             MTPRotoKeyFactory(vds=self.vds)
         with self.assertRaises(VDSConnectionLimit):
-            get_add_new_key_service_factory()(username="1487189460", server=self.vds)
+            get_add_new_key_service_factory()(username="-1003734483563", server=self.vds)
         self.assertEqual(len(responses.calls), 0)

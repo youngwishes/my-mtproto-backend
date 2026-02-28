@@ -62,5 +62,14 @@ services:
     volumes:
       - ./data:/app/data
 
+  bot:
+    build:
+      context: bot
+      dockerfile: Dockerfile
+    container_name: telegram-bot
+    env_file:
+      - ./bot/.env
+    restart: unless-stopped
+
 volumes:
   static_volume:
