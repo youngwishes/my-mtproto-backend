@@ -5,3 +5,4 @@ from .logging_conf import *
 from .celery import *
 from .vds import *
 from .rest_framework_settings import *
+from .referrals import *
