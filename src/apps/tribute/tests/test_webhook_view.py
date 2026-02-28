@@ -46,7 +46,7 @@ class TestWebhookView(TributeSignMixin, APITestCase):
         self.assertEqual(TributeDigitalPayment.objects.count(), 0)
 
         with mock.patch(
-            "apps.vds.services.add_new_key.AddNewKeyService.__call__",
+            "apps.vds.services.add_new_key.AddNewKeyInfraService.__call__",
             return_value=Response(
                 key=str(os.urandom(16).hex()), tls_domain="petrovich.ru"
             ),
@@ -78,7 +78,7 @@ class TestWebhookView(TributeSignMixin, APITestCase):
         self.assertEqual(SystemUser.objects.count(), 0)
 
         with mock.patch(
-            "apps.vds.services.add_new_key.AddNewKeyService.__call__",
+            "apps.vds.services.add_new_key.AddNewKeyInfraService.__call__",
             return_value=Response(
                 key=str(os.urandom(16).hex()), tls_domain="petrovich.ru"
             ),
@@ -103,7 +103,7 @@ class TestWebhookView(TributeSignMixin, APITestCase):
         self.assertEqual(MTPRotoKey.objects.count(), 0)
         key = str(os.urandom(16).hex())
         with mock.patch(
-            "apps.vds.services.add_new_key.AddNewKeyService.__call__",
+            "apps.vds.services.add_new_key.AddNewKeyInfraService.__call__",
             return_value=Response(key=key, tls_domain="petrovich.ru"),
         ):
             response = self.client.post(
@@ -148,7 +148,7 @@ class TestWebhookView(TributeSignMixin, APITestCase):
 
     def test_request_without_sign(self, a, b) -> None:
         with mock.patch(
-            "apps.vds.services.add_new_key.AddNewKeyService.__call__",
+            "apps.vds.services.add_new_key.AddNewKeyInfraService.__call__",
             return_value=None,
         ):
             response = self.client.post(
@@ -160,7 +160,7 @@ class TestWebhookView(TributeSignMixin, APITestCase):
 
     def test_request_with_incorrect_sign(self, a, b) -> None:
         with mock.patch(
-            "apps.vds.services.add_new_key.AddNewKeyService.__call__",
+            "apps.vds.services.add_new_key.AddNewKeyInfraService.__call__",
             return_value=None,
         ):
             response = self.client.post(
@@ -170,3 +170,12 @@ class TestWebhookView(TributeSignMixin, APITestCase):
                 headers={"Trbt-Signature": str(uuid.uuid4())},
             )
             self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_bad_request(self, a, b) -> None:
+        response = self.client.post(
+            self.url,
+            data={"test_event": "test_event"},
+            format="json",
+            headers=self.get_sign_headers({"test_event": "test_event"}),
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

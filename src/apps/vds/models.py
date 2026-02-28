@@ -52,6 +52,8 @@ class MTPRotoKey(BaseDjangoModel):
         on_delete=models.CASCADE,
         verbose_name="оплата на Tribute",
         related_name="key",
+        null=True,
+        blank=True,
     )
     was_deleted = models.BooleanField("удален", default=False)
     tls_domain = models.CharField("домен ключа в telemt")

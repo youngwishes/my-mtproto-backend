@@ -13,7 +13,6 @@ from apps.vds.services import get_add_new_key_service_factory
 
 @dataclass(kw_only=True, slots=True, frozen=True)
 class TributeDigitalPaymentService:
-    @log_service_error
     def __call__(self, *, new_digital_payment: NewDigitalPaymentDTO) -> None:
         payment = TributeDigitalPayment.objects.create(**asdict(new_digital_payment))
         try:

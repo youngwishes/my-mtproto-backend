@@ -1,9 +1,9 @@
-from apps.core.service import BaseServiceError
+from apps.core.service import BaseInfraError
 
 
-class VDSNotAvailable(BaseServiceError):
+class VDSNotAvailable(BaseInfraError):
     """VDS not available"""
 
 
-class VDSConnectionLimit(BaseServiceError):
+class VDSConnectionLimit(BaseInfraError):
     """VDS connection limit"""

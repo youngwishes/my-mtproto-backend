@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import requests
 from django.conf import settings
 
+from apps.core.service import log_infra_error
 from apps.vds.models import VDSInstance
 from apps.vds.services.exceptions import VDSConnectionLimit, VDSNotAvailable
 
@@ -14,10 +15,11 @@ class Response:
 
 
 @dataclass(kw_only=True, slots=True, frozen=True)
-class AddNewKeyService:
+class AddNewKeyInfraService:
+    @log_infra_error
     def __call__(self, *, server: VDSInstance, username: str) -> Response | None:
+        self._check_vds_limit(server=server, username=username)
         try:
-            self._check_vds_limit(server=server, username=username)
             response = requests.post(
                 url=f"{server.url}/api/v1/add-new-user",
                 json={"username": username},
@@ -55,5 +57,5 @@ class AddNewKeyService:
             )
 
 
-def get_add_new_key_service_factory() -> AddNewKeyService:
-    return AddNewKeyService()
+def get_add_new_key_service_factory() -> AddNewKeyInfraService:
+    return AddNewKeyInfraService()

@@ -3,3 +3,4 @@ import os
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 MY_TELEGRAM_ID = os.getenv("MY_TELEGRAM_ID")
 TELEGRAM_TIMEOUT = int(os.getenv("TELEGRAM_TIMEOUT", 5))
+BOT_AUTH_TOKEN = os.getenv("BOT_AUTH_TOKEN")

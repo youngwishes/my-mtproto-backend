@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.bot import notify_bad_request
-from apps.tribute.api.serializers import TributeDigitalPaymentSerializer
+from apps.tribute.api.v1.serializers import TributeDigitalPaymentSerializer
 from apps.tribute.permissions import IsTributeSign
 from apps.tribute.services import get_tribute_digital_payment_service
 from apps.tribute.services.dtos import NewDigitalPaymentDTO
