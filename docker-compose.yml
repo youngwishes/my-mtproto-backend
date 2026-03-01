@@ -27,6 +27,8 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    networks:
+      - backend
 
   celery-worker:
     build: .
@@ -38,6 +40,8 @@ services:
     env_file:
       - .env
     restart: unless-stopped
+    networks:
+      - backend
 
   celery-beat:
     build: .
@@ -50,6 +54,8 @@ services:
     env_file:
       - .env
     restart: unless-stopped
+    networks:
+      - backend
 
   flower:
     build: .
@@ -65,6 +71,8 @@ services:
     restart: unless-stopped
     volumes:
       - ./data:/app/data
+    networks:
+      - backend
 
   bot:
     build:
@@ -74,6 +82,8 @@ services:
     env_file:
       - ./bot/.env
     restart: unless-stopped
+    networks:
+      - backend
 
   haproxy:
     image: haproxy:lts-alpine
