@@ -88,10 +88,11 @@ services:
   haproxy:
     image: haproxy:lts-alpine
     ports:
-      - "0.0.0.0:443:443"  # HAProxy слушает на всех интерфейсах (включая WireGuard)
-      - "0.0.0.0:80:80"    # Можно тоже отдать HAProxy для удобства
+      - "0.0.0.0:443:443"
+      - "0.0.0.0:80:80"
     volumes:
       - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+      - ./haproxy/hosts:/etc/hosts:ro  # Добавить эту строку
     networks:
       - backend
     restart: unless-stopped
