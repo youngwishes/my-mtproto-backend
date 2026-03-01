@@ -12,6 +12,7 @@ from apps.vds.services.exceptions import VDSConnectionLimit, VDSNotAvailable
 class Response:
     key: str
     tls_domain: str
+    node_number: str
 
 
 @dataclass(kw_only=True, slots=True, frozen=True)

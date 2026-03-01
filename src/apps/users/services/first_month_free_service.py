@@ -39,6 +39,7 @@ class FirstMonthFreeService:
                 payment=None,
                 token=response.key,
                 tls_domain=response.tls_domain,
+                node_number=response.node_number,
             )
             user.first_month_free_used = True
             user.save(update_fields=["first_month_free_used"])

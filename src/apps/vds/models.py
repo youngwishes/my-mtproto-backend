@@ -62,10 +62,11 @@ class MTPRotoKey(BaseDjangoModel):
     )
     was_deleted = models.BooleanField("удален", default=False)
     tls_domain = models.CharField("домен ключа в telemt")
+    node_number = models.CharField("номер ноды", blank=True)
 
     def get_proxy_link(self) -> str:
         secret = self.get_secret_token()
-        return f"tg://proxy?server={self.vds.ip_address}&port=443&secret={secret}"
+        return f"tg://proxy?server={self.node_number}.beatvault.ru&port=443&secret={secret}"
 
     def get_secret_token(self) -> str:
         domain_hex = self.tls_domain.encode("utf-8").hex()
