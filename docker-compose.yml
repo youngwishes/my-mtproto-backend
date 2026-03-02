@@ -124,6 +124,7 @@ services:
 
 volumes:
   static_volume:
+  prometheus_data:
 
 networks:
   backend:
