@@ -1,6 +1,7 @@
 services:
   django:
     build: .
+    container_name: django
     entrypoint: ["./entrypoint.sh"]
     volumes:
       - static_volume:/app/static
@@ -14,6 +15,7 @@ services:
 
   nginx:
     build: ./nginx
+    container_name: nginx
     volumes:
       - static_volume:/static:ro
       - ./certbot/conf:/etc/nginx/ssl:ro
@@ -25,12 +27,14 @@ services:
       - backend
 
   redis:
+    container_name: redis
     image: redis:7-alpine
     restart: unless-stopped
     networks:
       - backend
 
   celery-worker:
+    container_name: celery-worker
     build: .
     command: celery -A config worker --loglevel=info
     volumes:
@@ -45,6 +49,7 @@ services:
 
   celery-beat:
     build: .
+    container_name: celery-beat
     command: celery -A config beat --loglevel=info
     volumes:
       - ./data:/app/data
@@ -59,6 +64,7 @@ services:
 
   flower:
     build: .
+    container_name: flower
     command: celery -A config flower --port=5555 --basic_auth=${FLOWER_USER}:${FLOWER_PASSWORD}
     expose:
       - 5555
@@ -87,9 +93,12 @@ services:
 
   haproxy:
     image: haproxy:lts-alpine
+    container_name: haproxy
     ports:
       - "0.0.0.0:443:443"
       - "0.0.0.0:80:80"
+    expose:
+      - "8404"
     volumes:
       - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
       - ./haproxy/hosts:/etc/hosts:ro  # Добавить эту строку

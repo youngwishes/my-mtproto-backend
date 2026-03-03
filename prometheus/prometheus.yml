@@ -20,6 +20,18 @@ scrape_configs:
     scrape_interval: 30s
     scrape_timeout: 10s
 
+  - job_name: 'haproxy'
+    static_configs:
+      - targets: [ 'haproxy:8404' ]  # имя сервиса в docker-compose
+    metrics_path: /metrics
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    # Опционально: добавляем метки
+    metric_relabel_configs:
+      - source_labels: [ __name__ ]
+        regex: 'haproxy_.*'
+        action: keep
+
 remote_write:
   - url: "https://prometheus-prod-13-prod-us-east-0.grafana.net/api/prom/push"
     basic_auth:
@@ -27,5 +39,5 @@ remote_write:
       password: ${GRAFANA_PASSWORD}
     write_relabel_configs:
       - source_labels: [__name__]
-        regex: 'telemt_.*'
+        regex: 'telemt_.*|haproxy_.*'
         action: keep
