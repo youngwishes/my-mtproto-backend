@@ -25,6 +25,9 @@ services:
       - "80"
     networks:
       - backend
+    depends_on:
+      - django
+      - flower
 
   redis:
     container_name: redis
