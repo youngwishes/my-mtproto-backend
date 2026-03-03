@@ -48,7 +48,9 @@ class TestWebhookView(TributeSignMixin, APITestCase):
         with mock.patch(
             "apps.vds.services.add_new_key.AddNewKeyInfraService.__call__",
             return_value=Response(
-                key=str(os.urandom(16).hex()), tls_domain="petrovich.ru"
+                key=str(os.urandom(16).hex()),
+                tls_domain="petrovich.ru",
+                node_number="telemt-node01",
             ),
         ):
             response = self.client.post(
@@ -80,7 +82,9 @@ class TestWebhookView(TributeSignMixin, APITestCase):
         with mock.patch(
             "apps.vds.services.add_new_key.AddNewKeyInfraService.__call__",
             return_value=Response(
-                key=str(os.urandom(16).hex()), tls_domain="petrovich.ru"
+                key=str(os.urandom(16).hex()),
+                tls_domain="petrovich.ru",
+                node_number="telemt-node01",
             ),
         ):
             response = self.client.post(
@@ -104,7 +108,9 @@ class TestWebhookView(TributeSignMixin, APITestCase):
         key = str(os.urandom(16).hex())
         with mock.patch(
             "apps.vds.services.add_new_key.AddNewKeyInfraService.__call__",
-            return_value=Response(key=key, tls_domain="petrovich.ru"),
+            return_value=Response(
+                key=key, tls_domain="petrovich.ru", node_number="telemt-node01"
+            ),
         ):
             response = self.client.post(
                 self.url,

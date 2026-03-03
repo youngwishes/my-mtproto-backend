@@ -18,7 +18,11 @@ class TestAddUserService(TestCase):
         responses.add(
             method=responses.POST,
             url=self.vds.internal_url + "/api/v1/add-new-user",
-            json={"tls_domain": "petrovich.ru", "key": "test"},
+            json={
+                "tls_domain": "petrovich.ru",
+                "key": "test",
+                "node_number": "telemt-node1",
+            },
         )
 
     @responses.activate
@@ -39,5 +43,7 @@ class TestAddUserService(TestCase):
         for _ in range(31):
             MTPRotoKeyFactory(vds=self.vds)
         with self.assertRaises(VDSConnectionLimit):
-            get_add_new_key_service_factory()(username="-1003734483563", server=self.vds)
+            get_add_new_key_service_factory()(
+                username="-1003734483563", server=self.vds
+            )
         self.assertEqual(len(responses.calls), 0)

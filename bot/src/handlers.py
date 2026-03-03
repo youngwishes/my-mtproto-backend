@@ -6,7 +6,6 @@ from aiogram.types import (
     InlineKeyboardMarkup,
     Message,
 )
-
 from messages import (
     FAQ_TEXT,
     KEY_GENERATED_TEXT,
@@ -22,7 +21,8 @@ router = Router()
 @router.message(Command("start"))
 async def cmd_start(message: Message):
     has_access = await CheckFirstMonthFreeService()(
-        telegram_id=str(message.from_user.id)
+        telegram_id=str(message.from_user.id),
+        telegram_username=str(getattr(message.from_user, "username", None)),
     )
     if has_access:
         boost_button = InlineKeyboardButton(

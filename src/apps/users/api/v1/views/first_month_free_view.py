@@ -4,7 +4,10 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.bot import notify_bad_request
-from apps.users.api.v1.serializers import FirstMonthFreeSerializer
+from apps.users.api.v1.serializers import (
+    CheckFirstMonthFreeSerializer,
+    FirstMonthFreeSerializer,
+)
 from apps.users.permissions import BotAuthToken
 from apps.users.services import get_first_month_free_service
 from apps.users.services.check_first_month_free_service import (
@@ -31,7 +34,7 @@ class CheckFirstMonthFreeView(APIView):
 
     @notify_bad_request
     def post(self, request: Request) -> Response:
-        serializer = FirstMonthFreeSerializer(data=request.data)
+        serializer = CheckFirstMonthFreeSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         service = get_check_first_month_free_service()

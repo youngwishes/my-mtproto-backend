@@ -17,7 +17,27 @@ bot = TeleBot(token=settings.TELEGRAM_BOT_TOKEN)
 
 
 class TelegramBot:
-    def send_proxy_link(self, *, chat_id: int | str, link: str) -> None:
+    @classmethod
+    def send_message_with_link(cls, *, chat_id: str, link: str, text: str) -> None:
+        bot.send_message(
+            chat_id=chat_id,
+            text=text,
+            parse_mode="Markdown",
+            timeout=settings.TELEGRAM_TIMEOUT,
+            reply_markup=InlineKeyboardMarkup(
+                keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text="🚀 Подключиться",
+                            url=link,
+                        )
+                    ]
+                ]
+            ),
+        )
+
+    @classmethod
+    def send_proxy_link(cls, *, chat_id: int | str, link: str) -> None:
         bot.send_message(
             chat_id=chat_id,
             text=(

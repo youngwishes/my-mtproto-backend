@@ -22,7 +22,11 @@ class TestFirstMonthFree(APITestCase):
         responses.add(
             method=responses.POST,
             url=self.vds.internal_url + "/api/v1/add-new-user",
-            json={"tls_domain": "petrovich.ru", "key": "test"},
+            json={
+                "tls_domain": "petrovich.ru",
+                "key": "test",
+                "node_number": "telemt-node01",
+            },
         )
 
     @responses.activate

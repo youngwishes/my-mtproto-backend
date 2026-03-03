@@ -3,4 +3,10 @@ from django.db import models
 
 
 class SystemUser(AbstractUser):
-    first_month_free_used = models.BooleanField("бесплатный месяц использован", default=False)
+    first_month_free_used = models.BooleanField(
+        "бесплатный месяц использован", default=False
+    )
+    telegram_username = models.CharField(
+        "имя пользователя в Telegram",
+        blank=True,
+    )
