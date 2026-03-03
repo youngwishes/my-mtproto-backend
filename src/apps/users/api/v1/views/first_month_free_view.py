@@ -38,7 +38,10 @@ class CheckFirstMonthFreeView(APIView):
         serializer.is_valid(raise_exception=True)
 
         service = get_check_first_month_free_service()
-        first_month_free_used = service(username=serializer.validated_data["username"])
+        first_month_free_used = service(
+            username=serializer.validated_data["username"],
+            telegram_username=serializer.validated_data["telegram_username"],
+        )
         return Response(
             data={"has_access_for_free": first_month_free_used},
             status=status.HTTP_200_OK,

@@ -12,6 +12,9 @@ class CheckFirstMonthFreeService:
     def __call__(self, *, username: str, telegram_username: str | None = None) -> bool:
         try:
             user = SystemUser.objects.get(username=username)
+            if not user.telegram_username:
+                user.telegram_username = telegram_username
+                user.save(update_fields=["telegram_username"])
         except SystemUser.DoesNotExist:
             user = SystemUser.objects.create(
                 username=username,
