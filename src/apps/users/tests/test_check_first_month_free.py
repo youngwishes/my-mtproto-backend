@@ -14,7 +14,7 @@ class TestCheckFirstMonthFree(APITestCase):
     def test_check_if_true(self) -> None:
         response = self.client.post(
             path=self.url,
-            data={"username": self.user.username},
+            data={"username": self.user.username, "telegram_username": "telegram_username"},
             headers={"Bot-Auth-Token": settings.BOT_AUTH_TOKEN},
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -25,7 +25,7 @@ class TestCheckFirstMonthFree(APITestCase):
         self.user.save(update_fields=["first_month_free_used"])
         response = self.client.post(
             path=self.url,
-            data={"username": self.user.username},
+            data={"username": self.user.username, "telegram_username": "telegram_username"},
             headers={"Bot-Auth-Token": settings.BOT_AUTH_TOKEN},
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -51,7 +51,7 @@ class TestCheckFirstMonthFree(APITestCase):
             SystemUserFactory(first_month_free_used=True)
         response = self.client.post(
             path=self.url,
-            data={"username": self.user.username},
+            data={"username": self.user.username, "telegram_username": "telegram_username"},
             headers={"Bot-Auth-Token": settings.BOT_AUTH_TOKEN},
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
