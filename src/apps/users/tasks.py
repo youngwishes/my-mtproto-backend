@@ -1,6 +1,5 @@
 from celery import shared_task
 from django.db import transaction
-from telebot.formatting import escape_markdown
 
 from apps.core.bot import TelegramBot
 from apps.users.models import SystemUser
@@ -18,17 +17,15 @@ def send_free_link_to_user_task(telegram_id: str):
             raise ValueError("Link not found. Link = %s" % link)
 
         text = (
-            "✨ *Привет!*\n\n"
-            "🔥 Мы обновили наш сервис и сгенерировали для тебя новую ссылку *на 1 месяц* \n\n"
+            "✨ <b>Привет!</b>\n\n"
+            "🔥 Мы обновили наш сервис и сгенерировали для тебя новую ссылку <b>на 1 месяц</b> \n\n"
             "⚡️ Подключайся и проверяй — скорость теперь должна быть стабильной!\n"
             "🧩 Пожалуйста, подпишись на канал @mtproto_keys — там вся информация по развитию проекта\n\n\n"
-            "👇 *Твоя ссылка:*"
+            "👇 <b>Твоя ссылка:</b>"
         )
 
-        escaped_text = escape_markdown(text)
-
         TelegramBot.send_message_with_link(
-            text=escaped_text,
+            text=text,
             link=link,
             chat_id=telegram_id,
         )

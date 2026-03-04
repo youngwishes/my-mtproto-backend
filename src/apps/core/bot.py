@@ -22,7 +22,7 @@ class TelegramBot:
         bot.send_message(
             chat_id=chat_id,
             text=text,
-            parse_mode="Markdown",
+            parse_mode="HTML",
             timeout=settings.TELEGRAM_TIMEOUT,
             reply_markup=InlineKeyboardMarkup(
                 keyboard=[
