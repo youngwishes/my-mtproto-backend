@@ -34,7 +34,7 @@ scrape_configs:
 
   - job_name: 'node_balancer'
     static_configs:
-      - targets: [ 'localhost:9100' ]  # Node Exporter на балансировщике
+      - targets: [ '172.18.0.0:9100' ]  # Node Exporter на балансировщике
     metrics_path: /metrics
     scrape_interval: 30s
     scrape_timeout: 10s
