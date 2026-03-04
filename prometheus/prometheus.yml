@@ -32,6 +32,13 @@ scrape_configs:
         regex: 'haproxy_.*'
         action: keep
 
+  - job_name: 'node_balancer'
+    static_configs:
+      - targets: [ 'localhost:9100' ]  # Node Exporter на балансировщике
+    metrics_path: /metrics
+    scrape_interval: 30s
+    scrape_timeout: 10s
+
 remote_write:
   - url: "https://prometheus-prod-13-prod-us-east-0.grafana.net/api/prom/push"
     basic_auth:
@@ -39,5 +46,5 @@ remote_write:
       password: ${GRAFANA_PASSWORD}
     write_relabel_configs:
       - source_labels: [__name__]
-        regex: 'telemt_.*|haproxy_.*'
+        regex: 'telemt_.*|haproxy_.*|node_.*'
         action: keep
