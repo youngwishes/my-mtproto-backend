@@ -18,6 +18,59 @@ bot = TeleBot(token=settings.TELEGRAM_BOT_TOKEN)
 
 class TelegramBot:
     @classmethod
+    def notify_before_removing(cls, chat_id: str) -> None:
+        bot.send_message(
+            chat_id=chat_id,
+            text=(
+                "⚠️ <b>Внимание! Остался всего 1 день</b>\n\n"
+                "Привет! Твоя ссылка для ускорения <b>MTPRoto</b> перестанет работать уже <b>завтра</b>.\n\n"
+                "После этого Telegram снова станет медленным: фото будут грузиться минутами, а видео зависать. Не хочешь возвращаться к этому? 😉\n\n"
+                "👇 <b>Продли доступ сейчас — это займет 10 секунд:</b>"
+            ),
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(
+                keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text="⚡️ ПРОДЛИТЬ ЗА 199 ₽",
+                            url="https://t.me/tribute/app?startapp=prAc",
+                        )
+                    ]
+                ]
+            ),
+        )
+
+    @classmethod
+    def send_message(cls, chat_id: str, text: str) -> None:
+        bot.send_message(
+            chat_id=chat_id,
+            text=text,
+        )
+
+    @classmethod
+    def send_message_deactivate_link(cls, chat_id: str) -> None:
+        bot.send_message(
+            chat_id=chat_id,
+            text=(
+                "👋 Привет!\n\n"
+                "Срок действия твоей ссылки подошел к концу, и теперь Telegram может работать медленнее.\n\n"
+                "<b>Но есть отличная новость:</b> ты можешь легко вернуть скорость обратно!\n\n"
+                "👉 <b>Для этого нажми на кнопку ниже:</b>"
+            ),
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(
+                keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text="🚀 ВЕРНУТЬ СКОРОСТЬ (~199 RUB)",
+                            url="https://t.me/tribute/app?startapp=prAc",
+                        )
+                    ]
+                ]
+            ),
+        )
+
+    @classmethod
     def send_message_with_link(cls, *, chat_id: str, link: str, text: str) -> None:
         bot.send_message(
             chat_id=chat_id,
@@ -138,16 +191,14 @@ def notify_bad_request(view: Callable) -> Callable:
         try:
             return view(self, *args, **kwargs)
         except ValidationError as exc:
-            try:
-                request = getattr(self, "request", None)
-                data = dict(getattr(request, "data", None))
-                TelegramBot.log_bad_request(
-                    request=data,
-                    response=exc,
-                    url=getattr(request, "path", None),
-                )
-            except Exception:
-                ...
+            request = getattr(self, "request", None)
+            data = dict(getattr(request, "data", None))
+            TelegramBot.log_bad_request(
+                request=data,
+                response=exc,
+                url=getattr(request, "path", None),
+            )
+
         return view(self, *args, **kwargs)
 
     return _wrapped

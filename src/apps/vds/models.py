@@ -63,6 +63,7 @@ class MTPRotoKey(BaseDjangoModel):
     was_deleted = models.BooleanField("удален", default=False)
     tls_domain = models.CharField("домен ключа в telemt")
     node_number = models.CharField("номер ноды", blank=True)
+    user_notified = models.BooleanField("уведомлен об истечении", default=False)
 
     def get_proxy_link(self) -> str:
         secret = self.get_secret_token()
