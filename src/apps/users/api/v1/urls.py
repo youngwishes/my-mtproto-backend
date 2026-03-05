@@ -1,9 +1,9 @@
 from django.urls import path
 
-from apps.users.api.v1.views import CreateFirstMonthFreeView
-from apps.users.api.v1.views import CheckFirstMonthFreeView
+from apps.users.api.v1.views import CreateFirstFreeLinkView
+from apps.users.api.v1.views import CheckFirstFreeLinkView
 
 urlpatterns = [
-    path("first-month-free/", CreateFirstMonthFreeView.as_view(), name="first-month-free"),
-    path("check-first-month-free/", CheckFirstMonthFreeView.as_view(), name="check-first-month-free"),
+    path("first-free-link/", CreateFirstFreeLinkView.as_view(), name="first-free-link"),
+    path("check-first-free-link/", CheckFirstFreeLinkView.as_view(), name="check-first-free-link"),
 ]

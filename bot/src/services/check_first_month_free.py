@@ -10,7 +10,7 @@ from config import API_URL
 
 @dataclass(kw_only=True, slots=True, frozen=True)
 class CheckFirstMonthFreeService:
-    url: str = API_URL + "/api/v1/users/check-first-month-free/"
+    url: str = API_URL + "/api/v1/users/check-first-free-link/"
 
     @log_service_error
     async def __call__(self, *, telegram_id: str, telegram_username: str) -> str:

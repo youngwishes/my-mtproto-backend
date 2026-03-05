@@ -1,10 +1,10 @@
 from rest_framework import serializers
 
 
-class FirstMonthFreeSerializer(serializers.Serializer):
+class FirstFreeLinkSerializer(serializers.Serializer):
     username = serializers.CharField()
 
 
-class CheckFirstMonthFreeSerializer(serializers.Serializer):
+class CheckFirstFreeLinkSerializer(serializers.Serializer):
     username = serializers.CharField()
     telegram_username = serializers.CharField(required=False)

@@ -12,7 +12,7 @@ from apps.vds.tests.factories import VDSInstanceFactory
 
 
 class TestFirstMonthFree(APITestCase):
-    url: str = reverse("first-month-free")
+    url: str = reverse("first-free-link")
 
     def setUp(self) -> None:
         self.user = SystemUserFactory()

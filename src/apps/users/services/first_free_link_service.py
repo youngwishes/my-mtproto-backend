@@ -15,7 +15,7 @@ class AlreadyUsedFree(BaseServiceError):
 
 
 @dataclass(kw_only=True, slots=True, frozen=True)
-class FirstLinkFreeService:
+class FirstFreeLinkService:
     @log_service_error
     def __call__(self, *, username: str) -> dict:
         try:
@@ -57,5 +57,5 @@ class FirstLinkFreeService:
         }
 
 
-def get_first_link_free_service() -> FirstLinkFreeService:
-    return FirstLinkFreeService()
+def get_first_free_link_service() -> FirstFreeLinkService:
+    return FirstFreeLinkService()

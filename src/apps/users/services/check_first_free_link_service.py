@@ -15,7 +15,7 @@ class FreeAvailable(StrEnum):
 
 
 @dataclass(kw_only=True, slots=True, frozen=True)
-class CheckFreeLinkService:
+class CheckFirstFreeLinkService:
     @log_service_error
     def __call__(self, *, username: str, telegram_username: str | None = None) -> FreeAvailable:
         try:
@@ -41,5 +41,5 @@ class CheckFreeLinkService:
         return available_free_period
 
 
-def get_check_free_link_service() -> CheckFreeLinkService:
-    return CheckFreeLinkService()
+def get_check_first_free_link_service() -> CheckFirstFreeLinkService:
+    return CheckFirstFreeLinkService()

@@ -1,1 +1,1 @@
-from .first_month_free_view import CreateFirstMonthFreeView, CheckFirstMonthFreeView
+from .first_free_link_view import CreateFirstFreeLinkView, CheckFirstFreeLinkView

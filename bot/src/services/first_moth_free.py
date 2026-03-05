@@ -10,7 +10,7 @@ from services.handle_error import log_service_error
 
 @dataclass(kw_only=True, slots=True, frozen=True)
 class FirstMonthFreeService:
-    url: str = API_URL + "/api/v1/users/first-month-free/"
+    url: str = API_URL + "/api/v1/users/first-free-link/"
 
     @log_service_error
     async def __call__(self, *, telegram_id: str) -> str:

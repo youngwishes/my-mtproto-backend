@@ -1,2 +1,2 @@
-from .first_month_free_service import FirstLinkFreeService, get_first_link_free_service
-from .check_first_month_free_service import FreeAvailable
+from .first_free_link_service import FirstFreeLinkService, get_first_free_link_service
+from .check_first_free_link_service import FreeAvailable

@@ -6,7 +6,7 @@ from apps.users.tests.factories import SystemUserFactory
 
 
 class TestCheckFirstMonthFree(APITestCase):
-    url: str = reverse("check-first-month-free")
+    url: str = reverse("check-first-free-link")
 
     def setUp(self) -> None:
         self.user = SystemUserFactory()
