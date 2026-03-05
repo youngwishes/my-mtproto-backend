@@ -23,14 +23,14 @@ class TestNotifyUserTask(TestCase):
 
     @mock.patch("apps.core.bot.TelegramBot.notify_before_removing")
     def test_notify_user_task_case2(self, notify) -> None:
-        self.key.created_at = timezone.now() - timedelta(days=28)
+        self.key.expired_date = timezone.now() + timedelta(days=2)
         self.key.save()
         notify_before_removing_daily()
         self.assertEqual(notify.call_count, 0)
 
     @mock.patch("apps.core.bot.TelegramBot.notify_before_removing")
     def test_notify_user_task_case3(self, notify) -> None:
-        self.key.created_at = timezone.now() - timedelta(days=29)
+        self.key.expired_date = timezone.now() + timedelta(days=1)
         self.key.save()
         notify_before_removing_daily()
         self.assertEqual(notify.call_count, 1)

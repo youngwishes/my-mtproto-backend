@@ -10,4 +10,4 @@ class VDSInstanceAdmin(admin.ModelAdmin):
 @admin.register(MTPRotoKey)
 class MTPRotoKeyAdmin(admin.ModelAdmin):
     list_select_related = ["user", "vds"]
-    list_display = ["pk", "token", "user", "vds"]
+    list_display = ["pk", "token", "user", "vds", "created_at"]

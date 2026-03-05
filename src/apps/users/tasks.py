@@ -3,7 +3,7 @@ from django.db import transaction
 
 from apps.core.bot import TelegramBot
 from apps.users.models import SystemUser
-from apps.users.services import get_first_month_free_service
+from apps.users.services import get_first_link_free_service
 from apps.vds.models import MTPRotoKey
 
 
@@ -12,7 +12,7 @@ def send_free_link_to_user_task(telegram_id: str):
     with transaction.atomic():
         user = SystemUser.objects.get(username=telegram_id)
         MTPRotoKey.objects.filter(user=user).delete()
-        link = get_first_month_free_service()(username=telegram_id).get("link")
+        link = get_first_link_free_service()(username=telegram_id).get("link")
         if not link:
             raise ValueError("Link not found. Link = %s" % link)
 

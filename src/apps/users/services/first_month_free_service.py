@@ -1,7 +1,9 @@
 from dataclasses import dataclass
 
+from django.conf import settings
 from django.db import transaction
-
+from django.utils import timezone
+from datetime import timedelta
 from apps.core.service import BaseServiceError, log_service_error
 from apps.users.models import SystemUser
 from apps.vds.models import MTPRotoKey, VDSInstance
@@ -13,7 +15,7 @@ class AlreadyUsedFree(BaseServiceError):
 
 
 @dataclass(kw_only=True, slots=True, frozen=True)
-class FirstMonthFreeService:
+class FirstLinkFreeService:
     @log_service_error
     def __call__(self, *, username: str) -> dict:
         try:
@@ -27,11 +29,16 @@ class FirstMonthFreeService:
                 telegram_id=username,
             )
 
+        expired_date = timezone.now() + timedelta(days=30)
+        free_count = SystemUser.objects.filter(first_month_free_used=True).count()
+        if free_count >= settings.FIRST_MONTH_LIMIT:
+            expired_date = timezone.now() + timedelta(days=7)
+
+        server = VDSInstance.objects.get_least_populated()
         with transaction.atomic():
-            server = VDSInstance.objects.get_least_populated()
             response = get_add_new_key_service_factory()(
-                server=server,
-                username=str(user.username),
+               server=server,
+               username=str(user.username),
             )
             mtproto_key = MTPRotoKey.objects.create(
                 vds=server,
@@ -40,6 +47,7 @@ class FirstMonthFreeService:
                 token=response.key,
                 tls_domain=response.tls_domain,
                 node_number=response.node_number,
+                expired_date=expired_date,
             )
             user.first_month_free_used = True
             user.save(update_fields=["first_month_free_used"])
@@ -49,5 +57,5 @@ class FirstMonthFreeService:
         }
 
 
-def get_first_month_free_service() -> FirstMonthFreeService:
-    return FirstMonthFreeService()
+def get_first_link_free_service() -> FirstLinkFreeService:
+    return FirstLinkFreeService()

@@ -25,7 +25,7 @@ class CheckFirstMonthFreeService:
                     headers={"Bot-Auth-Token": config.BOT_AUTH_TOKEN},
                 )
                 response.raise_for_status()
-                return response.json().get("has_access_for_free")
+                return response.json().get("available_free_period")
         except Exception as exc:
             raise APIError(
                 telegram_id=telegram_id,

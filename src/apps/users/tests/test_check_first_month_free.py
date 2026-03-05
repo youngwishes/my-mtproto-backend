@@ -18,7 +18,7 @@ class TestCheckFirstMonthFree(APITestCase):
             headers={"Bot-Auth-Token": settings.BOT_AUTH_TOKEN},
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.json(), {"has_access_for_free": True})
+        self.assertEqual(response.json(), {"available_free_period": "MONTH"})
 
     def test_check_if_false(self) -> None:
         self.user.first_month_free_used = True
@@ -29,7 +29,7 @@ class TestCheckFirstMonthFree(APITestCase):
             headers={"Bot-Auth-Token": settings.BOT_AUTH_TOKEN},
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.json(), {"has_access_for_free": False})
+        self.assertEqual(response.json(), {"available_free_period": "NOT_AVAILABLE"})
 
     def test_bad_request(self) -> None:
         response = self.client.post(
@@ -46,7 +46,7 @@ class TestCheckFirstMonthFree(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-    def test_first_month_limit(self) -> None:
+    def test_first_week_limit(self) -> None:
         for _ in range(50):
             SystemUserFactory(first_month_free_used=True)
         response = self.client.post(
@@ -55,4 +55,4 @@ class TestCheckFirstMonthFree(APITestCase):
             headers={"Bot-Auth-Token": settings.BOT_AUTH_TOKEN},
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.json(), {"has_access_for_free": False})
+        self.assertEqual(response.json(), {"available_free_period": "WEEK"})

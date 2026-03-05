@@ -14,8 +14,7 @@ def remove_user_keys_daily():
 
     from apps.vds.services import get_remove_user_key_service
 
-    one_month_ago = timezone.now() - timedelta(days=30)
-    queryset = MTPRotoKey.objects.active().filter(created_at__lt=one_month_ago)
+    queryset = MTPRotoKey.objects.active().filter(expired_date__date__lte=timezone.now().date())
     if not queryset:
         return
     service = get_remove_user_key_service()
@@ -49,10 +48,10 @@ def remove_user_keys_daily():
 def notify_before_removing_daily():
     import time
 
-    target_date = (timezone.now() - timedelta(days=29)).date()
+    target_date = (timezone.now() + timedelta(days=1)).date()
 
     queryset = MTPRotoKey.objects.active().filter(
-        created_at__date=target_date,
+        expired_date__date=target_date,
         user_notified=False,
     )
 

@@ -9,9 +9,9 @@ from apps.users.api.v1.serializers import (
     FirstMonthFreeSerializer,
 )
 from apps.users.permissions import BotAuthToken
-from apps.users.services import get_first_month_free_service
+from apps.users.services import get_first_link_free_service
 from apps.users.services.check_first_month_free_service import (
-    get_check_first_month_free_service,
+    get_check_free_link_service,
 )
 
 
@@ -23,7 +23,7 @@ class CreateFirstMonthFreeView(APIView):
         serializer = FirstMonthFreeSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        service = get_first_month_free_service()
+        service = get_first_link_free_service()
         result = service(username=serializer.validated_data["username"])
 
         return Response(data=result, status=status.HTTP_200_OK)
@@ -37,12 +37,12 @@ class CheckFirstMonthFreeView(APIView):
         serializer = CheckFirstMonthFreeSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        service = get_check_first_month_free_service()
+        service = get_check_free_link_service()
         first_month_free_used = service(
             username=serializer.validated_data["username"],
             telegram_username=serializer.validated_data["telegram_username"],
         )
         return Response(
-            data={"has_access_for_free": first_month_free_used},
+            data={"available_free_period": first_month_free_used},
             status=status.HTTP_200_OK,
         )

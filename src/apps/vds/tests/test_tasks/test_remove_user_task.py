@@ -29,7 +29,7 @@ class TestRemoveUserTask(TestCase):
 
     @mock.patch("apps.vds.services.remove_key_from_vds.RemoveUserKeyService.__call__")
     def test_remove_user_task_case2(self, service) -> None:
-        self.key.created_at = timezone.now() - timedelta(days=29)
+        self.key.expired_date = timezone.now() + timedelta(days=1)
         self.key.save()
         remove_user_keys_daily()
         self.assertEqual(service.call_count, 0)
@@ -38,7 +38,7 @@ class TestRemoveUserTask(TestCase):
     @responses.activate
     def test_remove_user_task_case3(self, deactivate) -> None:
         self._add_vds_response()
-        self.key.created_at = timezone.now() - timedelta(days=30)
+        self.key.expired_date = timezone.now()
         self.key.save()
         remove_user_keys_daily()
         self.assertEqual(len(responses.calls), 1)
@@ -52,7 +52,7 @@ class TestRemoveUserTask(TestCase):
     @responses.activate
     def test_remove_user_task_case4(self, deactivate) -> None:
         self._add_vds_response()
-        self.key.created_at = timezone.now() - timedelta(days=31)
+        self.key.expired_date = timezone.now() - timedelta(days=1)
         self.key.save()
         remove_user_keys_daily()
         self.assertEqual(len(responses.calls), 1)

@@ -10,8 +10,7 @@ from messages import (
     FAQ_TEXT,
     KEY_GENERATED_TEXT,
     PAID_TEXT,
-    WELCOME_TEXT,
-    WELCOME_TEXT_NOT_FREE,
+    FREE_AVAILABLE_TEXT_MAPPING,
 )
 from services import CheckFirstMonthFreeService, FirstMonthFreeService
 
@@ -20,20 +19,19 @@ router = Router()
 
 @router.message(Command("start"))
 async def cmd_start(message: Message):
-    has_access = await CheckFirstMonthFreeService()(
+    available_free_period = await CheckFirstMonthFreeService()(
         telegram_id=str(message.from_user.id),
         telegram_username=str(getattr(message.from_user, "username", None)),
     )
-    if has_access:
+    text = FREE_AVAILABLE_TEXT_MAPPING.get(available_free_period)
+    if available_free_period != "NOT_AVAILABLE":
         boost_button = InlineKeyboardButton(
-            text="🔥 Ускорить (БЕСПЛАТНО)", callback_data="boost_free"
+            text="🔥 Ускорить", callback_data="boost_free"
         )
-        text = WELCOME_TEXT
     else:
         boost_button = InlineKeyboardButton(
             text="🔥 Ускорить", callback_data="boost_paid"
         )
-        text = WELCOME_TEXT_NOT_FREE
 
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[

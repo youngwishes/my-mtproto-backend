@@ -1,4 +1,6 @@
-WELCOME_TEXT = """
+from enums import FreeAvailable
+
+WELCOME_TEXT_MONTH = """
 🚀 <b>Привет! Я помогу ускорить твой Telegram</b>
 
 С MTPRoto твой Telegram будет летать даже при плохом интернете:
@@ -8,6 +10,18 @@ WELCOME_TEXT = """
 • ⚡️ Стабильная работа 24/7
 
 <b>👇 Первый месяц — в подарок!</b>
+"""
+
+WELCOME_TEXT_WEEK = """
+🚀 <b>Привет! Я помогу ускорить твой Telegram</b>
+
+С MTPRoto твой Telegram будет летать даже при плохом интернете:
+• 📱 Загрузка медиа за секунды
+• 🎥 Видео без буферизации
+• 🔒 Безопасное соединение
+• ⚡️ Стабильная работа 24/7
+
+<b>👇 Первая неделя — в подарок!</b>
 """
 
 WELCOME_TEXT_NOT_FREE = """
@@ -21,6 +35,12 @@ WELCOME_TEXT_NOT_FREE = """
 
 <b>👇 Жми «ускорить»!</b>
 """
+
+FREE_AVAILABLE_TEXT_MAPPING = {
+    FreeAvailable.MONTH: WELCOME_TEXT_MONTH,
+    FreeAvailable.WEEK: WELCOME_TEXT_WEEK,
+    FreeAvailable.NOT_AVAILABLE: WELCOME_TEXT_NOT_FREE,
+}
 
 
 KEY_GENERATED_TEXT = """

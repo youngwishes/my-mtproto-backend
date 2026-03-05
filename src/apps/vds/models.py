@@ -1,6 +1,6 @@
 from django.db import models
 from django.db.models import Count
-
+from django.db.models.enums import IntegerChoices
 from apps.core import BaseDjangoModel, ActiveQuerySet
 
 
@@ -33,12 +33,27 @@ class VDSInstance(BaseDjangoModel):
     def external_url(self) -> str:
         return f"http://{self.ip_address}:{self.port}"
 
+    def __str__(self) -> str:
+        return self.internal_ip_address
+
     class Meta:
         verbose_name = "VDS сервер"
         verbose_name_plural = "VDS серверы"
 
 
+class MTPRotoKeyQuerySet(ActiveQuerySet):
+    def filter_expired_keys(self) -> "MTPRotoKeyQuerySet":
+        from django.utils import timezone
+
+        return self.filter(expired_date__date=timezone.now().date())
+
+
 class MTPRotoKey(BaseDjangoModel):
+    class FreePeriod(IntegerChoices):
+        WEEK = 1
+        TWO_WEEK = 2
+        MONTH = 3
+
     token = models.CharField("токен", unique=True)
     vds = models.ForeignKey(
         to=VDSInstance,
@@ -64,6 +79,7 @@ class MTPRotoKey(BaseDjangoModel):
     tls_domain = models.CharField("домен ключа в telemt")
     node_number = models.CharField("номер ноды", blank=True)
     user_notified = models.BooleanField("уведомлен об истечении", default=False)
+    expired_date = models.DateTimeField("истекает", blank=True, null=True)
 
     def get_proxy_link(self) -> str:
         secret = self.get_secret_token()
