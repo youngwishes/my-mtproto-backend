@@ -1,17 +1,18 @@
 import json
+from datetime import timedelta
 
 import responses
 from django.conf import settings
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
-
+from django.utils import timezone
 from apps.users.tests.factories import SystemUserFactory
 from apps.vds.models import MTPRotoKey
 from apps.vds.tests.factories import VDSInstanceFactory
 
 
-class TestFirstMonthFree(APITestCase):
+class TestFirstFreeLink(APITestCase):
     url: str = reverse("first-free-link")
 
     def setUp(self) -> None:
@@ -30,7 +31,7 @@ class TestFirstMonthFree(APITestCase):
         )
 
     @responses.activate
-    def test_first_month_free(self) -> None:
+    def test_first_free_link_30days(self) -> None:
         self._mock_vds_request()
         self.assertFalse(self.user.first_month_free_used)
         self.assertEqual(MTPRotoKey.objects.count(), 0)
@@ -44,6 +45,11 @@ class TestFirstMonthFree(APITestCase):
         self.user.refresh_from_db()
         self.assertTrue(self.user.first_month_free_used)
         self.assertEqual(MTPRotoKey.objects.first().vds, self.vds)
+        self.assertEqual(
+            MTPRotoKey.objects.first().expired_date.date(),
+            (timezone.now() + timedelta(days=30)).date(),
+        )
+
         self.assertEqual(len(responses.calls), 1)
         self.assertEqual(
             responses.calls[0].request.url,
@@ -56,11 +62,52 @@ class TestFirstMonthFree(APITestCase):
             response.json(),
             {
                 "link": MTPRotoKey.objects.first().get_proxy_link(),
-                "days": 30,
+                "expired_date": (timezone.now() + timedelta(days=30))
+                .date()
+                .strftime("%d.%m.%y"),
             },
         )
 
-    def test_first_month_free_duplicate(self) -> None:
+    @responses.activate
+    def test_first_free_link_7days(self) -> None:
+        for _ in range(50):
+            SystemUserFactory(first_month_free_used=True)
+        self._mock_vds_request()
+        self.assertFalse(self.user.first_month_free_used)
+        self.assertEqual(MTPRotoKey.objects.count(), 0)
+        response = self.client.post(
+            path=self.url,
+            data={"username": self.user.username},
+            headers={"Bot-Auth-Token": settings.BOT_AUTH_TOKEN},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(MTPRotoKey.objects.count(), 1)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.first_month_free_used)
+        self.assertEqual(MTPRotoKey.objects.first().vds, self.vds)
+        self.assertEqual(
+            MTPRotoKey.objects.first().expired_date.date(),
+            (timezone.now() + timedelta(days=7)).date(),
+        )
+        self.assertEqual(len(responses.calls), 1)
+        self.assertEqual(
+            responses.calls[0].request.url,
+            self.vds.internal_url + "/api/v1/add-new-user",
+        )
+        self.assertEqual(responses.calls[0].request.method, "POST")
+        request_body = json.loads(responses.calls[0].request.body)
+        self.assertEqual(request_body.get("username"), self.user.username)
+        self.assertEqual(
+            response.json(),
+            {
+                "link": MTPRotoKey.objects.first().get_proxy_link(),
+                "expired_date": (timezone.now() + timedelta(days=7))
+                .date()
+                .strftime("%d.%m.%y"),
+            },
+        )
+
+    def test_first_free_link_duplicate(self) -> None:
         self.user.first_month_free_used = True
         self.user.save(update_fields=["first_month_free_used"])
 
@@ -76,14 +123,14 @@ class TestFirstMonthFree(APITestCase):
         self.assertTrue(self.user.first_month_free_used)
         self.assertEqual(len(responses.calls), 0)
 
-    def test_first_month_free_403(self) -> None:
+    def test_first_free_link_403(self) -> None:
         response = self.client.post(
             path=self.url,
             data={"username": self.user.username},
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-    def test_first_month_free_400(self) -> None:
+    def test_first_free_link_400(self) -> None:
         response = self.client.post(
             path=self.url,
             data={},

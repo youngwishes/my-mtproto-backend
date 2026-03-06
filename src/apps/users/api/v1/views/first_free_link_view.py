@@ -26,7 +26,7 @@ class CreateFirstFreeLinkView(APIView):
         service = get_first_free_link_service()
         result = service(username=serializer.validated_data["username"])
 
-        return Response(data=result, status=status.HTTP_200_OK)
+        return Response(data=result.asdict(), status=status.HTTP_200_OK)
 
 
 class CheckFirstFreeLinkView(APIView):

@@ -7,10 +7,11 @@ from config import API_URL
 from exceptions import APIError
 from services.handle_error import log_service_error
 
+
 @dataclass(kw_only=True, slots=True, frozen=True)
 class Response:
     url: str
-    days: int
+    expired_date: str
 
 
 @dataclass(kw_only=True, slots=True, frozen=True)
@@ -44,4 +45,3 @@ class FirstMonthFreeService:
                     error=str(exc),
                     message=body.get("error"),
                 )
-

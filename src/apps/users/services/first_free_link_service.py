@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 
 from django.conf import settings
 from django.db import transaction
@@ -10,6 +10,15 @@ from apps.vds.models import MTPRotoKey, VDSInstance
 from apps.vds.services import get_add_new_key_service_factory
 
 
+@dataclass(kw_only=True, slots=True, frozen=True)
+class Response:
+    expired_date: str
+    link: str
+
+    def asdict(self) -> dict:
+        return asdict(self)
+
+
 class AlreadyUsedFree(BaseServiceError):
     """🔒 Вы уже получили беплатную ссылку."""
 
@@ -17,7 +26,7 @@ class AlreadyUsedFree(BaseServiceError):
 @dataclass(kw_only=True, slots=True, frozen=True)
 class FirstFreeLinkService:
     @log_service_error
-    def __call__(self, *, username: str) -> dict:
+    def __call__(self, *, username: str) -> Response:
         try:
             user = SystemUser.objects.get(username=username)
         except SystemUser.DoesNotExist:
@@ -52,10 +61,10 @@ class FirstFreeLinkService:
             user.first_month_free_used = True
             user.save(update_fields=["first_month_free_used"])
 
-        return {
-            "link": mtproto_key.get_proxy_link(),
-            "days": (expired_date - timezone.now()).days + 1,
-        }
+        return Response(
+            link=mtproto_key.get_proxy_link(),
+            expired_date=expired_date.date().strftime("%d.%m.%y"),
+        )
 
 
 def get_first_free_link_service() -> FirstFreeLinkService:

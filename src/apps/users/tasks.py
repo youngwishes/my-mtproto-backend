@@ -12,7 +12,7 @@ def send_free_link_to_user_task(telegram_id: str):
     with transaction.atomic():
         user = SystemUser.objects.get(username=telegram_id)
         MTPRotoKey.objects.filter(user=user).delete()
-        link = get_first_free_link_service()(username=telegram_id).get("link")
+        link = get_first_free_link_service()(username=telegram_id).link
         if not link:
             raise ValueError("Link not found. Link = %s" % link)
 
