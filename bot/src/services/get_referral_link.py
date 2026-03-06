@@ -15,8 +15,8 @@ class Response:
 
 
 @dataclass(kw_only=True, slots=True, frozen=True)
-class FirstMonthFreeService:
-    url: str = API_URL + "/api/v1/users/first-free-link/"
+class GetReferralLinkService:
+    url: str = API_URL + "/api/v1/users/referral/link/"
 
     @log_service_error
     async def __call__(self, *, telegram_id: str) -> Response:

@@ -6,13 +6,21 @@ from aiogram.types import (
     InlineKeyboardMarkup,
     Message,
 )
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+
 from messages import (
     FAQ_TEXT,
     KEY_GENERATED_TEXT,
     PAID_TEXT,
     FREE_AVAILABLE_TEXT_MAPPING,
+    REFERRAL_CABINET,
 )
-from services import CheckFirstMonthFreeService, FirstMonthFreeService
+from services import (
+    CheckFirstMonthFreeService,
+    FirstMonthFreeService,
+    GetReferralCabinetService,
+    GetReferralLinkService,
+)
 
 router = Router()
 
@@ -21,6 +29,8 @@ router = Router()
 async def cmd_start(message: Message):
     try:
         invited_from_username = int(message.text.split()[-1])
+        if invited_from_username == message.from_user.id:
+            invited_from_username = ""
     except ValueError:
         invited_from_username = ""
     available_free_period = await CheckFirstMonthFreeService()(
@@ -34,16 +44,20 @@ async def cmd_start(message: Message):
     else:
         callback_data = "boost_paid"
 
-    keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="⚡️ Реферальный кабинет", callback_data="referral")]
+    keyboard = InlineKeyboardBuilder(
+        markup=[
             [InlineKeyboardButton(text="🔥 Ускорить", callback_data=callback_data)],
             [InlineKeyboardButton(text="📋 Информация", callback_data="info")],
-        ]
+            [
+                InlineKeyboardButton(
+                    text="⚡️ Реферальный кабинет", callback_data="referral"
+                )
+            ],
+        ],
     )
     await message.answer(
         text=text,
-        reply_markup=keyboard,
+        reply_markup=keyboard.adjust(2).as_markup(),
     )
 
 
@@ -56,13 +70,13 @@ async def process_boost_free(callback: CallbackQuery):
         [
             InlineKeyboardButton(
                 text="🔥 Подключиться",
-                url=response.url,
+                url=response.link,
                 callback_data=None,
             )
         ]
     ]
     await callback.message.answer(
-        text=KEY_GENERATED_TEXT.format(expired_date=response.expired_date),
+        text=KEY_GENERATED_TEXT.format(expired_date=response.expired_date) + f" {response.link}",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard),
     )
 
@@ -91,4 +105,44 @@ async def process_info(callback: CallbackQuery):
 
 @router.callback_query(F.data == "referral")
 async def process_referral(callback: CallbackQuery):
-    ...
+    response = await GetReferralCabinetService()(
+        telegram_id=str(callback.message.chat.id)
+    )
+    keyboard = [
+        [
+            InlineKeyboardButton(
+                text="🎁 Получить бесплатную ссылку",
+                callback_data="get-referral-link",
+            )
+        ]
+    ]
+    await callback.message.answer(
+        text=REFERRAL_CABINET.format(
+            total_referrals_count=response.total_referrals_count,
+            active_referrals_count=response.active_referrals_count,
+            referral_link=response.referral_link,
+        ),
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard),
+    )
+
+
+@router.callback_query(F.data == "get-referral-link")
+async def process_referral_link(callback: CallbackQuery):
+    response = await GetReferralLinkService()(telegram_id=str(callback.message.chat.id))
+    keyboard = [
+        [
+            InlineKeyboardButton(
+                text="🔥 Подключиться",
+                url=response.link,
+                callback_data=None,
+            )
+        ]
+    ]
+    await callback.message.answer(
+        text=KEY_GENERATED_TEXT.format(
+            expired_date=response.expired_date,
+        ),
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard),
+    )

@@ -13,6 +13,7 @@ class SystemUser(AbstractUser):
     invited_from_username = models.CharField(
         "TG-ID от кого пришел пользователь",
         blank=True,
+        null=True,
     )
     referral_activated = models.BooleanField(
         "реферал активирован",

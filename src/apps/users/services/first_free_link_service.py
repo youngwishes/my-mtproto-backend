@@ -47,17 +47,17 @@ class FirstFreeLinkService:
 
         server = VDSInstance.objects.get_least_populated()
         with transaction.atomic():
-            response = get_add_new_key_service_factory()(
-               server=server,
-               username=str(user.username),
-            )
+            # response = get_add_new_key_service_factory()(
+            #    server=server,
+            #    username=str(user.username),
+            # )
             mtproto_key = MTPRotoKey.objects.create(
                 vds=server,
                 user=user,
                 payment=None,
-                token=response.key,
-                tls_domain=response.tls_domain,
-                node_number=response.node_number,
+                token="response.key",
+                tls_domain="response.tls_domain",
+                node_number="response.node_number",
                 expired_date=expired_date,
             )
             user.first_month_free_used = True

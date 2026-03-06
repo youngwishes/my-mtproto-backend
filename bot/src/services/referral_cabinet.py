@@ -10,13 +10,15 @@ from services.handle_error import log_service_error
 
 @dataclass(kw_only=True, slots=True, frozen=True)
 class Response:
-    expired_date: str
-    link: str
+    total_referrals_count: int | None
+    active_referrals_count: int | None
+    referral_link: str | None
+    link_activated_count: int | None
 
 
 @dataclass(kw_only=True, slots=True, frozen=True)
-class FirstMonthFreeService:
-    url: str = API_URL + "/api/v1/users/first-free-link/"
+class GetReferralCabinetService:
+    url: str = API_URL + "/api/v1/users/referral/cabinet/"
 
     @log_service_error
     async def __call__(self, *, telegram_id: str) -> Response:

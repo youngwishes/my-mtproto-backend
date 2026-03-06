@@ -36,14 +36,12 @@ class CheckFirstFreeLinkService:
                 invited_from_username=invited_from_username,
             )
 
-        available_free_period = FreeAvailable.MONTH
-        free_count = SystemUser.objects.filter(first_month_free_used=True).count()
-
-        if free_count >= settings.FIRST_MONTH_LIMIT:
+        if SystemUser.objects.filter(first_month_free_used=True).count() >= settings.FIRST_MONTH_LIMIT:
             available_free_period = FreeAvailable.WEEK
-
-        if user.invited_from_username:
-            available_free_period = FreeAvailable.TWO_WEEK
+            if user.invited_from_username:
+                available_free_period = FreeAvailable.TWO_WEEK
+        else:
+            available_free_period = FreeAvailable.MONTH
 
         if user.first_month_free_used:
             available_free_period = FreeAvailable.NOT_AVAILABLE
