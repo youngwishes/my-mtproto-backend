@@ -7,13 +7,18 @@ from config import API_URL
 from exceptions import APIError
 from services.handle_error import log_service_error
 
+@dataclass(kw_only=True, slots=True, frozen=True)
+class Response:
+    url: str
+    days: int
+
 
 @dataclass(kw_only=True, slots=True, frozen=True)
 class FirstMonthFreeService:
     url: str = API_URL + "/api/v1/users/first-free-link/"
 
     @log_service_error
-    async def __call__(self, *, telegram_id: str) -> str:
+    async def __call__(self, *, telegram_id: str) -> Response:
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.post(
@@ -22,7 +27,7 @@ class FirstMonthFreeService:
                     headers={"Bot-Auth-Token": config.BOT_AUTH_TOKEN},
                 )
                 response.raise_for_status()
-                return response.json().get("link")
+                return Response(**response.json())
         except Exception as exc:
             try:
                 body = json.loads(exc.response.content)

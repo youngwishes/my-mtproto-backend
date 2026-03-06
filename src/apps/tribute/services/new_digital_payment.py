@@ -3,7 +3,8 @@ from dataclasses import asdict, dataclass
 from django.db import transaction
 
 from apps.core.bot import TelegramBot
-from apps.core.service import log_service_error
+from django.utils import timezone
+from datetime import timedelta
 from apps.tribute.models import TributeDigitalPayment
 from apps.tribute.services.dtos import NewDigitalPaymentDTO
 from apps.users.models import SystemUser
@@ -33,6 +34,8 @@ class TributeDigitalPaymentService:
                 payment=payment,
                 token=response.key,
                 tls_domain=response.tls_domain,
+                expired_date=timezone.now() + timedelta(days=30),
+                node_number=response.node_number,
             )
             TelegramBot().send_proxy_link(
                 chat_id=user.username,

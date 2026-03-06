@@ -53,7 +53,11 @@ class TestFirstMonthFree(APITestCase):
         request_body = json.loads(responses.calls[0].request.body)
         self.assertEqual(request_body.get("username"), self.user.username)
         self.assertEqual(
-            response.json(), {"link": MTPRotoKey.objects.first().get_proxy_link()}
+            response.json(),
+            {
+                "link": MTPRotoKey.objects.first().get_proxy_link(),
+                "days": 30,
+            },
         )
 
     def test_first_month_free_duplicate(self) -> None:

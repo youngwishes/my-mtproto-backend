@@ -49,18 +49,18 @@ async def cmd_start(message: Message):
 async def process_boost_free(callback: CallbackQuery):
     await callback.answer()
 
-    url = await FirstMonthFreeService()(telegram_id=str(callback.message.chat.id))
+    response = await FirstMonthFreeService()(telegram_id=str(callback.message.chat.id))
     keyboard = [
         [
             InlineKeyboardButton(
                 text="🔥 Подключиться",
-                url=url,
+                url=response.url,
                 callback_data=None,
             )
         ]
     ]
     await callback.message.answer(
-        text=KEY_GENERATED_TEXT,
+        text=KEY_GENERATED_TEXT.format(days=response.days),
         reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard),
     )
 
