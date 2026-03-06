@@ -54,7 +54,7 @@ class FirstFreeLinkService:
 
         return {
             "link": mtproto_key.get_proxy_link(),
-            "days": (expired_date - timezone.now()).days,
+            "days": (expired_date - timezone.now()).days + 1,
         }
 
 
