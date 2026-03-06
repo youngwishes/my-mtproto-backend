@@ -13,7 +13,7 @@ class CheckFirstMonthFreeService:
     url: str = API_URL + "/api/v1/users/check-first-free-link/"
 
     @log_service_error
-    async def __call__(self, *, telegram_id: str, telegram_username: str) -> str:
+    async def __call__(self, *, telegram_id: str, telegram_username: str, invited_from_username: str = "") -> str:
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.post(
@@ -21,6 +21,7 @@ class CheckFirstMonthFreeService:
                     data={
                         "username": telegram_id,
                         "telegram_username": telegram_username,
+                        "invited_from_username": invited_from_username,
                     },
                     headers={"Bot-Auth-Token": config.BOT_AUTH_TOKEN},
                 )

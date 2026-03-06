@@ -34,14 +34,16 @@ class FirstFreeLinkService:
                 username=username,
             )
         if user.first_month_free_used:
-            raise AlreadyUsedFree(
-                telegram_id=username,
-            )
+            raise AlreadyUsedFree(telegram_id=username)
 
         expired_date = timezone.now() + timedelta(days=30)
+
         free_count = SystemUser.objects.filter(first_month_free_used=True).count()
         if free_count >= settings.FIRST_MONTH_LIMIT:
             expired_date = timezone.now() + timedelta(days=7)
+
+        if user.invited_from_username:
+            expired_date = timezone.now() + timedelta(days=14)
 
         server = VDSInstance.objects.get_least_populated()
         with transaction.atomic():
@@ -59,7 +61,9 @@ class FirstFreeLinkService:
                 expired_date=expired_date,
             )
             user.first_month_free_used = True
-            user.save(update_fields=["first_month_free_used"])
+            if user.invited_from_username:
+                user.referral_activated = True
+            user.save(update_fields=["first_month_free_used", "referral_activated"])
 
         return Response(
             link=mtproto_key.get_proxy_link(),

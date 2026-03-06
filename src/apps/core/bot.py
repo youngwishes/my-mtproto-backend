@@ -146,7 +146,7 @@ class TelegramBot:
                 "🛡 <b>Тип ошибки:</b> SERVICE (400)\n"
                 "📋 <b>Детали:</b>\n"
                 f"<code>{escaped_error}</code>\n\n"
-                "⚙️ <i>Требуется внимание команды</i>"
+                "⚙️ <i>Возможно, требуется внимание команды</i>"
             ),
             parse_mode="HTML",
             timeout=settings.TELEGRAM_TIMEOUT,

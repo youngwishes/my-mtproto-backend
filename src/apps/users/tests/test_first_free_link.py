@@ -1,5 +1,6 @@
 import json
 from datetime import timedelta
+from unittest import mock
 
 import responses
 from django.conf import settings
@@ -44,6 +45,7 @@ class TestFirstFreeLink(APITestCase):
         self.assertEqual(MTPRotoKey.objects.count(), 1)
         self.user.refresh_from_db()
         self.assertTrue(self.user.first_month_free_used)
+        self.assertFalse(self.user.referral_activated)
         self.assertEqual(MTPRotoKey.objects.first().vds, self.vds)
         self.assertEqual(
             MTPRotoKey.objects.first().expired_date.date(),
@@ -84,6 +86,7 @@ class TestFirstFreeLink(APITestCase):
         self.assertEqual(MTPRotoKey.objects.count(), 1)
         self.user.refresh_from_db()
         self.assertTrue(self.user.first_month_free_used)
+        self.assertFalse(self.user.referral_activated)
         self.assertEqual(MTPRotoKey.objects.first().vds, self.vds)
         self.assertEqual(
             MTPRotoKey.objects.first().expired_date.date(),
@@ -123,6 +126,47 @@ class TestFirstFreeLink(APITestCase):
         self.assertTrue(self.user.first_month_free_used)
         self.assertEqual(len(responses.calls), 0)
 
+    @responses.activate
+    def test_first_free_link_with_referral_14days(self) -> None:
+        self._mock_vds_request()
+        self.assertEqual(MTPRotoKey.objects.count(), 0)
+        self.user.invited_from_username = "test"
+        self.user.save()
+        response = self.client.post(
+            path=self.url,
+            data={"username": self.user.username},
+            headers={"Bot-Auth-Token": settings.BOT_AUTH_TOKEN},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(MTPRotoKey.objects.count(), 1)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.first_month_free_used)
+        self.assertTrue(self.user.referral_activated)
+        self.assertEqual(MTPRotoKey.objects.first().vds, self.vds)
+        self.assertEqual(
+            MTPRotoKey.objects.first().expired_date.date(),
+            (timezone.now() + timedelta(days=14)).date(),
+        )
+
+        self.assertEqual(len(responses.calls), 1)
+        self.assertEqual(
+            responses.calls[0].request.url,
+            self.vds.internal_url + "/api/v1/add-new-user",
+        )
+        self.assertEqual(responses.calls[0].request.method, "POST")
+        request_body = json.loads(responses.calls[0].request.body)
+        self.assertEqual(request_body.get("username"), self.user.username)
+        self.assertEqual(
+            response.json(),
+            {
+                "link": MTPRotoKey.objects.first().get_proxy_link(),
+                "expired_date": (timezone.now() + timedelta(days=14))
+                .date()
+                .strftime("%d.%m.%y"),
+            },
+        )
+
+
     def test_first_free_link_403(self) -> None:
         response = self.client.post(
             path=self.url,
@@ -130,7 +174,8 @@ class TestFirstFreeLink(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-    def test_first_free_link_400(self) -> None:
+    @mock.patch("apps.core.bot.TelegramBot.log_bad_request")
+    def test_first_free_link_400(self, log) -> None:
         response = self.client.post(
             path=self.url,
             data={},

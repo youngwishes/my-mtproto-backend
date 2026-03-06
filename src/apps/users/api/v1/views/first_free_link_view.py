@@ -41,6 +41,7 @@ class CheckFirstFreeLinkView(APIView):
         first_month_free_used = service(
             username=serializer.validated_data["username"],
             telegram_username=serializer.validated_data["telegram_username"],
+            invited_from_username=serializer.validated_data.get("invited_from_username"),
         )
         return Response(
             data={"available_free_period": first_month_free_used},

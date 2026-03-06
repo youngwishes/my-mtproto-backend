@@ -17,7 +17,13 @@ class FreeAvailable(StrEnum):
 @dataclass(kw_only=True, slots=True, frozen=True)
 class CheckFirstFreeLinkService:
     @log_service_error
-    def __call__(self, *, username: str, telegram_username: str | None = None) -> FreeAvailable:
+    def __call__(
+        self,
+        *,
+        username: str,
+        telegram_username: str,
+        invited_from_username: str | None = None,
+    ) -> FreeAvailable:
         try:
             user = SystemUser.objects.get(username=username)
             if not user.telegram_username:
@@ -27,6 +33,7 @@ class CheckFirstFreeLinkService:
             user = SystemUser.objects.create(
                 username=username,
                 telegram_username=telegram_username,
+                invited_from_username=invited_from_username,
             )
 
         available_free_period = FreeAvailable.MONTH
@@ -34,6 +41,9 @@ class CheckFirstFreeLinkService:
 
         if free_count >= settings.FIRST_MONTH_LIMIT:
             available_free_period = FreeAvailable.WEEK
+
+        if user.invited_from_username:
+            available_free_period = FreeAvailable.TWO_WEEK
 
         if user.first_month_free_used:
             available_free_period = FreeAvailable.NOT_AVAILABLE

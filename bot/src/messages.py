@@ -24,6 +24,21 @@ WELCOME_TEXT_WEEK = """
 <b>👇 Первая неделя — в подарок!</b>
 """
 
+WELCOME_TEXT_TWO_WEEK = """
+🚀 <b>Привет! Я помогу ускорить твой Telegram</b>
+
+С MTPRoto твой Telegram будет летать даже при плохом интернете:
+• 📱 Загрузка медиа за секунды
+• 🎥 Видео без буферизации
+• 🔒 Безопасное соединение
+• ⚡️ Стабильная работа 24/7
+
+👀 Вижу, что ты пришел по ссылке от друга!
+
+<b>👇 Первые 2 недели — в подарок!</b>
+"""
+
+
 WELCOME_TEXT_NOT_FREE = """
 🚀 <b>Привет! Я помогу ускорить твой Telegram</b>
 
@@ -39,6 +54,7 @@ WELCOME_TEXT_NOT_FREE = """
 FREE_AVAILABLE_TEXT_MAPPING = {
     FreeAvailable.MONTH: WELCOME_TEXT_MONTH,
     FreeAvailable.WEEK: WELCOME_TEXT_WEEK,
+    FreeAvailable.TWO_WEEK: WELCOME_TEXT_TWO_WEEK,
     FreeAvailable.NOT_AVAILABLE: WELCOME_TEXT_NOT_FREE,
 }
 

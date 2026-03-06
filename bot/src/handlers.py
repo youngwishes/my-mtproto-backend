@@ -19,23 +19,25 @@ router = Router()
 
 @router.message(Command("start"))
 async def cmd_start(message: Message):
+    try:
+        invited_from_username = int(message.text.split()[-1])
+    except ValueError:
+        invited_from_username = ""
     available_free_period = await CheckFirstMonthFreeService()(
         telegram_id=str(message.from_user.id),
         telegram_username=str(getattr(message.from_user, "username", None)),
+        invited_from_username=str(invited_from_username),
     )
     text = FREE_AVAILABLE_TEXT_MAPPING.get(available_free_period)
     if available_free_period != "NOT_AVAILABLE":
-        boost_button = InlineKeyboardButton(
-            text="🔥 Ускорить", callback_data="boost_free"
-        )
+        callback_data = "boost_free"
     else:
-        boost_button = InlineKeyboardButton(
-            text="🔥 Ускорить", callback_data="boost_paid"
-        )
+        callback_data = "boost_paid"
 
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
-            [boost_button],
+            [InlineKeyboardButton(text="⚡️ Реферальный кабинет", callback_data="referral")]
+            [InlineKeyboardButton(text="🔥 Ускорить", callback_data=callback_data)],
             [InlineKeyboardButton(text="📋 Информация", callback_data="info")],
         ]
     )
@@ -85,3 +87,8 @@ async def process_boost_paid(callback: CallbackQuery):
 @router.callback_query(F.data == "info")
 async def process_info(callback: CallbackQuery):
     await callback.message.answer(text=FAQ_TEXT)
+
+
+@router.callback_query(F.data == "referral")
+async def process_referral(callback: CallbackQuery):
+    ...

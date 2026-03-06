@@ -1,3 +1,5 @@
 import os
 
 FIRST_MONTH_LIMIT = int(os.getenv("FIRST_MONTH_LIMIT",  50))
+REFERRAL_LINKS_LIMIT = int(os.getenv("REFERRAL_LINKS_LIMIT", 1))
+INVITE_MUST_COUNT = int(os.getenv("INVITE_MUST_COUNT", 5))
