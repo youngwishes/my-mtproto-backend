@@ -76,7 +76,7 @@ async def process_boost_free(callback: CallbackQuery):
         ]
     ]
     await callback.message.answer(
-        text=KEY_GENERATED_TEXT.format(expired_date=response.expired_date) + f" {response.link}",
+        text=KEY_GENERATED_TEXT.format(expired_date=response.expired_date),
         reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard),
     )
 
