@@ -5,22 +5,25 @@ from aiogram.types import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     Message,
+    PreCheckoutQuery,
 )
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-
 from messages import (
     FAQ_TEXT,
-    KEY_GENERATED_TEXT,
-    PAID_TEXT,
     FREE_AVAILABLE_TEXT_MAPPING,
+    KEY_GENERATED_TEXT,
     REFERRAL_CABINET,
 )
 from services import (
+    BuyProductService,
     CheckFirstMonthFreeService,
     FirstMonthFreeService,
+    GetInvoiceDataService,
     GetReferralCabinetService,
     GetReferralLinkService,
 )
+
+from src.bot import bot
 
 router = Router()
 
@@ -81,23 +84,6 @@ async def process_boost_free(callback: CallbackQuery):
     )
 
 
-@router.callback_query(F.data == "boost_paid")
-async def process_boost_paid(callback: CallbackQuery):
-    keyboard = [
-        [
-            InlineKeyboardButton(
-                text="💳 Оплатить (135 ⭐️ ~ 199 RUB)",
-                url="https://t.me/tribute/app?startapp=prAc",
-            )
-        ]
-    ]
-    reply_markup = InlineKeyboardMarkup(inline_keyboard=keyboard)
-    await callback.message.answer(
-        text=PAID_TEXT,
-        reply_markup=reply_markup,
-    )
-
-
 @router.callback_query(F.data == "info")
 async def process_info(callback: CallbackQuery):
     await callback.message.answer(text=FAQ_TEXT)
@@ -146,3 +132,24 @@ async def process_referral_link(callback: CallbackQuery):
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard),
     )
+
+
+@router.callback_query(F.data == "boost_paid")
+async def process_boost_paid(callback: CallbackQuery):
+    response = await GetInvoiceDataService()()
+    await bot.send_invoice(
+        chat_id=callback.message.chat.id,
+        start_parameter="payment",
+        payload="payment",
+        **response.asdict(),
+    )
+
+
+@router.pre_checkout_query()
+async def process_pre_checkout_query(pre_checkout_query: PreCheckoutQuery):
+    await bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True)
+
+
+@router.message(F.successful_payment)
+async def process_successful_payment(message: Message):
+    await BuyProductService()(telegram_id=message.from_user.id)
