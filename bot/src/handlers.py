@@ -86,7 +86,19 @@ async def process_boost_free(callback: CallbackQuery):
 
 @router.callback_query(F.data == "info")
 async def process_info(callback: CallbackQuery):
-    await callback.message.answer(text=FAQ_TEXT)
+    await callback.message.answer(
+        text=FAQ_TEXT,
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="👀 Договор-оферта",
+                        url="https://drive.google.com/file/d/13GI1ZuKBm4nZkNxESOokGM6fTAAxaCs7/view?usp=sharing",
+                    )
+                ]
+            ]
+        ),
+    )
 
 
 @router.callback_query(F.data == "referral")
