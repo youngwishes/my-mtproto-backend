@@ -1,3 +1,5 @@
+from time import sleep
+
 from celery import shared_task
 from django.db import transaction
 
@@ -31,3 +33,33 @@ def send_free_link_to_user_task(telegram_id: str):
         )
         user.first_month_free_used = True
         user.save(update_fields=["first_month_free_used"])
+
+
+@shared_task
+def send_invite_to_chat_task() -> None:
+    users = SystemUser.objects.filter(first_month_free_used=True).values_list(
+        "username", flat=True
+    )
+    for user in users:
+        try:
+            is_channel_member = TelegramBot.is_channel_member(telegram_id=int(user))
+            if not is_channel_member:
+                TelegramBot.send_invite_to_chat(telegram_id=int(user))
+                sleep(0.666)
+        except Exception:
+            ...
+
+
+@shared_task
+def send_test_invite_to_chat_task() -> None:
+    users = SystemUser.objects.filter(username="8169923535").values_list(
+        "username", flat=True
+    )
+    for user in users:
+        try:
+            is_channel_member = TelegramBot.is_channel_member(telegram_id=int(user))
+            if not is_channel_member:
+                TelegramBot.send_invite_to_chat(telegram_id=int(user))
+                sleep(0.666)
+        except Exception:
+            ...

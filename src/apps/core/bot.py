@@ -18,6 +18,31 @@ bot = TeleBot(token=settings.TELEGRAM_BOT_TOKEN)
 
 class TelegramBot:
     @classmethod
+    def send_invite_to_chat(cls, telegram_id: int) -> None:
+        bot.send_message(
+            text=(
+                "👋 Привет!\n\n"
+                "😎 Вижу, ты неплохо пользуешься нашим сервисом, и я этому <b>очень рады!</b>\n"
+                "🎁 Недавно мы запустили реферальную программу — "
+                "благодаря ей можно пользоваться ключами <b>бесплатно ещё 2 недели.</b>\n\n"
+                "📢 Все самые горячие новости и акции — в нашем канале.\n"
+                "Подписывайся, чтобы быть в курсе 👇"
+            ),
+            chat_id=telegram_id,
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(
+                keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text="⚡️ Перейти на канал",
+                            url="https://t.me/mtproto_keys"
+                        )
+                    ]
+                ]
+            ),
+        )
+
+    @classmethod
     def notify_before_removing(cls, chat_id: str) -> None:
         bot.send_message(
             chat_id=chat_id,
@@ -32,8 +57,8 @@ class TelegramBot:
                 keyboard=[
                     [
                         InlineKeyboardButton(
-                            text="⚡️ ПРОДЛИТЬ ЗА 199 ₽",
-                            url="https://t.me/tribute/app?startapp=prAc",
+                            text="⚡️ ПРОДЛИТЬ ЗА 79 ₽",
+                            callback_data="boost_paid",
                         )
                     ]
                 ]
@@ -62,8 +87,8 @@ class TelegramBot:
                 keyboard=[
                     [
                         InlineKeyboardButton(
-                            text="🚀 ВЕРНУТЬ СКОРОСТЬ (~199 RUB)",
-                            url="https://t.me/tribute/app?startapp=prAc",
+                            text="🚀 ВЕРНУТЬ СКОРОСТЬ (79 RUB)",
+                            callback_data="boost_paid",
                         )
                     ]
                 ]
@@ -184,6 +209,13 @@ class TelegramBot:
             ),
             parse_mode="HTML",
         )
+
+    @classmethod
+    def is_channel_member(cls, telegram_id: int) -> bool:
+        member = bot.get_chat_member(
+            chat_id=settings.TELEGRAM_CHANNEL_ID, user_id=telegram_id
+        )
+        return member.status in ["member", "administrator", "creator"]
 
 
 def notify_bad_request(view: Callable) -> Callable:
