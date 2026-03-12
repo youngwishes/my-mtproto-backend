@@ -97,22 +97,25 @@ class TelegramBot:
 
     @classmethod
     def send_message_with_link(cls, *, chat_id: str, link: str, text: str) -> None:
-        bot.send_message(
-            chat_id=chat_id,
-            text=text,
-            parse_mode="HTML",
-            timeout=settings.TELEGRAM_TIMEOUT,
-            reply_markup=InlineKeyboardMarkup(
-                keyboard=[
-                    [
-                        InlineKeyboardButton(
-                            text="🚀 Подключиться",
-                            url=link,
-                        )
+        try:
+            bot.send_message(
+                chat_id=chat_id,
+                text=text,
+                parse_mode="HTML",
+                timeout=settings.TELEGRAM_TIMEOUT,
+                reply_markup=InlineKeyboardMarkup(
+                    keyboard=[
+                        [
+                            InlineKeyboardButton(
+                                text="🚀 Подключиться",
+                                url=link,
+                            )
+                        ]
                     ]
-                ]
-            ),
-        )
+                ),
+            )
+        except Exception:
+            pass
 
     @classmethod
     def send_proxy_link(cls, *, chat_id: int | str, link: str) -> None:
