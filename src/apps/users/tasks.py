@@ -43,10 +43,10 @@ def send_test_invite_to_chat_task() -> None:
 @shared_task
 def send_free_link_to_user_task(telegram_ids: list[str]) -> None:
     for telegram_id in telegram_ids:
+        user = SystemUser.objects.get(username=telegram_id)
+        if user.first_month_free_used:
+            continue
         with transaction.atomic():
-            user = SystemUser.objects.get(username=telegram_id)
-            if user.first_month_free_used:
-                continue
             MTPRotoKey.objects.filter(user=user).delete()
             response = get_first_free_link_service()(username=telegram_id)
             if not response.link:
