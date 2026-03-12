@@ -15,7 +15,7 @@ def send_invite_to_channel(modeladmin, request, queryset):
 @admin.action(description="Отправить бесплатную ссылку V2")
 def send_free_link_to_user(modeladmin, request, queryset):
     send_free_link_to_user_task.delay(
-        telegram_ids=queryset.values_list("username", flat=True)
+        telegram_ids=list(queryset.values_list("username", flat=True))
     )
 
 
