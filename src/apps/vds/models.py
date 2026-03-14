@@ -81,6 +81,9 @@ class MTPRotoKey(BaseDjangoModel):
     user_notified = models.BooleanField("уведомлен об истечении", default=False)
     expired_date = models.DateTimeField("истекает", blank=True, null=True)
 
+    def __str__(self) -> str:
+        return self.get_proxy_link()
+
     def get_proxy_link(self) -> str:
         secret = self.get_secret_token()
         return f"tg://proxy?server={self.node_number}.beatvault.ru&port=443&secret={secret}"

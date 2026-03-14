@@ -20,6 +20,13 @@ scrape_configs:
     scrape_interval: 30s
     scrape_timeout: 10s
 
+  - job_name: 'telemt-node3'
+    static_configs:
+      - targets: ['10.10.0.4:9090']
+    metrics_path: /metrics
+    scrape_interval: 30s
+    scrape_timeout: 10s
+
   - job_name: 'haproxy'
     static_configs:
       - targets: [ 'haproxy:8404' ]  # имя сервиса в docker-compose
