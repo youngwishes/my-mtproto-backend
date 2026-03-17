@@ -48,7 +48,7 @@ class UpdateKeyService:
                 server = VDSInstance.objects.exclude(pk=key.vds.pk).get_least_populated()
             else:
                 server = VDSInstance.objects.get_least_populated()
-            response = infra(server=server, username=username, old_key=key)
+            response = infra(new_server=server, username=username, old_key=key)
 
             key.vds = server
             key.token = response.key
