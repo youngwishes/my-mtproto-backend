@@ -20,7 +20,7 @@ class Response:
 
 
 class AlreadyUsedFree(BaseServiceError):
-    """🔒 Вы уже получили беплатную ссылку."""
+    """🔒 Вы уже получили беплатную ссылку. Если она не работает — напишите нам в личные сообщения канала @mtproto_keys."""
 
 
 @dataclass(kw_only=True, slots=True, frozen=True)
