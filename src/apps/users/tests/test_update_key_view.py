@@ -26,6 +26,10 @@ class TestUpdateKeyView(APITestCase):
                 "node_number": "node2",
             },
         )
+        responses.add(
+            method=responses.POST,
+            url=self.server.internal_url + "/api/v1/remove-user",
+        )
 
     @responses.activate
     def test_update_user_key(self) -> None:
