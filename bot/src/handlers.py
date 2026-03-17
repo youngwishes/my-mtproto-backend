@@ -161,6 +161,8 @@ async def process_referral_link(callback: CallbackQuery):
 
 @router.callback_query(F.data == "boost_paid")
 async def process_boost_paid(callback: CallbackQuery):
+    await callback.answer()
+
     response = await GetInvoiceDataService()()
     await bot.send_invoice(
         chat_id=callback.message.chat.id,
@@ -172,6 +174,8 @@ async def process_boost_paid(callback: CallbackQuery):
 
 @router.callback_query(F.data == "update_link")
 async def update_link(callback: CallbackQuery):
+    await callback.answer()
+
     response = await UpdateUserKeyService()(telegram_id=str(callback.message.chat.id))
     keyboard = [
         [
