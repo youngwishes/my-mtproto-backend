@@ -22,12 +22,12 @@ class TestRemoveUserTask(TestCase):
             url=self.server.internal_url + "/api/v1/remove-user",
         )
 
-    @mock.patch("apps.vds.services.remove_key_from_vds.RemoveUserKeyService.__call__")
+    @mock.patch("apps.vds.services.remove_key_infra_service.RemoveUserKeyInfraService.__call__")
     def test_remove_user_task_case1(self, service) -> None:
         remove_user_keys_daily()
         self.assertEqual(service.call_count, 0)
 
-    @mock.patch("apps.vds.services.remove_key_from_vds.RemoveUserKeyService.__call__")
+    @mock.patch("apps.vds.services.remove_key_infra_service.RemoveUserKeyInfraService.__call__")
     def test_remove_user_task_case2(self, service) -> None:
         self.key.expired_date = timezone.now() + timedelta(days=1)
         self.key.save()

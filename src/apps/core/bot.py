@@ -18,6 +18,34 @@ bot = TeleBot(token=settings.TELEGRAM_BOT_TOKEN)
 
 class TelegramBot:
     @classmethod
+    def update_user_link_notification(cls, telegram_id: int) -> None:
+        text = (
+            "✨ <b>Привет!</b>\n\n"
+            "⚡️ Мы доработали функционал нашего бота, и теперь ссылку <b>можно перевыпустить</b>, если она перестала работать. \n\n"
+            "👀 Срок действия ссылки также остается <b>тем же, что был у старой.</b>"
+            "⚠️ Помни, что после перевыпуска ссылки, старая <b>уже никогда не заработает.</b> Используй ту, что тебе выдаст бот.\n\n"
+            "👇 <b>Попробуй перевыпустить:</b>"
+        )
+        try:
+            bot.send_message(
+                text=text,
+                chat_id=telegram_id,
+                reply_markup=InlineKeyboardMarkup(
+                    keyboard=[
+                        [
+                            InlineKeyboardButton(
+                                text="⚡️ Перевыпустить ссылку",
+                                callback_data="update_link",
+                            )
+                        ]
+                    ]
+                ),
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
+
+    @classmethod
     def send_invite_to_chat(cls, telegram_id: int) -> None:
         bot.send_message(
             text=(

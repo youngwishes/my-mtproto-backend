@@ -6,3 +6,6 @@ from .referral_cabinet_serializer import (
     ReferralCabinetSerializer,
     GetReferralLinkSerializer,
 )
+from .update_key_serializer import (
+    UpdateKeySerializer,
+)

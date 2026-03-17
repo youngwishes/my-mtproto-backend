@@ -4,7 +4,7 @@ import responses
 from django.test import TestCase
 
 from apps.vds.models import MTPRotoKey
-from apps.vds.services import get_remove_user_key_service
+from apps.vds.services import get_remove_user_key_infra_service
 from apps.vds.tests.factories import MTPRotoKeyFactory
 
 
@@ -25,7 +25,7 @@ class TestRemoveUserService(TestCase):
         self.assertFalse(self.mtproto_key.was_deleted)
         self._add_response()
 
-        get_remove_user_key_service()(keys=MTPRotoKey.objects.all())
+        get_remove_user_key_infra_service()(keys=MTPRotoKey.objects.all())
 
         self.assertEqual(len(responses.calls), 1)
         self.assertEqual(

@@ -57,3 +57,11 @@ def send_free_link_to_user_task(telegram_ids: list[str]) -> None:
                 time.sleep(0.666)
         except Exception:
             pass
+
+
+@shared_task
+def update_user_link_task(telegram_ids: list[str]) -> None:
+    for telegram_id in telegram_ids:
+        TelegramBot.update_user_link_notification(
+            telegram_id=int(telegram_id)
+        )

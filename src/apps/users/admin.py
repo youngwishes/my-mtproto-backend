@@ -6,21 +6,32 @@ from apps.users.models import SystemUser
 from apps.users.tasks import (
     send_free_link_to_user_task,
     send_invite_to_chat_task,
+    update_user_link_task,
 )
 
 
-@admin.action(description="Сделать рассылку «подпишись на канал»")
+@admin.action(description="Сделать рассылку «подпишись на канал».")
 def send_invite_to_channel(modeladmin, request, queryset):
     send_invite_to_chat_task.delay(
         telegram_ids=list(queryset.values_list("username", flat=True))
     )
 
 
-@admin.action(description="Отправить бесплатную ссылку V2")
+@admin.action(description="Отправить бесплатную ссылку.")
 def send_free_link_to_user(modeladmin, request, queryset):
     send_free_link_to_user_task.delay(
         telegram_ids=list(queryset.values_list("username", flat=True))
     )
+
+
+@admin.action(description="Сделать рассылку про перевыпуск ссылки.")
+def notify_about_update_link(modeladmin, request, queryset):
+    update_user_link_task.delay(
+        telegram_ids=list(
+            queryset.filter(first_month_free_used=True, notified_update_link=False).values_list("username", flat=True)
+        )
+    )
+    queryset.filter(first_month_free_used=True).update(notified_update_link=True)
 
 
 @admin.register(SystemUser)
@@ -39,7 +50,7 @@ class SystemUserAdmin(admin.ModelAdmin):
         "is_active",
         "first_month_free_used",
     ]
-    actions = [send_free_link_to_user, send_invite_to_channel]
+    actions = [send_free_link_to_user, send_invite_to_channel, notify_about_update_link]
 
     def get_queryset(self, request):
         return (

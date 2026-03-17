@@ -45,7 +45,7 @@ class AddNewKeyInfraService:
 
     @classmethod
     def _check_vds_limit(cls, *, server: VDSInstance, username: str) -> None:
-        if server.keys.count() > settings.VDS_MAX_USERS_COUNT:
+        if server.keys.filter(was_deleted=False, is_active=True).count() > settings.VDS_MAX_USERS_COUNT:
             raise VDSConnectionLimit(
                 method="add-user",
                 telegram_id=username,

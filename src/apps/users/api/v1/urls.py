@@ -5,6 +5,7 @@ from apps.users.api.v1.views import (
     CheckFirstFreeLinkView,
     ReferralCabinetView,
     GetReferralLinkView,
+    UpdateKeyView,
 )
 
 urlpatterns = [
@@ -20,4 +21,5 @@ urlpatterns = [
         name="referral-cabinet",
     ),
     path("referral/link/", GetReferralLinkView.as_view(), name="get-referral-link"),
+    path("update-link/", UpdateKeyView.as_view(), name="update-link"),
 ]

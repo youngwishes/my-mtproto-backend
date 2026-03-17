@@ -80,6 +80,7 @@ class MTPRotoKey(BaseDjangoModel):
     node_number = models.CharField("номер ноды", blank=True)
     user_notified = models.BooleanField("уведомлен об истечении", default=False)
     expired_date = models.DateTimeField("истекает", blank=True, null=True)
+    last_update = models.DateTimeField("последнее обновление", blank=True, null=True)
 
     def __str__(self) -> str:
         return self.get_proxy_link()

@@ -4,12 +4,14 @@ import requests
 from django.conf import settings
 from django.db.models import QuerySet
 
+from apps.core.service import log_infra_error
 from apps.vds.models import VDSInstance, MTPRotoKey
 from apps.vds.services.exceptions import VDSNotAvailable
 
 
 @dataclass(kw_only=True, slots=True, frozen=True)
-class RemoveUserKeyService:
+class RemoveUserKeyInfraService:
+    @log_infra_error
     def __call__(self, *, keys: QuerySet[MTPRotoKey]) -> None:
         servers: Iterable[VDSInstance] = VDSInstance.objects.all()
         usernames = []
@@ -46,5 +48,5 @@ class RemoveUserKeyService:
                 )
 
 
-def get_remove_user_key_service() -> RemoveUserKeyService:
-    return RemoveUserKeyService()
+def get_remove_user_key_infra_service() -> RemoveUserKeyInfraService:
+    return RemoveUserKeyInfraService()

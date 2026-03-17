@@ -12,12 +12,12 @@ from apps.vds.models import MTPRotoKey
 def remove_user_keys_daily():
     import time
 
-    from apps.vds.services import get_remove_user_key_service
+    from apps.vds.services import get_remove_user_key_infra_service
 
     queryset = MTPRotoKey.objects.active().filter(expired_date__date__lte=timezone.now().date())
     if not queryset:
         return
-    service = get_remove_user_key_service()
+    service = get_remove_user_key_infra_service()
     service(keys=queryset)
 
     already_sent = set()

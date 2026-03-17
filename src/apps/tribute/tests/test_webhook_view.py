@@ -10,7 +10,7 @@ from apps.tribute.models import TributeDigitalPayment
 from apps.tribute.tests.base import TributeSignMixin
 from apps.users.models import SystemUser
 from apps.vds.models import MTPRotoKey
-from apps.vds.services.add_new_key import Response
+from apps.vds.services.add_new_key_infra_service import Response
 from apps.vds.services.exceptions import VDSNotAvailable
 from apps.vds.tests.factories import VDSInstanceFactory
 
@@ -46,7 +46,7 @@ class TestWebhookView(TributeSignMixin, APITestCase):
         self.assertEqual(TributeDigitalPayment.objects.count(), 0)
 
         with mock.patch(
-            "apps.vds.services.add_new_key.AddNewKeyInfraService.__call__",
+            "apps.vds.services.add_new_key_infra_service.AddNewKeyInfraService.__call__",
             return_value=Response(
                 key=str(os.urandom(16).hex()),
                 tls_domain="petrovich.ru",
@@ -80,7 +80,7 @@ class TestWebhookView(TributeSignMixin, APITestCase):
         self.assertEqual(SystemUser.objects.count(), 0)
 
         with mock.patch(
-            "apps.vds.services.add_new_key.AddNewKeyInfraService.__call__",
+            "apps.vds.services.add_new_key_infra_service.AddNewKeyInfraService.__call__",
             return_value=Response(
                 key=str(os.urandom(16).hex()),
                 tls_domain="petrovich.ru",
@@ -107,7 +107,7 @@ class TestWebhookView(TributeSignMixin, APITestCase):
         self.assertEqual(MTPRotoKey.objects.count(), 0)
         key = str(os.urandom(16).hex())
         with mock.patch(
-            "apps.vds.services.add_new_key.AddNewKeyInfraService.__call__",
+            "apps.vds.services.add_new_key_infra_service.AddNewKeyInfraService.__call__",
             return_value=Response(
                 key=key, tls_domain="petrovich.ru", node_number="telemt-node01"
             ),
@@ -156,7 +156,7 @@ class TestWebhookView(TributeSignMixin, APITestCase):
 
     def test_request_without_sign(self, a, b) -> None:
         with mock.patch(
-            "apps.vds.services.add_new_key.AddNewKeyInfraService.__call__",
+            "apps.vds.services.add_new_key_infra_service.AddNewKeyInfraService.__call__",
             return_value=None,
         ):
             response = self.client.post(
@@ -168,7 +168,7 @@ class TestWebhookView(TributeSignMixin, APITestCase):
 
     def test_request_with_incorrect_sign(self, a, b) -> None:
         with mock.patch(
-            "apps.vds.services.add_new_key.AddNewKeyInfraService.__call__",
+            "apps.vds.services.add_new_key_infra_service.AddNewKeyInfraService.__call__",
             return_value=None,
         ):
             response = self.client.post(

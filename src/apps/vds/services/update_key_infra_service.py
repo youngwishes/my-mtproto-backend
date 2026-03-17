@@ -1,11 +1,11 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 
 import requests
 from django.conf import settings
 
 from apps.core.service import log_infra_error
-from apps.vds.models import VDSInstance, MTPRotoKey
-from apps.vds.services.exceptions import VDSConnectionLimit, VDSNotAvailable
+from apps.vds.models import VDSInstance
+from apps.vds.services.exceptions import VDSNotAvailable
 
 
 @dataclass(kw_only=True, slots=True, frozen=True)
@@ -14,12 +14,15 @@ class Response:
     tls_domain: str
     node_number: str
 
+    def asdict(self) -> dict:
+        return asdict(self)
+
+
 
 @dataclass(kw_only=True, slots=True, frozen=True)
 class UpdateKeyInfraService:
     @log_infra_error
     def __call__(self, *, server: VDSInstance, username: str) -> Response | None:
-        self._check_vds_limit(server=server, username=username)
         try:
             response = requests.post(
                 url=f"{server.internal_url}/api/v1/add-new-user",
@@ -27,9 +30,6 @@ class UpdateKeyInfraService:
                 timeout=settings.VDS_REQUEST_TIMEOUT,
             )
             response.raise_for_status()
-            MTPRotoKey.objects.filter(user__username=username, vds=server).update(
-                token=response.json().get("token"),
-            )
             return Response(**response.json())
         except Exception as exc:
             raise VDSNotAvailable(
@@ -45,21 +45,6 @@ class UpdateKeyInfraService:
                 ),
             )
 
-    @classmethod
-    def _check_vds_limit(cls, *, server: VDSInstance, username: str) -> None:
-        if server.keys.count() > settings.VDS_MAX_USERS_COUNT:
-            raise VDSConnectionLimit(
-                method="add-user",
-                telegram_id=username,
-                server=dict(
-                    id=server.pk,
-                    name=server.name,
-                    ip=server.ip_address,
-                    port=server.port,
-                    url=server.external_url,
-                ),
-            )
 
-
-def get_update_key_service() -> UpdateKeyInfraService:
+def get_update_key_infra_service() -> UpdateKeyInfraService:
     return UpdateKeyInfraService()

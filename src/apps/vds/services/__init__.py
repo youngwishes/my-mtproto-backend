@@ -1,3 +1,4 @@
-from .add_new_key import AddNewKeyInfraService, get_add_new_key_service_factory
-from .remove_key_from_vds import RemoveUserKeyService, get_remove_user_key_service
-from .update_key_infra_service import UpdateKeyInfraService, get_update_key_service
+from .add_new_key_infra_service import AddNewKeyInfraService, get_add_new_key_service_factory
+from .remove_key_infra_service import RemoveUserKeyInfraService, get_remove_user_key_infra_service
+from .update_key_infra_service import UpdateKeyInfraService, get_update_key_infra_service
+from .update_key_service import UpdateKeyService, get_update_key_service

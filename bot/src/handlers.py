@@ -12,6 +12,7 @@ from messages import (
     FAQ_TEXT,
     FREE_AVAILABLE_TEXT_MAPPING,
     KEY_GENERATED_TEXT,
+    KEY_UPDATED_TEXT,
     REFERRAL_CABINET,
 )
 from services import (
@@ -21,6 +22,7 @@ from services import (
     GetInvoiceDataService,
     GetReferralCabinetService,
     GetReferralLinkService,
+    UpdateUserKeyService,
 )
 
 from src.bot import bot
@@ -54,6 +56,11 @@ async def cmd_start(message: Message):
             [
                 InlineKeyboardButton(
                     text="⚡️ Реферальный кабинет", callback_data="referral"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🔧️ Перевыпустить ссылку", callback_data="update_link"
                 )
             ],
         ],
@@ -160,6 +167,27 @@ async def process_boost_paid(callback: CallbackQuery):
         start_parameter="payment",
         payload="payment",
         **response.asdict(),
+    )
+
+
+@router.callback_query(F.data == "update_link")
+async def update_link(callback: CallbackQuery):
+    response = await UpdateUserKeyService()(telegram_id=str(callback.message.chat.id))
+    keyboard = [
+        [
+            InlineKeyboardButton(
+                text="🔥 Подключиться",
+                url=response.link,
+                callback_data=None,
+            )
+        ]
+    ]
+    await callback.message.answer(
+        text=KEY_UPDATED_TEXT.format(
+            expired_date=response.expired_date,
+        ),
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard),
     )
 
 

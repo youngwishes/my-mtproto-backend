@@ -23,6 +23,10 @@ class SystemUser(AbstractUser):
         "количество активированных реф. ссылок",
         default=0,
     )
+    notified_update_link = models.BooleanField(
+        "уведомлен о возможности перевыпуска",
+        default=False,
+    )
 
     @property
     def referral_link(self) -> str:
