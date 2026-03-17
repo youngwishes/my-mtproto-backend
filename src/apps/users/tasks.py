@@ -65,3 +65,4 @@ def update_user_link_task(telegram_ids: list[str]) -> None:
         TelegramBot.update_user_link_notification(
             telegram_id=int(telegram_id)
         )
+        time.sleep(0.666)
