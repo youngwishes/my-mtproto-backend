@@ -57,6 +57,8 @@ class UpdateKeyService:
             key.tls_domain = response.tls_domain
             key.node_number = response.node_number
             key.last_update = timezone.now()
+            key.was_deleted = False
+            key.is_active = True
             key.save(
                 update_fields=[
                     "token",
@@ -64,6 +66,8 @@ class UpdateKeyService:
                     "node_number",
                     "vds",
                     "last_update",
+                    "was_deleted",
+                    "is_active",
                 ]
             )
 
