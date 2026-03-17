@@ -6,7 +6,7 @@ from django.utils import timezone
 
 from apps.core.service import BaseServiceError, log_service_error
 from apps.vds.models import MTPRotoKey, VDSInstance
-from apps.vds.services import get_update_key_infra_service
+from apps.vds.services import get_update_key_infra_service, get_remove_user_key_infra_service
 
 
 class KeyDoesNotExist(BaseServiceError):
@@ -42,8 +42,14 @@ class UpdateKeyService:
             raise TooManyRequests(telegram_id=username)
 
         with transaction.atomic():
+            remove = get_remove_user_key_infra_service()
+            remove(keys=MTPRotoKey.objects.filter(user__username=username))
+
             infra = get_update_key_infra_service()
-            server = VDSInstance.objects.get_least_populated()
+            if VDSInstance.objects.filter(is_active=True).count() > 1:
+                server = VDSInstance.objects.exclude(pk=key.vds.pk).get_least_populated()
+            else:
+                server = VDSInstance.objects.get_least_populated()
             response = infra(server=server, username=username)
 
             key.vds = server
