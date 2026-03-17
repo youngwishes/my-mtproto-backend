@@ -43,7 +43,10 @@ class UpdateKeyService:
 
         with transaction.atomic():
             infra = get_update_key_infra_service()
-            server = VDSInstance.objects.exclude(pk=key.vds.pk).get_least_populated()
+            if VDSInstance.objects.filter(is_active=True).count() > 1:
+                server = VDSInstance.objects.exclude(pk=key.vds.pk).get_least_populated()
+            else:
+                server = VDSInstance.objects.get_least_populated()
             response = infra(server=server, username=username)
 
             key.vds = server
