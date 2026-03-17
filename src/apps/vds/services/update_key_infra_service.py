@@ -4,7 +4,7 @@ import requests
 from django.conf import settings
 
 from apps.core.service import log_infra_error
-from apps.vds.models import VDSInstance
+from apps.vds.models import VDSInstance, MTPRotoKey
 from apps.vds.services.exceptions import VDSNotAvailable
 
 
@@ -22,10 +22,16 @@ class Response:
 @dataclass(kw_only=True, slots=True, frozen=True)
 class UpdateKeyInfraService:
     @log_infra_error
-    def __call__(self, *, server: VDSInstance, username: str) -> Response | None:
+    def __call__(self, *, new_server: VDSInstance, old_key: MTPRotoKey, username: str) -> Response | None:
         try:
             response = requests.post(
-                url=f"{server.internal_url}/api/v1/add-new-user",
+                f"{old_key.vds.internal_url}/api/v1/remove-user",
+                json={"usernames": [username]},
+                timeout=settings.VDS_REQUEST_TIMEOUT,
+            )
+            response.raise_for_status()
+            response = requests.post(
+                url=f"{new_server.internal_url}/api/v1/add-new-user",
                 json={"username": username},
                 timeout=settings.VDS_REQUEST_TIMEOUT,
             )
@@ -37,11 +43,11 @@ class UpdateKeyInfraService:
                 base_error=str(exc),
                 telegram_id=username,
                 server=dict(
-                    id=server.pk,
-                    name=server.name,
-                    ip=server.ip_address,
-                    port=server.port,
-                    url=server.external_url,
+                    id=new_server.pk,
+                    name=new_server.name,
+                    ip=new_server.ip_address,
+                    port=new_server.port,
+                    url=new_server.external_url,
                 ),
             )
 
