@@ -1,0 +1,56 @@
+services:
+  django:
+    build: .
+    container_name: django
+    entrypoint: ["./entrypoint.sh"]
+    volumes:
+      - static_volume:/app/static
+      - ./data:/app/data
+    env_file:
+      - .env
+    expose:
+      - 8000
+    ports:
+      - "0.0.0.0:8000:8000"
+
+  redis:
+    container_name: redis
+    image: redis:7-alpine
+    restart: unless-stopped
+
+  celery-worker:
+    container_name: celery-worker
+    build: .
+    command: celery -A config worker --loglevel=info
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      - redis
+    env_file:
+      - .env
+    restart: unless-stopped
+
+  celery-beat:
+    build: .
+    container_name: celery-beat
+    command: celery -A config beat --loglevel=info
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      - redis
+      - celery-worker
+    env_file:
+      - .env
+    restart: unless-stopped
+
+  bot:
+    build:
+      context: bot
+      dockerfile: Dockerfile
+    container_name: telegram-bot
+    env_file:
+      - ./bot/.env
+    restart: unless-stopped
+
+volumes:
+  static_volume:

@@ -110,7 +110,8 @@ class TestFirstFreeLink(APITestCase):
             },
         )
 
-    def test_first_free_link_duplicate(self) -> None:
+    @mock.patch("apps.core.bot.TelegramBot.log_service_error")
+    def test_first_free_link_duplicate(self, service) -> None:
         self.user.first_month_free_used = True
         self.user.save(update_fields=["first_month_free_used"])
 
@@ -125,6 +126,7 @@ class TestFirstFreeLink(APITestCase):
         self.user.refresh_from_db()
         self.assertTrue(self.user.first_month_free_used)
         self.assertEqual(len(responses.calls), 0)
+        self.assertEqual(service.call_count, 1)
 
     @responses.activate
     def test_first_free_link_with_referral_14days(self) -> None:

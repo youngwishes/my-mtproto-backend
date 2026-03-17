@@ -86,6 +86,8 @@ async def process_boost_free(callback: CallbackQuery):
 
 @router.callback_query(F.data == "info")
 async def process_info(callback: CallbackQuery):
+    await callback.answer()
+
     await callback.message.answer(
         text=FAQ_TEXT,
         reply_markup=InlineKeyboardMarkup(
@@ -103,6 +105,8 @@ async def process_info(callback: CallbackQuery):
 
 @router.callback_query(F.data == "referral")
 async def process_referral(callback: CallbackQuery):
+    await callback.answer()
+
     response = await GetReferralCabinetService()(
         telegram_id=str(callback.message.chat.id)
     )
@@ -127,6 +131,8 @@ async def process_referral(callback: CallbackQuery):
 
 @router.callback_query(F.data == "get-referral-link")
 async def process_referral_link(callback: CallbackQuery):
+    await callback.answer()
+
     response = await GetReferralLinkService()(telegram_id=str(callback.message.chat.id))
     keyboard = [
         [
@@ -164,4 +170,9 @@ async def process_pre_checkout_query(pre_checkout_query: PreCheckoutQuery):
 
 @router.message(F.successful_payment)
 async def process_successful_payment(message: Message):
-    await BuyProductService()(telegram_id=message.from_user.id)
+    await BuyProductService()(
+        telegram_id=message.from_user.id,
+        provider_payment_charge_id=getattr(
+            message.successful_payment, "provider_payment_charge_id", None
+        ),
+    )

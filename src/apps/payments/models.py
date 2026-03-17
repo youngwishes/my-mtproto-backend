@@ -62,9 +62,14 @@ class Payment(BaseDjangoModel):
     )
     key = models.OneToOneField(
         "vds.MTPRotoKey",
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
         related_name="kassa_payment",
         verbose_name="ключ",
+        null=True,
+    )
+    provider_payment_charge_id = models.CharField(
+        "UUID платежа на ЮKassa",
+        blank=True,
     )
 
     class Meta:

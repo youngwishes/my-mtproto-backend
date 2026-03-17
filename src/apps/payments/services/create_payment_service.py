@@ -13,7 +13,7 @@ from apps.vds.services import get_add_new_key_service_factory
 
 @dataclass(kw_only=True, slots=True, frozen=True)
 class CreatePaymentService:
-    def __call__(self, *, username: str) -> None:
+    def __call__(self, *, username: str, provider_payment_charge_id: str) -> None:
         try:
             user = SystemUser.objects.get(username=username)
         except SystemUser.DoesNotExist:
@@ -39,6 +39,7 @@ class CreatePaymentService:
             Payment.objects.create(
                 user=user,
                 key=mtproto_key,
+                provider_payment_charge_id=provider_payment_charge_id,
             )
 
 

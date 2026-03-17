@@ -1,9 +1,10 @@
-from unittest import mock
-from django.utils import timezone
 from datetime import timedelta
+from unittest import mock
+
 import responses
 from django.conf import settings
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -39,7 +40,10 @@ class TestCreatePaymentView(APITestCase):
         self._mock_vds_request()
         response = self.client.post(
             path=self.url,
-            data={"username": self.user.username},
+            data={
+                "username": self.user.username,
+                "provider_payment_charge_id": "provider_payment_charge_id",
+            },
             headers={"Bot-Auth-Token": settings.BOT_AUTH_TOKEN},
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -53,4 +57,41 @@ class TestCreatePaymentView(APITestCase):
         self.assertEqual(payment.key, key)
         self.assertEqual(key.vds, self.vds)
         self.assertEqual(payment.user, self.user)
-        self.assertEqual(key.expired_date.date(), (timezone.now() + timedelta(days=30)).date())
+        self.assertEqual(
+            payment.provider_payment_charge_id, "provider_payment_charge_id"
+        )
+        self.assertEqual(
+            key.expired_date.date(), (timezone.now() + timedelta(days=30)).date()
+        )
+
+    @mock.patch("apps.core.bot.TelegramBot.send_proxy_link")
+    @responses.activate
+    def test_create_payment_view_twice(self, telegram) -> None:
+        self._mock_vds_request()
+        self.client.post(
+            path=self.url,
+            data={
+                "username": self.user.username,
+                "provider_payment_charge_id": "provider_payment_charge_id",
+            },
+            headers={"Bot-Auth-Token": settings.BOT_AUTH_TOKEN},
+        )
+        payment = Payment.objects.first()
+        self.assertIsNotNone(payment.key)
+        self.client.post(
+            path=self.url,
+            data={
+                "username": self.user.username,
+                "provider_payment_charge_id": "provider_payment_charge_id",
+            },
+            headers={"Bot-Auth-Token": settings.BOT_AUTH_TOKEN},
+        )
+        payment.refresh_from_db()
+        self.assertEqual(telegram.call_count, 2)
+        self.assertEqual(Payment.objects.count(), 2)
+        self.assertEqual(MTPRotoKey.objects.count(), 1)
+        self.assertIsNone(payment.key)
+        self.assertEqual(payment.user, self.user)
+        payment = Payment.objects.last()
+        self.assertIsNotNone(payment.key)
+        self.assertEqual(payment.user, self.user)

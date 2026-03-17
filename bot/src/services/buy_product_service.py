@@ -11,11 +11,16 @@ class BuyProductService:
     url: str = API_URL + "/api/v1/payments/buy/"
 
     @log_service_error
-    async def __call__(self, *, telegram_id: int) -> None:
+    async def __call__(
+        self, *, telegram_id: int, provider_payment_charge_id: str
+    ) -> None:
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 self.url,
-                data={"username": str(telegram_id)},
+                data={
+                    "username": str(telegram_id),
+                    "provider_payment_charge_id": provider_payment_charge_id,
+                },
                 headers={"Bot-Auth-Token": config.BOT_AUTH_TOKEN},
             )
             response.raise_for_status()

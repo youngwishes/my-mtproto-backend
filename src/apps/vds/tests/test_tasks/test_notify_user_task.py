@@ -1,7 +1,6 @@
 from datetime import timedelta
 from unittest import mock
 
-import responses
 from django.test import TestCase
 from django.utils import timezone
 

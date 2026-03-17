@@ -131,7 +131,8 @@ class TestWebhookView(TributeSignMixin, APITestCase):
             mtproto_key.payment, TributeDigitalPayment.objects.get(product_id=456)
         )
 
-    def test_webhook_vds_500(self, a, b) -> None:
+    @mock.patch("apps.core.bot.TelegramBot.log_infra_error")
+    def test_webhook_vds_500(self, infra, a, b) -> None:
         self.assertEqual(MTPRotoKey.objects.count(), 0)
         self.assertEqual(SystemUser.objects.count(), 0)
         self.assertEqual(TributeDigitalPayment.objects.count(), 0)
@@ -147,10 +148,11 @@ class TestWebhookView(TributeSignMixin, APITestCase):
                 response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-        self.assertEqual(MTPRotoKey.objects.count(), 0)
-        self.assertEqual(SystemUser.objects.count(), 1)
-        self.assertEqual(TributeDigitalPayment.objects.count(), 1)
-        self.assertFalse(TributeDigitalPayment.objects.first().is_success)
+            self.assertEqual(MTPRotoKey.objects.count(), 0)
+            self.assertEqual(SystemUser.objects.count(), 1)
+            self.assertEqual(TributeDigitalPayment.objects.count(), 1)
+            self.assertFalse(TributeDigitalPayment.objects.first().is_success)
+            self.assertEqual(infra.call_count, 1)
 
     def test_request_without_sign(self, a, b) -> None:
         with mock.patch(
@@ -177,7 +179,8 @@ class TestWebhookView(TributeSignMixin, APITestCase):
             )
             self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-    def test_bad_request(self, a, b) -> None:
+    @mock.patch("apps.core.bot.TelegramBot.log_bad_request")
+    def test_bad_request(self, notify, a, b) -> None:
         response = self.client.post(
             self.url,
             data={"test_event": "test_event"},
@@ -185,3 +188,4 @@ class TestWebhookView(TributeSignMixin, APITestCase):
             headers=self.get_sign_headers({"test_event": "test_event"}),
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(notify.call_count, 1)

@@ -1,3 +1,5 @@
+from unittest import mock
+
 from django.conf import settings
 from django.urls import reverse
 from rest_framework import status
@@ -73,13 +75,15 @@ class TestCheckFirstMonthFree(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.json(), {"available_free_period": "NOT_AVAILABLE"})
 
-    def test_bad_request(self) -> None:
+    @mock.patch("apps.core.bot.TelegramBot.log_bad_request")
+    def test_bad_request(self, notify_bad_request) -> None:
         response = self.client.post(
             path=self.url,
             data={},
             headers={"Bot-Auth-Token": settings.BOT_AUTH_TOKEN},
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(notify_bad_request.call_count, 1)
 
     def test_without_token_request(self) -> None:
         response = self.client.post(
