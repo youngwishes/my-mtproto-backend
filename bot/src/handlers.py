@@ -51,7 +51,7 @@ async def cmd_start(message: Message):
 
     keyboard = InlineKeyboardBuilder(
         markup=[
-            [InlineKeyboardButton(text="🔥 Ускорить", callback_data=callback_data)],
+            [InlineKeyboardButton(text="🇳🇱 Ускорить", callback_data=callback_data)],
             [InlineKeyboardButton(text="📋 Информация", callback_data="info")],
             [
                 InlineKeyboardButton(
@@ -79,7 +79,7 @@ async def process_boost_free(callback: CallbackQuery):
     keyboard = [
         [
             InlineKeyboardButton(
-                text="🔥 Подключиться",
+                text="🇳🇱 Подключиться",
                 url=response.link,
                 callback_data=None,
             )
@@ -144,7 +144,7 @@ async def process_referral_link(callback: CallbackQuery):
     keyboard = [
         [
             InlineKeyboardButton(
-                text="🔥 Подключиться",
+                text="🇳🇱 Подключиться",
                 url=response.link,
                 callback_data=None,
             )
@@ -180,7 +180,7 @@ async def update_link(callback: CallbackQuery):
     keyboard = [
         [
             InlineKeyboardButton(
-                text="🔥 Подключиться",
+                text="🇳🇱 Подключиться",
                 url=response.link,
                 callback_data=None,
             )
