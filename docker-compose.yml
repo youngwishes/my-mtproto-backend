@@ -94,62 +94,9 @@ services:
     networks:
       - backend
 
-  haproxy:
-    image: haproxy:lts-alpine
-    container_name: haproxy
-    ports:
-      - "0.0.0.0:443:443"
-      - "0.0.0.0:80:80"
-    expose:
-      - "8404"
-    volumes:
-      - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
-      - ./haproxy/hosts:/etc/hosts:ro  # Добавить эту строку
-    networks:
-      - backend
-    restart: unless-stopped
-
-  prometheus:
-    image: prom/prometheus:v2.55.0
-    container_name: prometheus
-    restart: unless-stopped
-    volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - prometheus_data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--storage.tsdb.retention.time=15d'
-      - '--web.enable-lifecycle'
-      - '--web.listen-address=0.0.0.0:9090'
-    networks:
-      - backend
-    mem_limit: 256m
-    cpus: 0.3
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-    env_file:
-      - .env
-
-  node_exporter:
-    image: prom/node-exporter:latest
-    container_name: node_exporter
-    restart: unless-stopped
-    network_mode: host
-    pid: host
-    volumes:
-      - '/:/host:ro,rslave'
-    command:
-      - '--path.rootfs=/host'
-    mem_limit: 128m
-    cpus: 0.2
 
 volumes:
   static_volume:
-  prometheus_data:
 
 networks:
   backend:

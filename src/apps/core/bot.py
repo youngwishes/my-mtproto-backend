@@ -71,6 +71,30 @@ class TelegramBot:
         )
 
     @classmethod
+    def send_invite_to_chat_v2(cls, telegram_id: int) -> None:
+        bot.send_message(
+            text=(
+                "👋 <b>Привет!</b>\n\n"
+                "⚡️Недавно я выкатил большой конкурс, "
+                "благодаря которому у тебя есть возможность получить ссылку НА-ВСЕ-ГДА.\n\n"
+                "📢 За всеми новостями и акциями следи в моем канале.\n\n"
+                "Пожалуйста, подпишись, я там пишу редко, но по делу 👇"
+            ),
+            chat_id=telegram_id,
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(
+                keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text="🎁 Что за конкурс?",
+                            url="https://t.me/mtproto_keys/42"
+                        )
+                    ]
+                ]
+            ),
+        )
+
+    @classmethod
     def notify_before_removing(cls, chat_id: str) -> None:
         bot.send_message(
             chat_id=chat_id,

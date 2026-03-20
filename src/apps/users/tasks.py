@@ -20,7 +20,7 @@ def send_invite_to_chat_task(telegram_ids: list[str]) -> None:
         try:
             is_channel_member = TelegramBot.is_channel_member(telegram_id=int(user))
             if not is_channel_member:
-                TelegramBot.send_invite_to_chat(telegram_id=int(user))
+                TelegramBot.send_invite_to_chat_v2(telegram_id=int(user))
                 sleep(0.666)
         except Exception:
             ...
