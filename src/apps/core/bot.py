@@ -159,7 +159,7 @@ class TelegramBot:
                     keyboard=[
                         [
                             InlineKeyboardButton(
-                                text="🚀 Подключиться",
+                                text="🇳🇱 Подключиться",
                                 url=link,
                             )
                         ]
