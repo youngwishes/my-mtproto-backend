@@ -55,7 +55,7 @@ async def cmd_start(message: Message):
             [InlineKeyboardButton(text="📋 Информация", callback_data="info")],
             [
                 InlineKeyboardButton(
-                    text="⚡️ Реферальный кабинет", callback_data="referral"
+                    text="🤝 Реферальный кабинет", callback_data="referral"
                 )
             ],
             [
@@ -67,7 +67,7 @@ async def cmd_start(message: Message):
     )
     await message.answer(
         text=text,
-        reply_markup=keyboard.adjust(2).as_markup(),
+        reply_markup=keyboard.adjust(1).as_markup(),
     )
 
 
