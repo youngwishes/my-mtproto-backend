@@ -6,6 +6,7 @@ from django.conf import settings
 from apps.core.service import log_infra_error
 from apps.vds.models import VDSInstance, MTPRotoKey
 from apps.vds.services.exceptions import VDSNotAvailable
+from apps.vds.tasks import remove_key_from_another_vds_instances_task, add_key_to_another_vds_instances_task
 
 
 @dataclass(kw_only=True, slots=True, frozen=True)
@@ -22,20 +23,17 @@ class Response:
 @dataclass(kw_only=True, slots=True, frozen=True)
 class UpdateKeyInfraService:
     @log_infra_error
-    def __call__(self, *, new_server: VDSInstance, old_key: MTPRotoKey, username: str) -> Response | None:
+    def __call__(self, *, old_key: MTPRotoKey, username: str) -> Response | None:
         try:
+            for server in VDSInstance.objects.all():
+                remove_key_from_another_vds_instances_task(server=server.pk, keys_id=[old_key.pk])
             response = requests.post(
-                f"{old_key.vds.internal_url}/api/v1/remove-user",
-                json={"usernames": [username]},
-                timeout=settings.VDS_REQUEST_TIMEOUT,
-            )
-            response.raise_for_status()
-            response = requests.post(
-                url=f"{new_server.internal_url}/api/v1/add-new-user",
+                url=f"{old_key.vds.internal_url}/api/v1/add-new-user",
                 json={"username": username},
                 timeout=settings.VDS_REQUEST_TIMEOUT,
             )
             response.raise_for_status()
+            add_key_to_another_vds_instances_task.delay(exclude=old_key.vds.pk, username=username)
             return Response(**response.json())
         except Exception as exc:
             raise VDSNotAvailable(
@@ -43,11 +41,11 @@ class UpdateKeyInfraService:
                 base_error=str(exc),
                 telegram_id=username,
                 server=dict(
-                    id=new_server.pk,
-                    name=new_server.name,
-                    ip=new_server.ip_address,
-                    port=new_server.port,
-                    url=new_server.external_url,
+                    id=old_key.vds.pk,
+                    name=old_key.vds.name,
+                    ip=old_key.vds.ip_address,
+                    port=old_key.vds.port,
+                    url=old_key.vds.external_url,
                 ),
             )
 

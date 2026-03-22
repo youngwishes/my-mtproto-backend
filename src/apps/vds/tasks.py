@@ -120,10 +120,11 @@ def add_key_to_another_vds_instances_task(exclude: int, username: str):
 
 @shared_task
 def remove_key_from_another_vds_instances_task(
-    server: VDSInstance, keys_id: list[int]
+    server: int, keys_id: list[int]
 ) -> None:
+    server = VDSInstance.objects.get(pk=server)
     keys = MTPRotoKey.objects.filter(pk__in=keys_id)
-    usernames = keys.values_list("user__username", flat=True)
+    usernames = list(keys.values_list("user__username", flat=True))
     try:
         response = requests.post(
             url=f"{server.internal_url}/api/v1/remove-user",

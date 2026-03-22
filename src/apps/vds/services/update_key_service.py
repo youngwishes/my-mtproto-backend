@@ -5,7 +5,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.core.service import BaseServiceError, log_service_error
-from apps.vds.models import MTPRotoKey, VDSInstance
+from apps.vds.models import MTPRotoKey
 from apps.vds.services import get_update_key_infra_service
 
 
@@ -44,13 +44,9 @@ class UpdateKeyService:
         with transaction.atomic():
 
             infra = get_update_key_infra_service()
-            if VDSInstance.objects.filter(is_active=True).count() > 1:
-                server = VDSInstance.objects.exclude(pk=key.vds.pk).get_least_populated()
-            else:
-                server = VDSInstance.objects.get_least_populated()
-            response = infra(new_server=server, username=username, old_key=key)
+            response = infra(username=username, old_key=key)
 
-            key.vds = server
+            key.vds = key.vds
             key.token = response.key
             key.tls_domain = response.tls_domain
             key.node_number = response.node_number
