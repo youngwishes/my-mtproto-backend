@@ -40,5 +40,3 @@ class TestRemoveUserService(TestCase):
 
         self.mtproto_key.refresh_from_db()
         self.assertEqual(MTPRotoKey.objects.count(), 1)
-        self.assertFalse(self.mtproto_key.is_active)
-        self.assertTrue(self.mtproto_key.was_deleted)

@@ -89,13 +89,13 @@ def notify_before_removing_daily():
 
 
 @shared_task
-def add_key_to_another_vds_instances_task(exclude: int, username: str):
+def add_key_to_another_vds_instances_task(exclude: int, username: str, secret: str):
     servers = VDSInstance.objects.exclude(pk=exclude)
     for server in servers:
         try:
             response = requests.post(
                 url=f"{server.internal_url}/api/v1/add-new-user",
-                json={"username": username},
+                json={"username": username, "secret": secret},
                 timeout=settings.VDS_REQUEST_TIMEOUT,
             )
             response.raise_for_status()

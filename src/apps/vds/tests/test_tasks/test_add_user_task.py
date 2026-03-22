@@ -31,10 +31,11 @@ class TestAddUserTask(TestCase):
     @responses.activate
     def test_add_key_service(self) -> None:
         self._add_requests()
-        add_key_to_another_vds_instances_task(exclude=self.vds.pk, username="John")
+        add_key_to_another_vds_instances_task(exclude=self.vds.pk, username="John", secret="test")
         self.assertEqual(len(responses.calls), 5)
         for call in responses.calls:
             self.assertTrue(call.request.url.endswith("/api/v1/add-new-user"))
             self.assertEqual(call.request.method, "POST")
             request_body = json.loads(call.request.body)
             self.assertEqual(request_body.get("username"), "John")
+            self.assertEqual(request_body.get("secret"), "test")

@@ -1,3 +1,4 @@
+import os
 from dataclasses import dataclass
 
 import requests
@@ -22,9 +23,10 @@ class AddNewKeyInfraService:
     def __call__(self, *, server: VDSInstance, username: str) -> Response | None:
         self._check_vds_limit(server=server, username=username)
         try:
+            secret = str(os.urandom(16).hex())
             response = requests.post(
                 url=f"{server.internal_url}/api/v1/add-new-user",
-                json={"username": username},
+                json={"username": username, "secret": secret},
                 timeout=settings.VDS_REQUEST_TIMEOUT,
             )
             response.raise_for_status()
@@ -32,6 +34,7 @@ class AddNewKeyInfraService:
             add_key_to_another_vds_instances_task.delay(
                 exclude=server.pk,
                 username=username,
+                secret=secret,
             )
             return Response(**response.json())
         except Exception as exc:
