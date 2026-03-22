@@ -1,4 +1,4 @@
-from collections.abc import Iterable
+from copy import deepcopy
 from dataclasses import dataclass
 import requests
 from django.conf import settings
@@ -13,6 +13,7 @@ from apps.vds.services.exceptions import VDSNotAvailable
 class RemoveUserKeyInfraService:
     @log_infra_error
     def __call__(self, *, server: VDSInstance, keys: QuerySet[MTPRotoKey]) -> None:
+        keys = deepcopy(keys)
         usernames = []
         try:
             usernames = list(
