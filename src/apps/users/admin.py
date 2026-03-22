@@ -62,7 +62,7 @@ class SystemUserAdmin(admin.ModelAdmin):
 
     @admin.display(description="Telegram Username", ordering="telegram_username")
     def telegram_username_link(self, obj):
-        if obj.telegram_username:
+        if obj.telegram_username and obj.telegram_username != "None":
             username = obj.telegram_username.lstrip("@")
             return format_html(
                 '<a href="https://t.me/{}" target="_blank">{}</a>',

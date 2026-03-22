@@ -22,8 +22,12 @@ class VDSInstance(BaseDjangoModel):
     ip_address = models.CharField("IP-адрес", unique=True)
     internal_ip_address = models.CharField("внутренний IP-адрес", blank=True)
     port = models.SmallIntegerField("порт", default=8000)
+    user_limit = models.PositiveSmallIntegerField("лимит пользователей", default=200)
 
     objects = VDSQuerySet.as_manager()
+
+    def is_available(self) -> bool:
+        return self.keys.filter(is_active=True, was_deleted=False).count() < self.user_limit
 
     @property
     def internal_url(self) -> str:
@@ -42,10 +46,13 @@ class VDSInstance(BaseDjangoModel):
 
 
 class MTPRotoKeyQuerySet(ActiveQuerySet):
-    def filter_expired_keys(self) -> "MTPRotoKeyQuerySet":
+    def expired_today(self) -> "MTPRotoKeyQuerySet":
         from django.utils import timezone
 
-        return self.filter(expired_date__date=timezone.now().date())
+        return self.filter(
+            was_deleted=False,
+            expired_date__date__lte=timezone.now().date()
+        )
 
 
 class MTPRotoKey(BaseDjangoModel):
@@ -81,6 +88,7 @@ class MTPRotoKey(BaseDjangoModel):
     user_notified = models.BooleanField("уведомлен об истечении", default=False)
     expired_date = models.DateTimeField("истекает", blank=True, null=True)
     last_update = models.DateTimeField("последнее обновление", blank=True, null=True)
+    objects = MTPRotoKeyQuerySet.as_manager()
 
     def __str__(self) -> str:
         return self.get_proxy_link()

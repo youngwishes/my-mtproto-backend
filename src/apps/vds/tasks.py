@@ -1,5 +1,6 @@
 import time
 from datetime import timedelta
+
 import requests
 from celery import shared_task
 from django.conf import settings
@@ -10,12 +11,47 @@ from apps.vds.models import MTPRotoKey, VDSInstance
 
 
 @shared_task
+def migrate_vds_keys_task(from_instance_id: int) -> None:
+    server = VDSInstance.objects.get(pk=from_instance_id)
+    keys = server.keys.all().select_related("user")
+    for key in keys:
+        for server in VDSInstance.objects.exclude(pk=from_instance_id):
+            try:
+                if not getattr(key.user, "username", None):
+                    continue
+                if not key.token:
+                    continue
+                requests.post(
+                    url=f"{server.internal_url}/api/v1/add-new-user",
+                    json={"username": key.user.username, "secret": key.token},
+                    timeout=settings.VDS_REQUEST_TIMEOUT,
+                )
+            except Exception as exc:
+                escaped_error = html.escape(exc)
+                TelegramBot.send_message(
+                    chat_id=settings.MY_TELEGRAM_ID,
+                    text=(
+                        "🔴 <b>(BACKEND) Системное оповещение</b>\n\n"
+                        "🛡 <b>Тип ошибки:</b> SERVER INTERNAL ERROR (500)\n"
+                        "📋 <b>Детали:</b>\n"
+                        f"- Не удалось добавить перенести ключ на сервер\n"
+                        f"- Сервер — <b>{server.internal_url}</b>\n"
+                        f"- Порядковый номер сервера — <b>#{server.number}</b>\n"
+                        f"- Пользователь — <b>{key.user.username}</b>\n"
+                        f"- Ключ — <b>{key}</b>\n\n"
+                        f"<code>{escaped_error}</code>\n\n"
+                        "⚙️ <i>Требуется внимание команды!</i>"
+                    ),
+                )
+
+        time.sleep(0.25)
+
+
+@shared_task
 def remove_user_keys_daily():
     from apps.vds.services import get_remove_user_key_infra_service
 
-    queryset = MTPRotoKey.objects.active().filter(
-        expired_date__date__lte=timezone.now().date()
-    )
+    queryset = MTPRotoKey.objects.active().expired_today()
     usernames = list(queryset.values_list("user__username", flat=True).distinct())
     if not usernames:
         return
@@ -118,9 +154,7 @@ def add_key_to_another_vds_instances_task(exclude: int, username: str, secret: s
 
 
 @shared_task
-def remove_key_from_another_vds_instances_task(
-    server: int, keys_id: list[int]
-) -> None:
+def remove_key_from_another_vds_instances_task(server: int, keys_id: list[int]) -> None:
     server = VDSInstance.objects.get(pk=server)
     keys = MTPRotoKey.objects.filter(pk__in=keys_id)
     usernames = list(keys.values_list("user__username", flat=True))

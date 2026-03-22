@@ -10,6 +10,7 @@ class VDSInstanceFactory(factory.django.DjangoModelFactory):
     number = factory.Sequence(lambda n: n + 2)
     ip_address = factory.Sequence(lambda n: f"192.168.1.{n + 1}")
     internal_ip_address = factory.Sequence(lambda n: f"192.168.2.{n + 1}")
+    user_limit = 30
 
     port = 8000
 
