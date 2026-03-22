@@ -25,7 +25,6 @@ class RemoveUserKeyInfraService:
                 timeout=settings.VDS_REQUEST_TIMEOUT,
             )
             response.raise_for_status()
-            keys.update(is_active=False, was_deleted=True)
         except Exception as exc:
             raise VDSNotAvailable(
                 method="remove-user",

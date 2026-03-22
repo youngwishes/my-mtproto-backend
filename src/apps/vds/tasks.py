@@ -22,7 +22,7 @@ def remove_user_keys_daily():
     service = get_remove_user_key_infra_service()
     for server in VDSInstance.objects.all():
         service(server=server, keys=queryset)
-
+    queryset.update(is_active=False, was_deleted=True)
     already_sent = set()
     for username in usernames:
         try:
