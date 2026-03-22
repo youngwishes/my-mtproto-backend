@@ -1,6 +1,6 @@
 import time
 from datetime import timedelta
-
+from copy import deepcopy
 import requests
 from celery import shared_task
 from django.conf import settings
@@ -22,7 +22,7 @@ def remove_user_keys_daily():
         return
     service = get_remove_user_key_infra_service()
     for server in VDSInstance.objects.all():
-        service(server=server, keys=queryset)
+        service(server=server, keys=deepcopy(queryset))
 
     already_sent = set()
     for username in usernames:
