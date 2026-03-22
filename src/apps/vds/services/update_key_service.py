@@ -6,7 +6,7 @@ from django.utils import timezone
 
 from apps.core.service import BaseServiceError, log_service_error
 from apps.vds.models import MTPRotoKey, VDSInstance
-from apps.vds.services import get_update_key_infra_service, get_remove_user_key_infra_service
+from apps.vds.services import get_update_key_infra_service
 
 
 class KeyDoesNotExist(BaseServiceError):

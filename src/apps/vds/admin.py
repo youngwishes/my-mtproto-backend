@@ -13,7 +13,7 @@ class VDSInstanceAdmin(admin.ModelAdmin):
 class MTPRotoKeyAdmin(admin.ModelAdmin):
     list_select_related = ["user", "vds"]
     list_display = ["pk", "__str__", "telegram_username_link", "vds", "expired_date"]
-    list_filter = ["vds"]
+    list_filter = ["vds", "was_deleted", "is_active"]
 
     search_fields = ("user__telegram_username", "user__username")
 

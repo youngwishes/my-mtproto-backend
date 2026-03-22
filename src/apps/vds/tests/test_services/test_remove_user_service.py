@@ -25,7 +25,7 @@ class TestRemoveUserService(TestCase):
         self.assertFalse(self.mtproto_key.was_deleted)
         self._add_response()
 
-        get_remove_user_key_infra_service()(keys=MTPRotoKey.objects.all())
+        get_remove_user_key_infra_service()(server=self.mtproto_key.vds, keys=MTPRotoKey.objects.all())
 
         self.assertEqual(len(responses.calls), 1)
         self.assertEqual(

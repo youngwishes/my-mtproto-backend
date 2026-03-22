@@ -6,6 +6,7 @@ from django.conf import settings
 from apps.core.service import log_infra_error
 from apps.vds.models import VDSInstance, MTPRotoKey
 from apps.vds.services.exceptions import VDSConnectionLimit, VDSNotAvailable
+from apps.vds.tasks import add_key_to_another_vds_instances_task
 
 
 @dataclass(kw_only=True, slots=True, frozen=True)
@@ -28,6 +29,10 @@ class AddNewKeyInfraService:
             )
             response.raise_for_status()
             MTPRotoKey.objects.filter(user__username=username).delete()
+            add_key_to_another_vds_instances_task.delay(
+                exclude=server.pk,
+                username=username,
+            )
             return Response(**response.json())
         except Exception as exc:
             raise VDSNotAvailable(

@@ -4,6 +4,7 @@ from unittest import mock
 import responses
 from django.test import TestCase
 
+from apps.vds.models import VDSInstance
 from apps.vds.services import (
     get_add_new_key_service_factory,
 )
@@ -16,20 +17,24 @@ from apps.vds.tests.factories import MTPRotoKeyFactory, VDSInstanceFactory
 class TestAddUserService(TestCase):
     def setUp(self) -> None:
         self.vds = VDSInstanceFactory()
+        for _ in range(5):
+            VDSInstanceFactory()
 
     def _add_request(self):
-        responses.add(
-            method=responses.POST,
-            url=self.vds.internal_url + "/api/v1/add-new-user",
-            json={
-                "tls_domain": "petrovich.ru",
-                "key": "test",
-                "node_number": "telemt-node1",
-            },
-        )
+        for server in VDSInstance.objects.all():
+            responses.add(
+                method=responses.POST,
+                url=server.internal_url + "/api/v1/add-new-user",
+                json={
+                    "tls_domain": "petrovich.ru",
+                    "key": "test",
+                    "node_number": "telemt-node1",
+                },
+            )
 
     @responses.activate
-    def test_add_key_service(self, sorry, infra) -> None:
+    @mock.patch("apps.vds.services.add_new_key_infra_service.add_key_to_another_vds_instances_task")
+    def test_add_key_service(self, add_to_other_servers, sorry, infra) -> None:
         self._add_request()
         get_add_new_key_service_factory()(username="John", server=self.vds)
         self.assertEqual(len(responses.calls), 1)
@@ -42,6 +47,7 @@ class TestAddUserService(TestCase):
         self.assertEqual(request_body.get("username"), "John")
         self.assertEqual(infra.call_count, 0)
         self.assertEqual(sorry.call_count, 0)
+        self.assertEqual(add_to_other_servers.delay.call_count, 1)
 
     def test_add_key_service_limit(self, sorry, infra) -> None:
         self._add_request()
