@@ -14,6 +14,6 @@ CELERY_BEAT_SCHEDULE = {
     },
     "notify_before_removing_daily": {
         "task": "apps.vds.tasks.notify_before_removing_daily",
-        "schedule": crontab(hour=18, minute=0),
+        "schedule": crontab(hour=17, minute=0),
     },
 }
