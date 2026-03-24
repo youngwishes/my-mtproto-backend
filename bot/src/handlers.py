@@ -70,6 +70,41 @@ async def cmd_start(message: Message):
         reply_markup=keyboard.adjust(1).as_markup(),
     )
 
+@router.callback_query(F.data == "show_start_screen")
+async def cmd_start_inline(callback: CallbackQuery):
+    invited_from_username = ""
+    available_free_period = await CheckFirstMonthFreeService()(
+        telegram_id=str(callback.message.chat.id),
+        telegram_username=str(getattr(callback.message.from_user, "username", None)),
+        invited_from_username=str(invited_from_username),
+    )
+    text = FREE_AVAILABLE_TEXT_MAPPING.get(available_free_period)
+    if available_free_period != "NOT_AVAILABLE":
+        callback_data = "boost_free"
+    else:
+        callback_data = "boost_paid"
+
+    keyboard = InlineKeyboardBuilder(
+        markup=[
+            [InlineKeyboardButton(text="🇳🇱 Ускорить", callback_data=callback_data)],
+            [InlineKeyboardButton(text="📋 Информация", callback_data="info")],
+            [
+                InlineKeyboardButton(
+                    text="🤝 Реферальный кабинет", callback_data="referral"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🔧️ Перевыпустить ссылку", callback_data="update_link"
+                )
+            ],
+        ],
+    )
+    await callback.message.edit_text(
+        text=text,
+        reply_markup=keyboard.adjust(1).as_markup(),
+    )
+
 
 @router.callback_query(F.data == "boost_free")
 async def process_boost_free(callback: CallbackQuery):
@@ -83,9 +118,15 @@ async def process_boost_free(callback: CallbackQuery):
                 url=response.link,
                 callback_data=None,
             )
-        ]
+        ],
+        [
+            InlineKeyboardButton(
+                text="🔙 Назад",
+                callback_data="show_start_screen",
+            )
+        ],
     ]
-    await callback.message.answer(
+    await callback.message.edit_text(
         text=KEY_GENERATED_TEXT.format(expired_date=response.expired_date),
         reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard),
     )
@@ -95,7 +136,7 @@ async def process_boost_free(callback: CallbackQuery):
 async def process_info(callback: CallbackQuery):
     await callback.answer()
 
-    await callback.message.answer(
+    await callback.message.edit_text(
         text=FAQ_TEXT,
         reply_markup=InlineKeyboardMarkup(
             inline_keyboard=[
@@ -104,7 +145,13 @@ async def process_info(callback: CallbackQuery):
                         text="👀 Договор-оферта",
                         url="https://drive.google.com/file/d/13GI1ZuKBm4nZkNxESOokGM6fTAAxaCs7/view?usp=sharing",
                     )
-                ]
+                ],
+                [
+                    InlineKeyboardButton(
+                        text="🔙 Назад",
+                        callback_data="show_start_screen",
+                    )
+                ],
             ]
         ),
     )
@@ -123,9 +170,15 @@ async def process_referral(callback: CallbackQuery):
                 text="🎁 Получить бесплатную ссылку",
                 callback_data="get-referral-link",
             )
-        ]
+        ],
+        [
+            InlineKeyboardButton(
+                text="🔙 Назад",
+                callback_data="show_start_screen",
+            )
+        ],
     ]
-    await callback.message.answer(
+    await callback.message.edit_text(
         text=REFERRAL_CABINET.format(
             total_referrals_count=response.total_referrals_count,
             active_referrals_count=response.active_referrals_count,
