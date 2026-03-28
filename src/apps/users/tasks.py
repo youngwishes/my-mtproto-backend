@@ -6,6 +6,7 @@ import requests
 from celery import shared_task
 from django.conf import settings
 from django.db import transaction
+from django.utils import html
 
 from apps.core.bot import TelegramBot
 from apps.users.models import SystemUser
@@ -30,36 +31,59 @@ def send_new_link(telegram_ids: list[str]) -> None:
 
     target_server = VDSInstance.objects.get(pk=9)
     for key in keys:
-        secret = str(os.urandom(16).hex())
-        response = requests.post(
-            url=f"{target_server.internal_url}/api/v1/add-new-user",
-            json={"username": key.user.username, "secret": secret},
-            timeout=settings.VDS_REQUEST_TIMEOUT,
-        )
-        key.tls_domain = response.json()["tls_domain"]
-        key.token = secret
-        key.node_number = response.json()["node_number"]
-        key.save(update_field=["tls_domain", "token", "node_number"])
-        text = (
-            "✨ <b>Привет!</b>\n\n"
-            "🔥 Мы постоянно развиваем сервис и выпустили ссылки нового образца, которые работают стабильнее!\n\n"
-            "👀 ВАЖНО! Используй новую ссылку, которая прикреплена <b>в этом сообщении!</b>\n\n"
-            "Та ссылка по которой ты подключаешься сейчас скоро <b>перестанет работать!</b>\n\n"
-            "👇 <b>Твоя новая ссылка сроком действия до {expired_date}:</b>"
-        ).format(expired_date=key.expired_date)
-
-        key.user.new_link_sent = True
-        key.user.save(update_fields=["new_link_sent"])
-
         try:
+            secret = str(os.urandom(16).hex())
+            response = requests.post(
+                url=f"{target_server.internal_url}/api/v1/add-new-user",
+                json={"username": key.user.username, "secret": secret},
+                timeout=settings.VDS_REQUEST_TIMEOUT,
+            )
+            text = (
+                "✨ <b>Привет!</b>\n\n"
+                "🔥 Мы постоянно развиваем сервис и выпустили ссылки нового образца, которые работают стабильнее!\n\n"
+                "👀 ВАЖНО! Используй новую ссылку, которая прикреплена <b>в этом сообщении!</b>\n\n"
+                "Та ссылка по которой ты подключаешься сейчас скоро <b>перестанет работать!</b>\n\n"
+                "👇 <b>Твоя новая ссылка сроком действия до {expired_date}:</b>"
+            ).format(expired_date=key.expired_date)
             TelegramBot.send_message_with_link(
                 text=text,
                 link=key.get_proxy_link(),
                 chat_id=key.user.username,
             )
-            sleep(0.25)
+            with transaction.atomic():
+                key.tls_domain = response.json()["tls_domain"]
+                key.token = secret
+                key.node_number = response.json()["node_number"]
+                key.save(update_field=["tls_domain", "token", "node_number"])
+                key.user.new_link_sent = True
+                key.user.save(update_fields=["new_link_sent"])
         except Exception as exc:
-            print(exc)
+            escaped_error = html.escape(exc)
+            TelegramBot.send_message(
+                chat_id=settings.MY_TELEGRAM_ID,
+                text=(
+                    "🟡 <b>(BACKEND) Системное оповещение</b>\n\n"
+                    "🛡 <b>Тип ошибки:</b> SERVICE (400)\n"
+                    "📋 <b>Детали:</b>\n"
+                    f"- Не удалось уведомить пользователя об удалении ссылки\n"
+                    f"- Пользователь — {key.user.username}\n\n"
+                    f"<code>{escaped_error}</code>\n\n"
+                    "⚙️ <i>Возможно, требуется внимание команды</i>"
+                ),
+            )
+        else:
+            TelegramBot.send_message(
+                chat_id=settings.MY_TELEGRAM_ID,
+                text=(
+                    "🟢 <b>(BACKEND) Системное оповещение</b>\n\n"
+                    "🛡 <b>Тип события:</b> уведомление\n"
+                    "📋 <b>Детали:</b>\n"
+                    f"- Ссылка нового формата успешно отправлена пользователю\n"
+                    f"- Пользователь — {key.user.username}\n\n"
+                ),
+            )
+        finally:
+            sleep(0.25)
 
 
 
