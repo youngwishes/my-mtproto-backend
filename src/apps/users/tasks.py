@@ -16,20 +16,15 @@ from apps.vds.models import MTPRotoKey, VDSInstance
 
 @shared_task
 def send_new_link(telegram_ids: list[str]) -> None:
+    target_server = VDSInstance.objects.get(pk=9)
     keys = (
         MTPRotoKey.objects.exclude(
-            tls_domain="beatvault.ru",
+            vds=target_server,
         )
         .filter(is_active=True, was_deleted=False, user__new_link_sent=False)
         .select_related("user")
     )
 
-    if telegram_ids:
-        users = SystemUser.objects.filter(username__in=telegram_ids, new_link_sent=False)
-        if users.exists():
-            keys.filter(user__username__in=telegram_ids)
-
-    target_server = VDSInstance.objects.get(pk=9)
     for key in keys:
         try:
             secret = str(os.urandom(16).hex())
@@ -46,10 +41,11 @@ def send_new_link(telegram_ids: list[str]) -> None:
                 "👇 <b>Твоя новая ссылка сроком действия до {expired_date}:</b>"
             ).format(expired_date=key.expired_date)
             with transaction.atomic():
+                key.vds = target_server
                 key.tls_domain = response.json()["tls_domain"]
                 key.token = secret
                 key.node_number = response.json()["node_number"]
-                key.save(update_fields=["tls_domain", "token", "node_number"])
+                key.save(update_fields=["tls_domain", "token", "node_number", "vds"])
                 key.user.new_link_sent = True
                 key.user.save(update_fields=["new_link_sent"])
             TelegramBot.send_message_with_link(
