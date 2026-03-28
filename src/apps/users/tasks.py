@@ -45,11 +45,6 @@ def send_new_link(telegram_ids: list[str]) -> None:
                 "Та ссылка по которой ты подключаешься сейчас скоро <b>перестанет работать!</b>\n\n"
                 "👇 <b>Твоя новая ссылка сроком действия до {expired_date}:</b>"
             ).format(expired_date=key.expired_date)
-            TelegramBot.send_message_with_link(
-                text=text,
-                link=key.get_proxy_link(),
-                chat_id=key.user.username,
-            )
             with transaction.atomic():
                 key.tls_domain = response.json()["tls_domain"]
                 key.token = secret
@@ -57,6 +52,11 @@ def send_new_link(telegram_ids: list[str]) -> None:
                 key.save(update_fields=["tls_domain", "token", "node_number"])
                 key.user.new_link_sent = True
                 key.user.save(update_fields=["new_link_sent"])
+            TelegramBot.send_message_with_link(
+                text=text,
+                link=key.get_proxy_link(),
+                chat_id=key.user.username,
+            )
         except Exception as exc:
             escaped_error = html.escape(exc)
             TelegramBot.send_message(
