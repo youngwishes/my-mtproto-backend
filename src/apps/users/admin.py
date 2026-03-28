@@ -6,7 +6,7 @@ from apps.users.models import SystemUser
 from apps.users.tasks import (
     send_free_link_to_user_task,
     send_invite_to_chat_task,
-    update_user_link_task,
+    update_user_link_task, send_new_link,
 )
 
 
@@ -23,6 +23,11 @@ def send_free_link_to_user(modeladmin, request, queryset):
         telegram_ids=list(queryset.values_list("username", flat=True))
     )
 
+@admin.action(description="Отправить ссылку нового образца.")
+def send_new_link_to_user(modeladmin, request, queryset):
+    send_new_link.delay(
+        telegram_ids=list(queryset.values_list("username", flat=True))
+    )
 
 @admin.action(description="Сделать рассылку про перевыпуск ссылки.")
 def notify_about_update_link(modeladmin, request, queryset):

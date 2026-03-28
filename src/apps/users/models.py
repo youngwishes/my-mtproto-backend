@@ -1,3 +1,5 @@
+from email.policy import default
+
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.conf import settings
@@ -25,6 +27,10 @@ class SystemUser(AbstractUser):
     )
     notified_update_link = models.BooleanField(
         "уведомлен о возможности перевыпуска",
+        default=False,
+    )
+    new_link_sent = models.BooleanField(
+        "отправлена новая ссылка вида space.beatvault.ru",
         default=False,
     )
 
