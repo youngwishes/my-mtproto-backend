@@ -34,7 +34,7 @@ class UpdateKeyInfraService:
                 )
             secret = str(os.urandom(16).hex())
             response = requests.post(
-                url=f"{old_key.vds.internal_url}/api/v1/add-new-user",
+                url=f"{old_key.vds.internal_url}/api/v2/users/add",
                 json={"username": username, "secret": secret},
                 timeout=settings.VDS_REQUEST_TIMEOUT,
             )

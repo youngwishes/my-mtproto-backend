@@ -26,7 +26,7 @@ class TestCreatePaymentView(APITestCase):
     def _mock_vds_request(self) -> None:
         responses.add(
             method=responses.POST,
-            url=self.vds.internal_url + "/api/v1/add-new-user",
+            url=self.vds.internal_url + "/api/v2/users/add",
             json={
                 "tls_domain": "petrovich.ru",
                 "key": "test",

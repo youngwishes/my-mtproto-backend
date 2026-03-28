@@ -22,7 +22,7 @@ def migrate_vds_keys_task(from_instance_id: int) -> None:
                 if not key.token:
                     continue
                 requests.post(
-                    url=f"{server.internal_url}/api/v1/add-new-user",
+                    url=f"{server.internal_url}/api/v2/users/add",
                     json={"username": key.user.username, "secret": key.token},
                     timeout=settings.VDS_REQUEST_TIMEOUT,
                 )
@@ -130,7 +130,7 @@ def add_key_to_another_vds_instances_task(exclude: int, username: str, secret: s
     for server in servers:
         try:
             response = requests.post(
-                url=f"{server.internal_url}/api/v1/add-new-user",
+                url=f"{server.internal_url}/api/v2/users/add",
                 json={"username": username, "secret": secret},
                 timeout=settings.VDS_REQUEST_TIMEOUT,
             )
@@ -160,7 +160,7 @@ def remove_key_from_another_vds_instances_task(server: int, keys_id: list[int]) 
     usernames = list(keys.values_list("user__username", flat=True))
     try:
         response = requests.post(
-            url=f"{server.internal_url}/api/v1/remove-user",
+            url=f"{server.internal_url}/api/v2/users/remove",
             json={"usernames": usernames},
             timeout=settings.VDS_REQUEST_TIMEOUT,
         )
