@@ -54,7 +54,7 @@ def send_new_link(telegram_ids: list[str]) -> None:
                 key.tls_domain = response.json()["tls_domain"]
                 key.token = secret
                 key.node_number = response.json()["node_number"]
-                key.save(update_field=["tls_domain", "token", "node_number"])
+                key.save(update_fields=["tls_domain", "token", "node_number"])
                 key.user.new_link_sent = True
                 key.user.save(update_fields=["new_link_sent"])
         except Exception as exc:
