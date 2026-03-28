@@ -24,7 +24,8 @@ def send_new_link(telegram_ids: list[str]) -> None:
         .filter(is_active=True, was_deleted=False, user__new_link_sent=False)
         .select_related("user")
     )
-
+    if telegram_ids:
+        keys = keys.filter(user__username__in=telegram_ids)
     for key in keys:
         try:
             secret = str(os.urandom(16).hex())
