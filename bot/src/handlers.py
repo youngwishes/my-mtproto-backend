@@ -9,7 +9,6 @@ from aiogram.types import (
 )
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from bot.src.services.process_win_service import CheckAgreementWinService
 from messages import (
     FAQ_TEXT,
     FREE_AVAILABLE_TEXT_MAPPING,
@@ -25,6 +24,7 @@ from services import (
     GetReferralCabinetService,
     GetReferralLinkService,
     UpdateUserKeyService,
+    CheckAgreementWinService,
 )
 
 from src.bot import bot
