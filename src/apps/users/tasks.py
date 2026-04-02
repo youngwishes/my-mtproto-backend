@@ -147,7 +147,7 @@ def ask_user_agreement(telegram_ids: list[str] = None) -> None:
             .annotate(invited_count=Count("invited_from_username"))
         )
     else:
-        top_inviters = (
+        top_inviters = list(
             SystemUser.objects.filter(invited_from_username__isnull=False)
             .exclude(
                 invited_from_username="",
