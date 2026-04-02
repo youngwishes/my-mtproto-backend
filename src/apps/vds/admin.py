@@ -47,8 +47,8 @@ class VDSInstanceAdmin(admin.ModelAdmin):
 @admin.register(MTPRotoKey)
 class MTPRotoKeyAdmin(admin.ModelAdmin):
     list_select_related = ["user", "vds"]
-    list_display = ["pk", "__str__", "telegram_username_link", "vds", "expired_date"]
-    list_filter = ["vds", "was_deleted", "is_active"]
+    list_display = ["pk", "__str__", "telegram_username_link", "vds", "expired_date", "is_winner"]
+    list_filter = ["vds", "was_deleted", "is_active", "is_winner"]
 
     search_fields = ("user__telegram_username", "user__username")
 

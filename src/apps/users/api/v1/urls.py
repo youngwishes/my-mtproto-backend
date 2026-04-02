@@ -1,5 +1,4 @@
 from django.urls import path
-
 from apps.users.api.v1.views import (
     CreateFirstFreeLinkView,
     CheckFirstFreeLinkView,
@@ -7,6 +6,7 @@ from apps.users.api.v1.views import (
     GetReferralLinkView,
     UpdateKeyView,
 )
+from apps.users.api.v1.views import UserAgreementView
 
 urlpatterns = [
     path("first-free-link/", CreateFirstFreeLinkView.as_view(), name="first-free-link"),
@@ -22,4 +22,5 @@ urlpatterns = [
     ),
     path("referral/link/", GetReferralLinkView.as_view(), name="get-referral-link"),
     path("update-link/", UpdateKeyView.as_view(), name="update-link"),
+    path("check-agreement/", UserAgreementView.as_view(), name="user-agreement"),
 ]

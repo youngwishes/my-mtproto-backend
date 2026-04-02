@@ -53,7 +53,7 @@ class SystemUserAdmin(admin.ModelAdmin):
         "is_active",
         "date_joined",
     ]
-    search_fields = ("username", "telegram_username")
+    search_fields = ("username", "telegram_username", "invited_from_username")
     list_filter = [
         "is_active",
         "first_month_free_used",

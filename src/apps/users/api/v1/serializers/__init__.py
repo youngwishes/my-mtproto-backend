@@ -9,3 +9,4 @@ from .referral_cabinet_serializer import (
 from .update_key_serializer import (
     UpdateKeySerializer,
 )
+from .check_agreement_serializer import CheckAgreementSerializer

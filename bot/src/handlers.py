@@ -8,6 +8,8 @@ from aiogram.types import (
     PreCheckoutQuery,
 )
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+
+from bot.src.services.process_win_service import CheckAgreementWinService
 from messages import (
     FAQ_TEXT,
     FREE_AVAILABLE_TEXT_MAPPING,
@@ -69,6 +71,7 @@ async def cmd_start(message: Message):
         text=text,
         reply_markup=keyboard.adjust(1).as_markup(),
     )
+
 
 @router.callback_query(F.data == "show_start_screen")
 async def cmd_start_inline(callback: CallbackQuery):
@@ -260,4 +263,60 @@ async def process_successful_payment(message: Message):
         provider_payment_charge_id=getattr(
             message.successful_payment, "provider_payment_charge_id", None
         ),
+    )
+
+
+@router.callback_query(F.data == "answer_yes")
+async def process_yes_user(callback: CallbackQuery):
+    await callback.answer()
+
+    response = await CheckAgreementWinService()(is_agree=True, username=str(callback.message.chat.id))
+
+    await callback.message.edit_text(
+        text=(
+            "🌟 <b>Спасибо за доверие и согласие!</b>\n\n"
+            "Это очень помогает нам развивать проект и оставаться честными перед сообществом.\n\n"
+            "📢 <b>Что дальше?</b>\n"
+            "• Мы опубликуем твой ник (или имя) в нашем канале как победителя\n"
+            "• Другие пользователи смогут написать тебе, если захотят проверить честность конкурса\n"
+            "• Ты всегда можешь отказаться от публикации, написав нам в поддержку — @mtproto_keys\n\n"
+            "🔗 <b>А вот и твой главный приз — пожизненная ссылка на MTPRoto прокси:</b>\n"
+            f"<code>{response.link}</code>\n\n"
+            "💡 <b>Важно:</b>\n"
+            "• Ссылка работает на <b>3 устройствах</b>\n"
+            "• Действует пожизненно, пока жив наш сервис\n"
+            "• Никакого спонсорского канала — мы держим слово\n\n"
+            "🎯 <b>Как использовать:</b>\n"
+            "1. Нажми на ссылку\n"
+            "2. Нажми «подключиться»"
+            "3. Готово!\n\n"
+            "🙏 <b>Ещё раз огромное спасибо!</b>\n"
+            "Ты помог нам стать лучше. Если будут вопросы — пиши в поддержку — @mtproto_keys."
+        ),
+        parse_mode="HTML"
+    )
+
+@router.callback_query(F.data == "answer_no")
+async def process_yes_user(callback: CallbackQuery):
+    await callback.answer()
+
+    response = await CheckAgreementWinService()(is_agree=False, username=str(callback.message.chat.id))
+
+    await callback.message.edit_text(
+        text=(
+            "🌟 <b>Спасибо ответ!</b>\n\n"
+            "🔗 <b>А вот и твой главный приз — пожизненная ссылка на MTPRoto прокси:</b>\n"
+            f"<code>{response.link}</code>\n\n"
+            "💡 <b>Важно:</b>\n"
+            "• Ссылка работает на <b>3 устройствах</b>\n"
+            "• Действует пожизненно, пока жив наш сервис\n"
+            "• Никакого спонсорского канала — мы держим слово\n\n"
+            "🎯 <b>Как использовать:</b>\n"
+            "1. Нажми на ссылку\n"
+            "2. Нажми «подключиться»"
+            "3. Готово!\n\n"
+            "🙏 <b>Ещё раз огромное спасибо!</b>\n"
+            "Ты помог нам стать лучше. Если будут вопросы — пиши в поддержку — @mtproto_keys."
+        ),
+        parse_mode="HTML"
     )

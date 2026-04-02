@@ -127,6 +127,43 @@ class TelegramBot:
         )
 
     @classmethod
+    def notify_about_win(cls, chat_id: str) -> None:
+        bot.send_message(
+            chat_id=chat_id,
+            text=(
+                "🏆 <b>Поздравляем! Ты победил в конкурсе приглашений!</b>\n\n"
+                "Ты привлёк больше всех пользователей — и мы выполняем обещание.\n\n"
+                "🎁 <b>Твой приз:</b>\n"
+                "🔗 Бесплатная <b>ссылка неограниченного срока действия</b> MTPRoxy для Telegram\n"
+                "🚫 Без спонсорского канала\n"
+                "📱 Действует на <b>3 устройствах</b>\n"
+                "⏳ До тех пор, пока работает наш сервис\n\n"
+                "❤️ Огромное спасибо за помощь в продвижении!\n\n"
+                "📢 <b>Важный вопрос:</b>\n"
+                "Можем ли мы опубликовать твой ник (или имя) в нашем канале как победителя?\n"
+                "Это поможет нам показать честность конкурса, а другим пользователям — связаться с тобой (если захочешь).\n\n"
+                "👉 <b>Согласен на публикацию?</b>"
+            ),
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(
+                keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text="✅ Да, согласен",
+                            callback_data="answer_yes",
+                        )
+                    ],
+                    [
+                        InlineKeyboardButton(
+                            text="❌ Нет, не нужно",
+                            callback_data="answer_no",
+                        )
+                    ]
+                ]
+            ),
+        )
+
+    @classmethod
     def send_message_deactivate_link(cls, chat_id: str) -> None:
         bot.send_message(
             chat_id=chat_id,

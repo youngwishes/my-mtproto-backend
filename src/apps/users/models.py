@@ -1,8 +1,7 @@
-from email.policy import default
-
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.conf import settings
+
 
 class SystemUser(AbstractUser):
     first_month_free_used = models.BooleanField(
@@ -31,6 +30,10 @@ class SystemUser(AbstractUser):
     )
     new_link_sent = models.BooleanField(
         "отправлена новая ссылка вида space.beatvault.ru",
+        default=False,
+    )
+    is_agree = models.BooleanField(
+        "согласен с публикацией в канале",
         default=False,
     )
 

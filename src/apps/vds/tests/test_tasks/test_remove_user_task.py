@@ -14,7 +14,7 @@ class TestRemoveUserTask(TestCase):
     def setUp(self):
         self.server = VDSInstanceFactory()
         self.user = SystemUserFactory()
-        self.key = MTPRotoKeyFactory(user=self.user, vds=self.server)
+        self.key = MTPRotoKeyFactory(user=self.user, vds=self.server, expired_date=None)
 
     def _add_vds_response(self):
         responses.add(

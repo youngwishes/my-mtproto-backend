@@ -88,6 +88,7 @@ class MTPRotoKey(BaseDjangoModel):
     user_notified = models.BooleanField("уведомлен об истечении", default=False)
     expired_date = models.DateTimeField("истекает", blank=True, null=True)
     last_update = models.DateTimeField("последнее обновление", blank=True, null=True)
+    is_winner = models.BooleanField("победитель конкурса", default=False)
     objects = MTPRotoKeyQuerySet.as_manager()
 
     def __str__(self) -> str:
