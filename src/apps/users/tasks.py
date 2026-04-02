@@ -138,17 +138,26 @@ def update_user_link_task(telegram_ids: list[str]) -> None:
         time.sleep(0.666)
 
 
-def ask_user_agreement() -> None:
-    top_inviters = list(
-        SystemUser.objects.filter(invited_from_username__isnull=False)
-        .exclude(
-            invited_from_username="",
+@shared_task
+def ask_user_agreement(telegram_ids: list[str] = None) -> None:
+    if telegram_ids:
+        top_inviters = list(
+            SystemUser.objects.filter(username__in=telegram_ids)
+            .values("invited_from_username")
+            .annotate(invited_count=Count("invited_from_username"))
         )
-        .values("invited_from_username")
-        .annotate(invited_count=Count("invited_from_username"))
-        .filter(invited_count__gte=5)
-        .order_by("-invited_count")[:30]
-    )
+    else:
+        top_inviters = (
+            SystemUser.objects.filter(invited_from_username__isnull=False)
+            .exclude(
+                invited_from_username="",
+            )
+            .values("invited_from_username")
+            .annotate(invited_count=Count("invited_from_username"))
+            .filter(invited_count__gte=5)
+            .order_by("-invited_count")[:30]
+        )
+
     for inviter in top_inviters:
         try:
             TelegramBot.notify_about_win(chat_id=inviter["invited_from_username"])
