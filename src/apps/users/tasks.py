@@ -139,14 +139,8 @@ def update_user_link_task(telegram_ids: list[str]) -> None:
 
 
 @shared_task
-def ask_user_agreement(telegram_ids: list[str] = None) -> None:
-    if telegram_ids:
-        top_inviters = list(
-            SystemUser.objects.filter(username__in=telegram_ids)
-            .values("invited_from_username")
-            .annotate(invited_count=Count("invited_from_username"))
-        )
-    else:
+def ask_user_agreement(is_testing: bool = False) -> None:
+    if not is_testing:
         top_inviters = list(
             SystemUser.objects.filter(invited_from_username__isnull=False)
             .exclude(
@@ -157,6 +151,8 @@ def ask_user_agreement(telegram_ids: list[str] = None) -> None:
             .filter(invited_count__gte=5)
             .order_by("-invited_count")[:30]
         )
+    else:
+        top_inviters = [{"invited_from_username": "1487189460"}]
 
     for inviter in top_inviters:
         try:
