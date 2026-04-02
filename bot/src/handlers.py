@@ -271,7 +271,15 @@ async def process_yes_user(callback: CallbackQuery):
     await callback.answer()
 
     response = await CheckAgreementWinService()(is_agree=True, username=str(callback.message.chat.id))
-
+    keyboard = [
+        [
+            InlineKeyboardButton(
+                text="🇳🇱 Подключиться",
+                url=response.link,
+                callback_data=None,
+            )
+        ]
+    ]
     await callback.message.edit_text(
         text=(
             "🌟 <b>Спасибо за доверие и согласие!</b>\n\n"
@@ -288,21 +296,13 @@ async def process_yes_user(callback: CallbackQuery):
             "• Никакого спонсорского канала — мы держим слово\n\n"
             "🎯 <b>Как использовать:</b>\n"
             "1. Нажми на кнопку\n"
-            "2. Нажми «подключиться»"
+            "2. Нажми «подключиться»\n"
             "3. Готово!\n\n"
             "🙏 <b>Ещё раз огромное спасибо!</b>\n"
             "Ты помог нам стать лучше. Если будут вопросы — пиши в поддержку — @mtproto_keys."
         ),
-        keyboard = [
-            [
-                InlineKeyboardButton(
-                    text="🇳🇱 Подключиться",
-                    url=response.link,
-                    callback_data=None,
-                )
-            ]
-        ],
-        parse_mode="HTML"
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard),
+        parse_mode="HTML",
     )
 
 @router.callback_query(F.data == "answer_no")
@@ -310,7 +310,15 @@ async def process_yes_user(callback: CallbackQuery):
     await callback.answer()
 
     response = await CheckAgreementWinService()(is_agree=False, username=str(callback.message.chat.id))
-
+    keyboard = [
+        [
+            InlineKeyboardButton(
+                text="🇳🇱 Подключиться",
+                url=response.link,
+                callback_data=None,
+            )
+        ]
+    ]
     await callback.message.edit_text(
         text=(
             "🌟 <b>Спасибо ответ!</b>\n\n"
@@ -322,19 +330,11 @@ async def process_yes_user(callback: CallbackQuery):
             "• Никакого спонсорского канала — мы держим слово\n\n"
             "🎯 <b>Как использовать:</b>\n"
             "1. Нажми на кнопку\n"
-            "2. Нажми «подключиться»"
+            "2. Нажми «подключиться»\n"
             "3. Готово!\n\n"
             "🙏 <b>Ещё раз огромное спасибо!</b>\n"
             "Ты помог нам стать лучше. Если будут вопросы — пиши в поддержку — @mtproto_keys."
         ),
-        keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="🇳🇱 Подключиться",
-                    url=response.link,
-                    callback_data=None,
-                )
-            ]
-        ],
-        parse_mode="HTML"
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard),
+        parse_mode="HTML",
     )
