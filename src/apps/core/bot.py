@@ -13,7 +13,7 @@ from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
 if TYPE_CHECKING:
     from apps.core.service import BaseInfraError, BaseServiceError
 
-bot = TeleBot(token=settings.TELEGRAM_BOT_TOKEN)
+bot = TeleBot(token=settings.BOT_TOKEN)
 
 
 class TelegramBot:
@@ -99,6 +99,31 @@ class TelegramBot:
             chat_id=chat_id,
             text=(
                 "⚠️ <b>До окончания остался 1 день</b>\n\n"
+                "Привет! Наверное, ты заметил, что у нашего прокси <b>нет рекламы, нет спонсоров</b> — и это так.\n\n"
+                "Мы ничего не продаём, не встраиваем баннеры и не передаём твои данные. Просто <b>честно поддерживаем сервис в рабочем состоянии.</b>\n\n"
+                "Но серверы и обслуживание — это наши <b>реальные расходы.</b> Если тебе удобно пользоваться прокси и хочется его поддержать, можешь <b>продлить доступ на месяц всего за 79 ₽</b>.\n\n"
+                "Это поможет нам оставаться <b>независимыми</b> и дальше держать <b>стабильную</b> работу.\n\n"
+                "👇 <b>Поддежать проект</b>"
+            ),
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(
+                keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text="⚡️ ПРОДЛИТЬ ЗА 79 ₽",
+                            callback_data="boost_paid",
+                        )
+                    ]
+                ]
+            ),
+        )
+
+    @classmethod
+    def notify_before_removing_before_hour(cls, chat_id: str) -> None:
+        bot.send_message(
+            chat_id=chat_id,
+            text=(
+                "⚠️ <b>Ссылка истечет ровно через 1 час!</b>\n\n"
                 "Привет! Наверное, ты заметил, что у нашего прокси <b>нет рекламы, нет спонсоров</b> — и это так.\n\n"
                 "Мы ничего не продаём, не встраиваем баннеры и не передаём твои данные. Просто <b>честно поддерживаем сервис в рабочем состоянии.</b>\n\n"
                 "Но серверы и обслуживание — это наши <b>реальные расходы.</b> Если тебе удобно пользоваться прокси и хочется его поддержать, можешь <b>продлить доступ на месяц всего за 79 ₽</b>.\n\n"

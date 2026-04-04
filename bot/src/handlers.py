@@ -167,20 +167,34 @@ async def process_referral(callback: CallbackQuery):
     response = await GetReferralCabinetService()(
         telegram_id=str(callback.message.chat.id)
     )
-    keyboard = [
+
+    keyboard = []
+    if response.active_referrals_count >= 5:
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    text="🎁 Получить бесплатную ссылку",
+                    callback_data="get-referral-link",
+                )
+            ]
+        )
+    keyboard.append(
         [
             InlineKeyboardButton(
-                text="🎁 Получить бесплатную ссылку",
-                callback_data="get-referral-link",
+                text="🔗 Поделиться ссылкой",
+                switch_inline_query=f"Привет! Переходи по моей реферальной ссылке: {response.referral_link}"
             )
         ],
+    )
+    keyboard.append(
         [
             InlineKeyboardButton(
                 text="🔙 Назад",
                 callback_data="show_start_screen",
             )
         ],
-    ]
+    )
+
     await callback.message.edit_text(
         text=REFERRAL_CABINET.format(
             total_referrals_count=response.total_referrals_count,
@@ -270,7 +284,9 @@ async def process_successful_payment(message: Message):
 async def process_yes_user(callback: CallbackQuery):
     await callback.answer()
 
-    response = await CheckAgreementWinService()(is_agree=True, username=str(callback.message.chat.id))
+    response = await CheckAgreementWinService()(
+        is_agree=True, username=str(callback.message.chat.id)
+    )
     keyboard = [
         [
             InlineKeyboardButton(
@@ -305,11 +321,14 @@ async def process_yes_user(callback: CallbackQuery):
         parse_mode="HTML",
     )
 
+
 @router.callback_query(F.data == "answer_no")
 async def process_yes_user(callback: CallbackQuery):
     await callback.answer()
 
-    response = await CheckAgreementWinService()(is_agree=False, username=str(callback.message.chat.id))
+    response = await CheckAgreementWinService()(
+        is_agree=False, username=str(callback.message.chat.id)
+    )
     keyboard = [
         [
             InlineKeyboardButton(

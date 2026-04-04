@@ -44,7 +44,7 @@ def migrate_vds_keys_task(from_instance_id: int) -> None:
                     ),
                 )
 
-        time.sleep(0.25)
+        time.sleep(0.5)
 
 
 @shared_task
@@ -66,7 +66,7 @@ def remove_user_keys_daily():
                 continue
             TelegramBot.send_message_deactivate_link(chat_id=username)
             already_sent.add(username)
-            time.sleep(0.666)
+            time.sleep(1)
         except Exception as exc:
             escaped_error = html.escape(exc)
             TelegramBot.send_message(
@@ -85,8 +85,6 @@ def remove_user_keys_daily():
 
 @shared_task
 def notify_before_removing_daily():
-    import time
-
     target_date = (timezone.now() + timedelta(days=1)).date()
 
     queryset = MTPRotoKey.objects.active().filter(
@@ -107,7 +105,7 @@ def notify_before_removing_daily():
             already_sent.add(username)
             key.user_notified = True
             key.save(update_fields=["user_notified"])
-            time.sleep(0.666)
+            time.sleep(1)
         except Exception as exc:
             escaped_error = html.escape(exc)
             TelegramBot.send_message(
@@ -122,6 +120,41 @@ def notify_before_removing_daily():
                     "⚙️ <i>Возможно, требуется внимание команды</i>"
                 ),
             )
+
+
+
+@shared_task
+def notify_before_removing_daily_hour_before():
+    queryset = MTPRotoKey.objects.active().filter(expired_date__date=timezone.now().date())
+
+    already_sent = set()
+    for key in queryset:
+        username = None
+        try:
+            username = getattr(key.user, "username", None)
+            if not username:
+                continue
+            if username in already_sent:
+                continue
+            TelegramBot.notify_before_removing_before_hour(chat_id=key.user.username)
+            already_sent.add(username)
+            time.sleep(1)
+        except Exception as exc:
+            escaped_error = html.escape(exc)
+            TelegramBot.send_message(
+                chat_id=settings.MY_TELEGRAM_ID,
+                text=(
+                    "🟡 <b>(BACKEND) Системное оповещение</b>\n\n"
+                    "🛡 <b>Тип ошибки:</b> SERVICE (400)\n"
+                    "📋 <b>Детали:</b>\n"
+                    f"- Не удалось уведомить пользователя о завтрашнем удалении ссылки.\n"
+                    f"- Пользователь — {username}\n\n"
+                    f"<code>{escaped_error}</code>\n\n"
+                    "⚙️ <i>Возможно, требуется внимание команды</i>"
+                ),
+            )
+
+
 
 
 @shared_task
