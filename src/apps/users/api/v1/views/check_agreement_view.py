@@ -16,17 +16,17 @@ class UserAgreementView(APIView):
         serializer = CheckAgreementSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        try:
-            user = SystemUser.objects.get(username=serializer.validated_data["username"])
-        except SystemUser.DoesNotExist:
-            user = SystemUser.objects.create(username=serializer.validated_data["username"])
+        user, _ = SystemUser.objects.get_or_create(username=serializer.validated_data["username"])
 
         user.is_agree = serializer.validated_data["is_agree"]
         user.save(update_fields=["is_agree"])
 
-        link = MTPRotoKey.objects.filter(user__username=serializer.validated_data["username"]).first()
+        link = MTPRotoKey.objects.filter(user=user).first()
+        if link is None:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
         link.is_winner = True
-        link.expired_date = (link.expired_date + timedelta(days=365))
+        link.expired_date = link.expired_date + timedelta(days=365)
         link.save(update_fields=["is_winner", "expired_date"])
 
         return Response(data={"link": link.get_proxy_link()}, status=status.HTTP_201_CREATED)

@@ -349,7 +349,6 @@ def notify_bad_request(view: Callable) -> Callable:
                 response=exc,
                 url=getattr(request, "path", None),
             )
-
-        return view(self, *args, **kwargs)
+            raise
 
     return _wrapped

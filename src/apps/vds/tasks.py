@@ -59,13 +59,9 @@ def remove_user_keys_daily():
     for server in VDSInstance.objects.all():
         service(server=server, keys=queryset)
     queryset.update(is_active=False, was_deleted=True)
-    already_sent = set()
     for username in usernames:
         try:
-            if username in already_sent:
-                continue
             TelegramBot.send_message_deactivate_link(chat_id=username)
-            already_sent.add(username)
             time.sleep(1)
         except Exception as exc:
             escaped_error = html.escape(exc)

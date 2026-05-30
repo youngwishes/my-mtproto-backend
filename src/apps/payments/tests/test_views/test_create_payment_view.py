@@ -35,8 +35,9 @@ class TestCreatePaymentView(APITestCase):
         )
 
     @mock.patch("apps.core.bot.TelegramBot.send_proxy_link")
+    @mock.patch("apps.vds.tasks.add_key_to_another_vds_instances_task.delay")
     @responses.activate
-    def test_create_payment_view(self, telegram) -> None:
+    def test_create_payment_view(self, _task, telegram) -> None:
         self._mock_vds_request()
         response = self.client.post(
             path=self.url,
@@ -65,8 +66,9 @@ class TestCreatePaymentView(APITestCase):
         )
 
     @mock.patch("apps.core.bot.TelegramBot.send_proxy_link")
+    @mock.patch("apps.vds.tasks.add_key_to_another_vds_instances_task.delay")
     @responses.activate
-    def test_create_payment_view_twice(self, telegram) -> None:
+    def test_create_payment_view_twice(self, _task, telegram) -> None:
         self._mock_vds_request()
         self.client.post(
             path=self.url,

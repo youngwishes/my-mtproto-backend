@@ -32,7 +32,8 @@ class TestFirstFreeLink(APITestCase):
         )
 
     @responses.activate
-    def test_first_free_link_30days(self) -> None:
+    @mock.patch("apps.vds.tasks.add_key_to_another_vds_instances_task.delay")
+    def test_first_free_link_30days(self, _task) -> None:
         self._mock_vds_request()
         self.assertFalse(self.user.first_month_free_used)
         self.assertEqual(MTPRotoKey.objects.count(), 0)
@@ -71,7 +72,8 @@ class TestFirstFreeLink(APITestCase):
         )
 
     @responses.activate
-    def test_first_free_link_7days(self) -> None:
+    @mock.patch("apps.vds.tasks.add_key_to_another_vds_instances_task.delay")
+    def test_first_free_link_7days(self, _task) -> None:
         for _ in range(50):
             SystemUserFactory(first_month_free_used=True)
         self._mock_vds_request()
@@ -129,7 +131,8 @@ class TestFirstFreeLink(APITestCase):
         self.assertEqual(service.call_count, 1)
 
     @responses.activate
-    def test_first_free_link_with_referral_14days(self) -> None:
+    @mock.patch("apps.vds.tasks.add_key_to_another_vds_instances_task.delay")
+    def test_first_free_link_with_referral_14days(self, _task) -> None:
         self._mock_vds_request()
         self.assertEqual(MTPRotoKey.objects.count(), 0)
         self.user.invited_from_username = "test"

@@ -1,16 +1,19 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, asdict
+from datetime import timedelta
 
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
-from datetime import timedelta
+
 from apps.core.service import BaseServiceError, log_service_error
 from apps.users.models import SystemUser
-from apps.vds.models import MTPRotoKey, VDSInstance
-from apps.vds.services import get_add_new_key_service_factory
+from apps.vds.models import MTPRotoKey
+from apps.vds.services import get_issue_key_service
 
 
-@dataclass(kw_only=True, slots=True, frozen=True)
+@dataclass(kw_only=True, frozen=True, slots=True)
 class Response:
     expired_date: str
     link: str
@@ -27,12 +30,8 @@ class AlreadyUsedFree(BaseServiceError):
 class FirstFreeLinkService:
     @log_service_error
     def __call__(self, *, username: str) -> Response:
-        try:
-            user = SystemUser.objects.get(username=username)
-        except SystemUser.DoesNotExist:
-            user = SystemUser.objects.create(
-                username=username,
-            )
+        user, _ = SystemUser.objects.get_or_create(username=username)
+
         if user.first_month_free_used:
             raise AlreadyUsedFree(telegram_id=username)
 
@@ -45,21 +44,8 @@ class FirstFreeLinkService:
         if user.invited_from_username:
             expired_date = timezone.now() + timedelta(days=14)
 
-        server = VDSInstance.objects.get_least_populated()
         with transaction.atomic():
-            response = get_add_new_key_service_factory()(
-               server=server,
-               username=str(user.username),
-            )
-            mtproto_key = MTPRotoKey.objects.create(
-                vds=server,
-                user=user,
-                payment=None,
-                token=response.key,
-                tls_domain=response.tls_domain,
-                node_number=response.node_number,
-                expired_date=expired_date,
-            )
+            mtproto_key = get_issue_key_service()(user=user, expired_date=expired_date)
             user.first_month_free_used = True
             if user.invited_from_username:
                 user.referral_activated = True

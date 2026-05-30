@@ -67,7 +67,8 @@ class TestGetReferralLink(TestCase):
         )
 
     @responses.activate
-    def test_get_link_with_activated_referrals(self) -> None:
+    @mock.patch("apps.vds.tasks.add_key_to_another_vds_instances_task.delay")
+    def test_get_link_with_activated_referrals(self, _task) -> None:
         self._mock_vds_request()
         for _ in range(5):
             SystemUserFactory(
