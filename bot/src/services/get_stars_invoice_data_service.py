@@ -1,6 +1,6 @@
-import json
-from copy import copy
-from dataclasses import asdict, dataclass
+from __future__ import annotations
+
+from dataclasses import dataclass
 
 import httpx
 from aiogram.types import LabeledPrice
@@ -11,44 +11,35 @@ from config import API_URL
 
 
 @dataclass(kw_only=True, slots=True, frozen=True)
-class Response:
+class StarsInvoiceResponse:
     title: str
     description: str
-    currency: str
-    provider_data: str
-    send_email_to_provider: bool
-    need_email: bool
     prices: list
-    provider_token: str
-
-    def asdict(self) -> dict:
-        return asdict(self)
+    currency: str = "XTR"
+    provider_token: str = ""
 
 
 @dataclass(kw_only=True, slots=True, frozen=True)
-class GetInvoiceDataService:
+class GetStarsInvoiceDataService:
     url: str = API_URL + "/api/v1/payments/"
 
     @log_service_error
-    async def __call__(self) -> Response:
+    async def __call__(self) -> StarsInvoiceResponse:
         async with httpx.AsyncClient() as client:
             response = await client.get(
                 self.url,
                 headers={"Bot-Auth-Token": config.BOT_AUTH_TOKEN},
             )
             response.raise_for_status()
-            data = copy(response.json())
+            data = response.json()
             prices = [
                 LabeledPrice(
-                    label=data.get("title"),
-                    amount=data.pop("price"),
+                    label=data["title"],
+                    amount=data["stars_price"],
                 )
             ]
-            provider_data = json.dumps(data.pop("provider_data"))
-            data.pop("stars_price", None)
-            return Response(
-                **data,
-                provider_data=provider_data,
+            return StarsInvoiceResponse(
+                title=data["title"],
+                description=data["description"],
                 prices=prices,
-                provider_token=config.PROVIDER_TOKEN,
             )

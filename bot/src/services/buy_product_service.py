@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 import httpx
 import config
@@ -12,14 +14,15 @@ class BuyProductService:
 
     @log_service_error
     async def __call__(
-        self, *, telegram_id: int, provider_payment_charge_id: str
+        self, *, telegram_id: int, charge_id: str, provider: str
     ) -> None:
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 self.url,
                 data={
                     "username": str(telegram_id),
-                    "provider_payment_charge_id": provider_payment_charge_id,
+                    "charge_id": charge_id,
+                    "provider": provider,
                 },
                 headers={"Bot-Auth-Token": config.BOT_AUTH_TOKEN},
             )

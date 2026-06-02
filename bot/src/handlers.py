@@ -21,6 +21,7 @@ from services import (
     CheckFirstMonthFreeService,
     FirstMonthFreeService,
     GetInvoiceDataService,
+    GetStarsInvoiceDataService,
     GetReferralCabinetService,
     GetReferralLinkService,
     UpdateUserKeyService,
@@ -233,12 +234,46 @@ async def process_referral_link(callback: CallbackQuery):
 async def process_boost_paid(callback: CallbackQuery):
     await callback.answer()
 
+    keyboard = InlineKeyboardBuilder(
+        markup=[
+            [InlineKeyboardButton(text="💳 ЮKassa", callback_data="pay_yukassa")],
+            [InlineKeyboardButton(text="⭐ Telegram Stars", callback_data="pay_stars")],
+            [InlineKeyboardButton(text="🔙 Назад", callback_data="show_start_screen")],
+        ],
+    )
+    await callback.message.edit_text(
+        text="Выберите способ оплаты:",
+        reply_markup=keyboard.adjust(1).as_markup(),
+    )
+
+
+@router.callback_query(F.data == "pay_yukassa")
+async def process_pay_yukassa(callback: CallbackQuery):
+    await callback.answer()
+
     response = await GetInvoiceDataService()()
     await bot.send_invoice(
         chat_id=callback.message.chat.id,
         start_parameter="payment",
         payload="payment",
         **response.asdict(),
+    )
+
+
+@router.callback_query(F.data == "pay_stars")
+async def process_pay_stars(callback: CallbackQuery):
+    await callback.answer()
+
+    response = await GetStarsInvoiceDataService()()
+    await bot.send_invoice(
+        chat_id=callback.message.chat.id,
+        title=response.title,
+        description=response.description,
+        start_parameter="payment_stars",
+        payload="payment_stars",
+        currency=response.currency,
+        prices=response.prices,
+        provider_token=response.provider_token,
     )
 
 
@@ -272,12 +307,24 @@ async def process_pre_checkout_query(pre_checkout_query: PreCheckoutQuery):
 
 @router.message(F.successful_payment)
 async def process_successful_payment(message: Message):
-    await BuyProductService()(
-        telegram_id=message.from_user.id,
-        provider_payment_charge_id=getattr(
-            message.successful_payment, "provider_payment_charge_id", None
-        ),
-    )
+    if message.successful_payment.currency == "XTR":
+        charge_id = message.successful_payment.telegram_payment_charge_id
+        provider = "stars"
+    else:
+        charge_id = message.successful_payment.provider_payment_charge_id
+        provider = "yukassa"
+
+    try:
+        await BuyProductService()(
+            telegram_id=message.from_user.id,
+            charge_id=charge_id,
+            provider=provider,
+        )
+    except Exception:
+        await message.answer(
+            "⚠️ Оплата получена, но произошла ошибка при выдаче ключа.\n"
+            "Пожалуйста, обратитесь в поддержку: @mtproto_keys"
+        )
 
 
 @router.callback_query(F.data == "answer_yes")
