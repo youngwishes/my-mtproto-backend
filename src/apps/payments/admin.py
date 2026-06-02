@@ -8,9 +8,10 @@ from apps.payments.models import Payment, Product
 class PaymentAdmin(admin.ModelAdmin):
     list_display = [
         "id",
-        "provider_payment_charge_id",
+        "charge_id",
         "telegram_username_link",
         "key",
+        "provider",
         "created_at",
     ]
     list_select_related = ["user", "key"]
@@ -34,6 +35,7 @@ class ProductAdmin(admin.ModelAdmin):
         "is_active",
         "title",
         "price",
+        "stars_price",
         "currency",
         "send_email_to_provider",
         "need_email",

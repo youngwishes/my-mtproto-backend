@@ -26,6 +26,7 @@ class TestGetProductView(APITestCase):
                 "provider_data": self.product.provider_data_json,
                 "currency": "RUB",
                 "price": self.product.price,
+                "stars_price": self.product.stars_price,
                 "need_email": self.product.need_email,
                 "send_email_to_provider": self.product.send_email_to_provider,
             },

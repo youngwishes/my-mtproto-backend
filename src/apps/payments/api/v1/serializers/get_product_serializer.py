@@ -9,3 +9,4 @@ class GetProductSerializer(serializers.Serializer):
     send_email_to_provider = serializers.BooleanField()
     need_email = serializers.BooleanField()
     price = serializers.FloatField()
+    stars_price = serializers.IntegerField()

@@ -1,15 +1,20 @@
+from __future__ import annotations
+
+import enum
 import json
 
 from django.db import models
 
 from apps.core import ActiveQuerySet, BaseDjangoModel
+from apps.payments.enums import PaymentProviderEnum
 
 
 class ProductQuerySet(ActiveQuerySet):
     def create_test_product(self) -> "Product":
         return self.create(
             title="MTPRoto Proxy Key",
-            price=69 * 100,
+            price=79 * 100,
+            stars_price=60,
             description="Позволяет ускорить работу мессенджера Telegram. Работает сразу на 3-ех устройствах.",
             provider_data=json.dumps(
                 {
@@ -19,7 +24,7 @@ class ProductQuerySet(ActiveQuerySet):
                             "description": "Оплата подписки на телеграмм-канал на один месяц.",
                             "quantity": "1.00",
                             "amount": {
-                                "value": 69,
+                                "value": 79,
                                 "currency": "RUB",
                             },
                             "vat_code": 4,
@@ -41,6 +46,7 @@ class Product(BaseDjangoModel):
     )
     need_email = models.BooleanField("спрашивать почту", default=True)
     price = models.DecimalField("цена", max_digits=10, decimal_places=2)
+    stars_price = models.PositiveIntegerField("цена в звёздах", default=60)
 
     objects = ProductQuerySet.as_manager()
 
@@ -67,9 +73,15 @@ class Payment(BaseDjangoModel):
         verbose_name="ключ",
         null=True,
     )
-    provider_payment_charge_id = models.CharField(
-        "UUID платежа на ЮKassa",
+    charge_id = models.CharField(
+        "ID платежа у провайдера",
         blank=True,
+    )
+    provider = models.CharField(
+        "провайдер",
+        max_length=16,
+        choices=PaymentProviderEnum.choices(),
+        default=PaymentProviderEnum.YUKASSA,
     )
 
     class Meta:

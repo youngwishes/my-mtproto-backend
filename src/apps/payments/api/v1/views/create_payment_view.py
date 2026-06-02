@@ -19,9 +19,8 @@ class CreatePaymentView(APIView):
         service = get_create_payment_service()
         service(
             username=serializer.validated_data["username"],
-            provider_payment_charge_id=serializer.validated_data[
-                "provider_payment_charge_id"
-            ],
+            charge_id=serializer.validated_data["charge_id"],
+            provider=serializer.validated_data["provider"],
         )
 
         return Response(status=status.HTTP_200_OK)
