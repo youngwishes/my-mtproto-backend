@@ -54,7 +54,7 @@ async def cmd_start(message: Message):
 
     keyboard = InlineKeyboardBuilder(
         markup=[
-            [InlineKeyboardButton(text="🇳🇱 Ускорить", callback_data=callback_data)],
+            [InlineKeyboardButton(text="⚡️ Ускорить Telegram", callback_data=callback_data, style="primary")],
             [InlineKeyboardButton(text="📋 Информация", callback_data="info")],
             [
                 InlineKeyboardButton(
@@ -63,7 +63,7 @@ async def cmd_start(message: Message):
             ],
             [
                 InlineKeyboardButton(
-                    text="🔧️ Перевыпустить ссылку", callback_data="update_link"
+                    text="🔄 Перевыпустить ссылку", callback_data="update_link"
                 )
             ],
         ],
@@ -90,7 +90,7 @@ async def cmd_start_inline(callback: CallbackQuery):
 
     keyboard = InlineKeyboardBuilder(
         markup=[
-            [InlineKeyboardButton(text="🇳🇱 Ускорить", callback_data=callback_data)],
+            [InlineKeyboardButton(text="⚡️ Ускорить Telegram", callback_data=callback_data, style="primary")],
             [InlineKeyboardButton(text="📋 Информация", callback_data="info")],
             [
                 InlineKeyboardButton(
@@ -99,7 +99,7 @@ async def cmd_start_inline(callback: CallbackQuery):
             ],
             [
                 InlineKeyboardButton(
-                    text="🔧️ Перевыпустить ссылку", callback_data="update_link"
+                    text="🔄 Перевыпустить ссылку", callback_data="update_link"
                 )
             ],
         ],
@@ -121,6 +121,7 @@ async def process_boost_free(callback: CallbackQuery):
                 text="🇳🇱 Подключиться",
                 url=response.link,
                 callback_data=None,
+                style="primary",
             )
         ],
         [
@@ -176,6 +177,7 @@ async def process_referral(callback: CallbackQuery):
                 InlineKeyboardButton(
                     text="🎁 Получить бесплатную ссылку",
                     callback_data="get-referral-link",
+                    style="success",
                 )
             ]
         )
@@ -218,6 +220,7 @@ async def process_referral_link(callback: CallbackQuery):
                 text="🇳🇱 Подключиться",
                 url=response.link,
                 callback_data=None,
+                style="primary",
             )
         ]
     ]
@@ -236,13 +239,20 @@ async def process_boost_paid(callback: CallbackQuery):
 
     keyboard = InlineKeyboardBuilder(
         markup=[
-            [InlineKeyboardButton(text="💳 ЮKassa", callback_data="pay_yukassa")],
-            [InlineKeyboardButton(text="⭐ Telegram Stars", callback_data="pay_stars")],
+            [InlineKeyboardButton(text="💳 ЮKassa — 79 ₽", callback_data="pay_yukassa", style="primary")],
+            [InlineKeyboardButton(text="⭐ Telegram Stars — 60 ★", callback_data="pay_stars", style="primary")],
             [InlineKeyboardButton(text="🔙 Назад", callback_data="show_start_screen")],
         ],
     )
     await callback.message.edit_text(
-        text="Выберите способ оплаты:",
+        text=(
+            "💰 <b>Выберите способ оплаты</b>\n\n"
+            "• 💳 <b>ЮKassa</b> — 79 ₽/месяц\n"
+            "  Банковская карта, SberPay, ЮMoney\n\n"
+            "• ⭐ <b>Telegram Stars</b> — 60 ★/месяц\n"
+            "  Оплата прямо в Telegram\n"
+        ),
+        parse_mode="HTML",
         reply_markup=keyboard.adjust(1).as_markup(),
     )
 
@@ -288,6 +298,7 @@ async def update_link(callback: CallbackQuery):
                 text="🇳🇱 Подключиться",
                 url=response.link,
                 callback_data=None,
+                style="primary",
             )
         ]
     ]
@@ -340,6 +351,7 @@ async def process_yes_user(callback: CallbackQuery):
                 text="🇳🇱 Подключиться",
                 url=response.link,
                 callback_data=None,
+                style="primary",
             )
         ]
     ]
@@ -382,6 +394,7 @@ async def process_yes_user(callback: CallbackQuery):
                 text="🇳🇱 Подключиться",
                 url=response.link,
                 callback_data=None,
+                style="primary",
             )
         ]
     ]
