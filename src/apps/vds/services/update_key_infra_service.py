@@ -27,10 +27,6 @@ class UpdateKeyInfraService:
     @log_infra_error
     def __call__(self, *, old_key: MTPRotoKey, username: str) -> Response | None:
         try:
-            for server in VDSInstance.objects.all():
-                remove_key_from_another_vds_instances_task(
-                    server=server.pk, keys_id=[old_key.pk]
-                )
             secret = str(os.urandom(16).hex())
             response = requests.patch(
                 url=f"{old_key.vds.internal_url}/api/users",
