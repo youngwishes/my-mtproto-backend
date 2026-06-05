@@ -74,21 +74,12 @@ class MTPRotoKey(BaseDjangoModel):
         verbose_name="владелец",
         related_name="keys",
     )
-    payment = models.OneToOneField(
-        "tribute.TributeDigitalPayment",
-        on_delete=models.CASCADE,
-        verbose_name="оплата на Tribute",
-        related_name="key",
-        null=True,
-        blank=True,
-    )
     was_deleted = models.BooleanField("удален", default=False)
     tls_domain = models.CharField("домен ключа в telemt")
     node_number = models.CharField("номер ноды", blank=True)
     user_notified = models.BooleanField("уведомлен об истечении", default=False)
     expired_date = models.DateTimeField("истекает", blank=True, null=True)
     last_update = models.DateTimeField("последнее обновление", blank=True, null=True)
-    is_winner = models.BooleanField("победитель конкурса", default=False)
     objects = MTPRotoKeyQuerySet.as_manager()
 
     def __str__(self) -> str:

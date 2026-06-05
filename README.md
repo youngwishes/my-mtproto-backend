@@ -48,13 +48,12 @@ BeatVault — сервис продажи MTProto proxy ссылок для по
 
 ### Покупка ссылки (79 RUB / 60 Stars)
 
-Три платёжных провайдера:
+Два платёжных провайдера:
 
 | Провайдер | Механизм | Endpoint |
 |-----------|----------|----------|
 | YuKassa (Yandex) | Telegram Payments API | Бот обрабатывает `successful_payment` → `POST /api/buy/` |
 | Telegram Stars | Встроенная валюта Telegram | Аналогичный флоу через бота |
-| Tribute | Webhook с HMAC-подписью | `POST /api/webhook/` напрямую на бэкенд |
 
 При покупке: если у пользователя есть активный ключ — продлевается на 30 дней. Если нет — генерируется новый.
 
@@ -117,7 +116,6 @@ Django → POST /api/v2/users/add → VDS #1 (primary, least populated)
 - `expired_date` — дата истечения
 - `tls_domain`, `node_number` — для формирования ссылки `tg://proxy?server={node}.beatvault.ru&port=443&secret=ee{token}{hex(domain)}`
 - `was_deleted`, `is_active` — статус
-- `is_winner` — победитель конкурса (безлимитный ключ)
 
 ### Product (apps/payments)
 Товар: `price` (79 RUB), `stars_price` (60 Stars), `provider_data` (JSON для YuKassa).
@@ -125,12 +123,9 @@ Django → POST /api/v2/users/add → VDS #1 (primary, least populated)
 ### Payment (apps/payments)
 Запись об оплате: `charge_id`, `provider` (YUKASSA/STARS), связь с `user` и `key`.
 
-### TributeDigitalPayment (apps/tribute)
-Webhook-платёж от Tribute: `amount`, `currency`, `telegram_user_id`, `is_success`.
-
 ## API Endpoints
 
-Все endpoints (кроме Tribute webhook) защищены заголовком `Bot-Auth-Token`.
+Все endpoints защищены заголовком `Bot-Auth-Token`.
 
 | Endpoint | Метод | Назначение |
 |----------|-------|------------|
@@ -139,10 +134,8 @@ Webhook-платёж от Tribute: `amount`, `currency`, `telegram_user_id`, `is
 | `/api/referral/cabinet/` | POST | Статистика рефералов |
 | `/api/referral/link/` | POST | Забрать реферальную ссылку |
 | `/api/update-link/` | POST | Перевыпустить ключ |
-| `/api/check-agreement/` | POST | Согласие победителя конкурса |
 | `/api/` | GET | Получить товар (Product) |
 | `/api/buy/` | POST | Зафиксировать оплату |
-| `/api/webhook/` | POST | Tribute webhook (HMAC-подпись) |
 
 ## Стек
 
@@ -192,13 +185,12 @@ docker-compose -f docker-compose.local.yml up -d     # local
 ```
 my-mtproto-backend/
 ├── src/
-│   ├── config/                  # Django settings (base, bot, celery, vds, referrals, tribute)
+│   ├── config/                  # Django settings (base, bot, celery, vds, referrals)
 │   ├── apps/
 │   │   ├── core/                # BaseError, TelegramBot, middleware
 │   │   ├── users/               # SystemUser, бесплатные ссылки, рефералы
 │   │   ├── vds/                 # VDSInstance, MTPRotoKey, инфра-сервисы, Celery-задачи
 │   │   ├── payments/            # Product, Payment, YuKassa/Stars
-│   │   ├── tribute/             # TributeDigitalPayment, webhook
 │   │   └── music/               # (пустое приложение)
 │   └── manage.py
 ├── bot/

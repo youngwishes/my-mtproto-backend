@@ -1,1 +1,0 @@
-from .new_digital_payment import NewDigitalPaymentDTO

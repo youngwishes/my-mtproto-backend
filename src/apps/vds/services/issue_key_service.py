@@ -9,7 +9,6 @@ from apps.vds.services.add_new_key_infra_service import get_add_new_key_service_
 if TYPE_CHECKING:
     from datetime import datetime
 
-    from apps.tribute.models import TributeDigitalPayment
     from apps.users.models import SystemUser
 
 
@@ -22,7 +21,6 @@ class IssueKeyService:
         *,
         user: SystemUser,
         expired_date: datetime,
-        payment: TributeDigitalPayment | None = None,
     ) -> MTPRotoKey:
         server = VDSInstance.objects.get_least_populated()
         response = get_add_new_key_service_factory()(
@@ -32,7 +30,6 @@ class IssueKeyService:
         return MTPRotoKey.objects.create(
             vds=server,
             user=user,
-            payment=payment,
             token=response.key,
             tls_domain=response.tls_domain,
             node_number=server.name,

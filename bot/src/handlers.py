@@ -25,7 +25,6 @@ from services import (
     GetReferralCabinetService,
     GetReferralLinkService,
     UpdateUserKeyService,
-    CheckAgreementWinService,
 )
 
 from src.bot import bot
@@ -338,82 +337,3 @@ async def process_successful_payment(message: Message):
         )
 
 
-@router.callback_query(F.data == "answer_yes")
-async def process_yes_user(callback: CallbackQuery):
-    await callback.answer()
-
-    response = await CheckAgreementWinService()(
-        is_agree=True, username=str(callback.message.chat.id)
-    )
-    keyboard = [
-        [
-            InlineKeyboardButton(
-                text="🇳🇱 Подключиться",
-                url=response.link,
-                callback_data=None,
-                style="primary",
-            )
-        ]
-    ]
-    await callback.message.edit_text(
-        text=(
-            "🌟 <b>Спасибо за доверие и согласие!</b>\n\n"
-            "Это очень помогает нам развивать проект и оставаться честными перед сообществом.\n\n"
-            "📢 <b>Что дальше?</b>\n"
-            "• Мы опубликуем твой ник (или имя) в нашем канале как победителя\n"
-            "• Другие пользователи смогут написать тебе, если захотят проверить честность конкурса\n"
-            "• Ты всегда можешь отказаться от публикации, написав нам в поддержку — @mtproto_keys\n\n"
-            "🔗 <b>А вот и твой главный приз — несгораемая ссылка на MTPRoto прокси:</b>\n\n"
-            f"<code>{response.link}</code>\n\n"
-            "💡 <b>Важно:</b>\n"
-            "• Ссылка работает на <b>3 устройствах</b>\n"
-            "• Действует пожизненно, пока жив наш сервис\n"
-            "• Никакого спонсорского канала — мы держим слово\n\n"
-            "🎯 <b>Как использовать:</b>\n"
-            "1. Нажми на кнопку\n"
-            "2. Нажми «подключиться»\n"
-            "3. Готово!\n\n"
-            "🙏 <b>Ещё раз огромное спасибо!</b>\n"
-            "Ты помог нам стать лучше. Если будут вопросы — пиши в поддержку — @mtproto_keys."
-        ),
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard),
-        parse_mode="HTML",
-    )
-
-
-@router.callback_query(F.data == "answer_no")
-async def process_yes_user(callback: CallbackQuery):
-    await callback.answer()
-
-    response = await CheckAgreementWinService()(
-        is_agree=False, username=str(callback.message.chat.id)
-    )
-    keyboard = [
-        [
-            InlineKeyboardButton(
-                text="🇳🇱 Подключиться",
-                url=response.link,
-                callback_data=None,
-                style="primary",
-            )
-        ]
-    ]
-    await callback.message.edit_text(
-        text=(
-            "🌟 <b>Спасибо ответ!</b>\n\n"
-            "🔗 <b>А вот и твой главный приз — несгораемая ссылка на MTPRoto прокси:</b>\n"
-            f"<code>{response.link}</code>\n\n"
-            "💡 <b>Важно:</b>\n"
-            "• Ссылка работает на <b>3 устройствах</b>\n"
-            "• Действует пожизненно, пока жив наш сервис\n"
-            "• Никакого спонсорского канала — мы держим слово\n\n"
-            "🎯 <b>Как использовать:</b>\n"
-            "1. Нажми на кнопку\n"
-            "2. Нажми «подключиться»\n"
-            "3. Готово!\n\n"
-            "🙏 <b>Ещё раз огромное спасибо!</b>\n"
-            "Ты помог нам стать лучше. Если будут вопросы — пиши в поддержку — @mtproto_keys."
-        ),
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard),
-        parse_mode="HTML",
-    )

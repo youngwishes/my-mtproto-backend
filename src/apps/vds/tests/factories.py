@@ -1,6 +1,5 @@
 import factory
 from uuid import uuid4
-from apps.tribute.tests.factories import TributeDigitalPaymentFactory
 from apps.users.tests.factories import SystemUserFactory
 from apps.vds.models import VDSInstance, MTPRotoKey
 from datetime import datetime
@@ -23,7 +22,6 @@ class MTPRotoKeyFactory(factory.django.DjangoModelFactory):
     token = factory.LazyFunction(function=uuid4)
     vds = factory.SubFactory(VDSInstanceFactory)
     user = factory.SubFactory(SystemUserFactory)
-    payment = factory.SubFactory(TributeDigitalPaymentFactory)
     expired_date = factory.LazyFunction(datetime.now)
     tls_domain = "petrovich.ru"
     is_active = True

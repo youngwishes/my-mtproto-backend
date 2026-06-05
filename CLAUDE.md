@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Django backend for BeatVault — an MTProto proxy subscription service. Users receive Telegram proxy keys via a Telegram bot. The bot is a separate containerized service in `bot/`. All business user interaction happens through Telegram, not a web UI.
 
+Подробная документация — в `docs/` (BUSINESS.md, ARCHITECTURE.md, CONTRACTS.md, MODELS.md, SERVICES.md).
+
 ## Commands
 
 All Django commands run from `src/`:
@@ -74,6 +76,10 @@ Scheduled via Celery Beat (defined in `config/settings/celery.py`):
 - `remove_user_keys_daily` — 9:00 UTC, deletes expired keys
 - `notify_before_removing_daily` — 15:00 UTC, warns users
 - `notify_before_removing_daily_hour_before` — 8:00 UTC, 1-hour pre-warning
+
+### apps/music/ — FakeTLS-заглушка
+
+Приложение `music/` — статическая заглушка без бизнес-логики. Она развёрнута на домене, под который маскируется FakeTLS прокси-сервера. Не изучать, не рефакторить, не трогать.
 
 ### Key Business Rules
 

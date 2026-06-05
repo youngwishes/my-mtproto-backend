@@ -1,21 +1,16 @@
 FROM python:3.13-slim
 
-# Устанавливаем uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
 
-# Копируем файлы с зависимостями
-COPY requirements.txt .
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev --no-install-project
 
-# Устанавливаем зависимости без создания виртуального окружения
-RUN pip install -r requirements.txt
-
-# Копируем остальной код
 COPY . .
 
-# Устанавливаем переменные окружения
+ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 
-# Запускаем бота
 CMD ["python", "src/bot.py"]

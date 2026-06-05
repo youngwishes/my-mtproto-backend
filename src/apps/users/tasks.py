@@ -1,85 +1,13 @@
-import os
 import time
 from time import sleep
 
-import requests
 from celery import shared_task
-from django.conf import settings
 from django.db import transaction
-from django.db.models import Count
-from django.utils import html
 
 from apps.core.bot import TelegramBot
 from apps.users.models import SystemUser
 from apps.users.services import get_first_free_link_service
-from apps.vds.models import MTPRotoKey, VDSInstance
-
-
-@shared_task
-def send_new_link(telegram_ids: list[str]) -> None:
-    target_server = VDSInstance.objects.get(pk=9)
-    keys = (
-        MTPRotoKey.objects.exclude(
-            vds=target_server,
-        )
-        .filter(is_active=True, was_deleted=False, user__new_link_sent=False)
-        .select_related("user")
-    )
-    for key in keys:
-        try:
-            secret = str(os.urandom(16).hex())
-            response = requests.post(
-                url=f"{target_server.internal_url}/api/users",
-                json={"username": key.user.username, "secret": secret},
-                timeout=settings.VDS_REQUEST_TIMEOUT,
-            )
-            text = (
-                "✨ <b>Привет!</b>\n\n"
-                "🔥 Мы постоянно развиваем сервис и выпустили ссылки нового образца, которые работают стабильнее!\n\n"
-                "👀 ВАЖНО! Используй новую ссылку, которая прикреплена <b>в этом сообщении!</b>\n\n"
-                "Та ссылка по которой ты подключаешься сейчас скоро <b>перестанет работать!</b>\n\n"
-                "👇 <b>Твоя новая ссылка сроком действия до {expired_date}:</b>"
-            ).format(expired_date=key.expired_date)
-            with transaction.atomic():
-                key.vds = target_server
-                key.tls_domain = response.json()["tls_domain"]
-                key.token = secret
-                key.node_number = target_server.name
-                key.save(update_fields=["tls_domain", "token", "node_number", "vds"])
-                key.user.new_link_sent = True
-                key.user.save(update_fields=["new_link_sent"])
-                TelegramBot.send_message_with_link(
-                    text=text,
-                    link=key.get_proxy_link(),
-                    chat_id=key.user.username,
-                )
-        except Exception as exc:
-            escaped_error = html.escape(exc)
-            TelegramBot.send_message(
-                chat_id=settings.MY_TELEGRAM_ID,
-                text=(
-                    "🟡 <b>(BACKEND) Системное оповещение</b>\n\n"
-                    "🛡 <b>Тип ошибки:</b> SERVICE (400)\n"
-                    "📋 <b>Детали:</b>\n"
-                    f"- Не удалось уведомить пользователя об удалении ссылки\n"
-                    f"- Пользователь — {key.user.username}\n\n"
-                    f"<code>{escaped_error}</code>\n\n"
-                    "⚙️ <i>Возможно, требуется внимание команды</i>"
-                ),
-            )
-        else:
-            TelegramBot.send_message(
-                chat_id=settings.MY_TELEGRAM_ID,
-                text=(
-                    "🟢 <b>(BACKEND) Системное оповещение</b>\n\n"
-                    "🛡 <b>Тип события:</b> уведомление\n"
-                    "📋 <b>Детали:</b>\n"
-                    f"- Ссылка нового формата успешно отправлена пользователю\n"
-                    f"- Пользователь — {key.user.username}\n\n"
-                ),
-            )
-        finally:
-            sleep(0.5)
+from apps.vds.models import MTPRotoKey
 
 
 @shared_task
@@ -131,56 +59,3 @@ def send_free_link_to_user_task(telegram_ids: list[str]) -> None:
             pass
 
 
-@shared_task
-def update_user_link_task(telegram_ids: list[str]) -> None:
-    for telegram_id in telegram_ids:
-        TelegramBot.update_user_link_notification(telegram_id=int(telegram_id))
-        time.sleep(0.666)
-
-
-@shared_task
-def ask_user_agreement(is_testing: bool = False) -> None:
-    if not is_testing:
-        top_inviters = list(
-            SystemUser.objects.filter(invited_from_username__isnull=False)
-            .exclude(
-                invited_from_username="",
-            )
-            .values("invited_from_username")
-            .annotate(invited_count=Count("invited_from_username"))
-            .filter(invited_count__gte=5)
-            .order_by("-invited_count")[:30]
-        )
-    else:
-        top_inviters = [{"invited_from_username": "1487189460"}]
-
-    for inviter in top_inviters:
-        try:
-            TelegramBot.notify_about_win(chat_id=inviter["invited_from_username"])
-        except Exception as exc:
-            escaped_error = html.escape(exc)
-            TelegramBot.send_message(
-                chat_id=settings.MY_TELEGRAM_ID,
-                text=(
-                    "🟡 <b>(BACKEND) Системное оповещение</b>\n\n"
-                    "🛡 <b>Тип ошибки:</b> SERVICE (400)\n"
-                    "📋 <b>Детали:</b>\n"
-                    f"- Не удалось уведомить пользователя об получении пожизненной ссылки\n"
-                    f"- Пользователь — {inviter['invited_from_username']}\n\n"
-                    f"<code>{escaped_error}</code>\n\n"
-                    "⚙️ <i>Возможно, требуется внимание команды</i>"
-                ),
-            )
-        else:
-            TelegramBot.send_message(
-                chat_id=settings.MY_TELEGRAM_ID,
-                text=(
-                    "🟢 <b>(BACKEND) Системное оповещение</b>\n\n"
-                    "🛡 <b>Тип события:</b> уведомление\n"
-                    "📋 <b>Детали:</b>\n"
-                    f"- Успешно уведомили пользователя о победе в конкурсе\n"
-                    f"- Пользователь — {inviter['invited_from_username']}\n\n"
-                ),
-            )
-        finally:
-            sleep(0.5)

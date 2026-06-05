@@ -1,21 +1,17 @@
-# Dockerfile
 FROM python:3.13-slim
 
-# Устанавливаем рабочую директорию
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
 WORKDIR /app
 
-# Копируем файлы с зависимостями
-COPY requirements.txt .
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev --no-install-project
+
 COPY entrypoint.sh .
 RUN chmod +x entrypoint.sh
 
-# Устанавливаем зависимости через uv
-RUN pip install -r requirements.txt
-
-# Копируем исходный код
 COPY src/ .
 
-# Открываем порт
-EXPOSE 8000
+ENV PATH="/app/.venv/bin:$PATH"
 
-# Запускаем приложение через uv
+EXPOSE 8000

@@ -1,4 +1,3 @@
 from .first_free_link_view import CreateFirstFreeLinkView, CheckFirstFreeLinkView
 from .referral_cabinet_view import ReferralCabinetView, GetReferralLinkView
 from .update_key_view import UpdateKeyView
-from .check_agreement_view import UserAgreementView
