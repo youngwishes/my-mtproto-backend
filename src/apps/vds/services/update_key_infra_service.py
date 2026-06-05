@@ -17,7 +17,6 @@ from apps.vds.tasks import (
 class Response:
     key: str
     tls_domain: str
-    node_number: str
 
     def asdict(self) -> dict:
         return asdict(self)
@@ -34,7 +33,7 @@ class UpdateKeyInfraService:
                 )
             secret = str(os.urandom(16).hex())
             response = requests.post(
-                url=f"{old_key.vds.internal_url}/api/v2/users/add",
+                url=f"{old_key.vds.internal_url}/api/users",
                 json={"username": username, "secret": secret},
                 timeout=settings.VDS_REQUEST_TIMEOUT,
             )

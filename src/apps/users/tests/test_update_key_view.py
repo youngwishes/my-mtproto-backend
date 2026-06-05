@@ -19,16 +19,15 @@ class TestUpdateKeyView(APITestCase):
     def _mock_vds_request(self) -> None:
         responses.add(
             method=responses.POST,
-            url=self.server.internal_url + "/api/v2/users/add",
+            url=self.server.internal_url + "/api/users",
             json={
                 "tls_domain": "petrovich.ru",
                 "key": "test2",
-                "node_number": "node2",
             },
         )
         responses.add(
-            method=responses.POST,
-            url=self.server.internal_url + "/api/v2/users/remove",
+            method=responses.DELETE,
+            url=self.server.internal_url + "/api/users",
         )
 
     @responses.activate
@@ -57,7 +56,7 @@ class TestUpdateKeyView(APITestCase):
         user_key_after = MTPRotoKey.objects.first()
 
         self.assertEqual(user_key_after.tls_domain, "petrovich.ru")
-        self.assertEqual(user_key_after.node_number, "node2")
+        self.assertEqual(user_key_after.node_number, self.server.name)
         self.assertEqual(user_key_after.token, "test2")
 
         self.assertEqual(user_key_after.expired_date.date(), user_key_before.expired_date.date())

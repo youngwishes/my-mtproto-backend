@@ -24,11 +24,10 @@ class TestAddUserService(TestCase):
         for server in VDSInstance.objects.all():
             responses.add(
                 method=responses.POST,
-                url=server.internal_url + "/api/v2/users/add",
+                url=server.internal_url + "/api/users",
                 json={
                     "tls_domain": "petrovich.ru",
                     "key": "test",
-                    "node_number": "telemt-node1",
                 },
             )
 
@@ -40,7 +39,7 @@ class TestAddUserService(TestCase):
         self.assertEqual(len(responses.calls), 1)
         self.assertEqual(
             responses.calls[0].request.url,
-            self.vds.internal_url + "/api/v2/users/add",
+            self.vds.internal_url + "/api/users",
         )
         self.assertEqual(responses.calls[0].request.method, "POST")
         request_body = json.loads(responses.calls[0].request.body)

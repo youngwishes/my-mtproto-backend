@@ -20,11 +20,10 @@ class TestAddUserTask(TestCase):
         for server in VDSInstance.objects.all():
             responses.add(
                 method=responses.POST,
-                url=server.internal_url + "/api/v2/users/add",
+                url=server.internal_url + "/api/users",
                 json={
                     "tls_domain": "petrovich.ru",
                     "key": "test",
-                    "node_number": "telemt-node1",
                 },
             )
 
@@ -34,7 +33,7 @@ class TestAddUserTask(TestCase):
         add_key_to_another_vds_instances_task(exclude=self.vds.pk, username="John", secret="test")
         self.assertEqual(len(responses.calls), 5)
         for call in responses.calls:
-            self.assertTrue(call.request.url.endswith("/api/v2/users/add"))
+            self.assertTrue(call.request.url.endswith("/api/users"))
             self.assertEqual(call.request.method, "POST")
             request_body = json.loads(call.request.body)
             self.assertEqual(request_body.get("username"), "John")

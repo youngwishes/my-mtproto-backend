@@ -49,7 +49,7 @@ class UpdateKeyService:
             key.vds = key.vds
             key.token = response.key
             key.tls_domain = response.tls_domain
-            key.node_number = response.node_number
+            key.node_number = key.vds.name
             key.last_update = timezone.now()
             key.was_deleted = False
             key.is_active = True

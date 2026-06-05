@@ -18,8 +18,8 @@ class TestRemoveUserTask(TestCase):
 
     def _add_vds_response(self):
         responses.add(
-            method=responses.POST,
-            url=self.server.internal_url + "/api/v2/users/remove",
+            method=responses.DELETE,
+            url=self.server.internal_url + "/api/users",
         )
 
     @mock.patch("apps.vds.services.remove_key_infra_service.RemoveUserKeyInfraService.__call__")

@@ -19,8 +19,8 @@ class RemoveUserKeyInfraService:
             usernames = list(
                 keys.values_list("user__username", flat=True).distinct()
             )
-            response = requests.post(
-                f"{server.internal_url}/api/v2/users/remove",
+            response = requests.delete(
+                f"{server.internal_url}/api/users",
                 json={"usernames": usernames},
                 timeout=settings.VDS_REQUEST_TIMEOUT,
             )

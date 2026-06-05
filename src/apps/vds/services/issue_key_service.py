@@ -35,7 +35,7 @@ class IssueKeyService:
             payment=payment,
             token=response.key,
             tls_domain=response.tls_domain,
-            node_number=response.node_number,
+            node_number=server.name,
             expired_date=expired_date,
         )
 

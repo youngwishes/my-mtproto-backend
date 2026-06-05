@@ -29,7 +29,7 @@ def send_new_link(telegram_ids: list[str]) -> None:
         try:
             secret = str(os.urandom(16).hex())
             response = requests.post(
-                url=f"{target_server.internal_url}/api/v2/users/add",
+                url=f"{target_server.internal_url}/api/users",
                 json={"username": key.user.username, "secret": secret},
                 timeout=settings.VDS_REQUEST_TIMEOUT,
             )
@@ -44,7 +44,7 @@ def send_new_link(telegram_ids: list[str]) -> None:
                 key.vds = target_server
                 key.tls_domain = response.json()["tls_domain"]
                 key.token = secret
-                key.node_number = response.json()["node_number"]
+                key.node_number = target_server.name
                 key.save(update_fields=["tls_domain", "token", "node_number", "vds"])
                 key.user.new_link_sent = True
                 key.user.save(update_fields=["new_link_sent"])

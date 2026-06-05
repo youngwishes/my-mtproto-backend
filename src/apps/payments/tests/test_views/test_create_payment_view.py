@@ -27,11 +27,10 @@ class TestCreatePaymentView(APITestCase):
     def _mock_vds_request(self) -> None:
         responses.add(
             method=responses.POST,
-            url=self.vds.internal_url + "/api/v2/users/add",
+            url=self.vds.internal_url + "/api/users",
             json={
                 "tls_domain": "petrovich.ru",
                 "key": "test",
-                "node_number": "telemt-node01",
             },
         )
 

@@ -14,7 +14,6 @@ from apps.vds.tasks import add_key_to_another_vds_instances_task
 class Response:
     key: str
     tls_domain: str
-    node_number: str
 
 
 @dataclass(kw_only=True, slots=True, frozen=True)
@@ -25,7 +24,7 @@ class AddNewKeyInfraService:
         try:
             secret = str(os.urandom(16).hex())
             response = requests.post(
-                url=f"{server.internal_url}/api/v2/users/add",
+                url=f"{server.internal_url}/api/users",
                 json={"username": username, "secret": secret},
                 timeout=settings.VDS_REQUEST_TIMEOUT,
             )
