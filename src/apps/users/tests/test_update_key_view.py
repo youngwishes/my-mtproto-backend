@@ -18,7 +18,7 @@ class TestUpdateKeyView(APITestCase):
 
     def _mock_vds_request(self) -> None:
         responses.add(
-            method=responses.POST,
+            method=responses.PATCH,
             url=self.server.internal_url + "/api/users",
             json={
                 "tls_domain": "petrovich.ru",

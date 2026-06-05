@@ -32,7 +32,7 @@ class UpdateKeyInfraService:
                     server=server.pk, keys_id=[old_key.pk]
                 )
             secret = str(os.urandom(16).hex())
-            response = requests.post(
+            response = requests.patch(
                 url=f"{old_key.vds.internal_url}/api/users",
                 json={"username": username, "secret": secret},
                 timeout=settings.VDS_REQUEST_TIMEOUT,
