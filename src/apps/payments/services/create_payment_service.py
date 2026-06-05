@@ -2,83 +2,70 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import timedelta
+from typing import TYPE_CHECKING, final
 
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
-from apps.core.bot import TelegramBot
 from apps.core.service import log_service_error
+from apps.payments.exceptions import BadPaymentData
 from apps.payments.models import Payment
-from apps.users.models import SystemUser
-from apps.vds.models import MTPRotoKey
+from apps.payments.services.extend_key_service import ExtendKeyService, get_extend_key_service
+from apps.payments.services.notify_payment_service import NotifyPaymentService, get_notify_payment_service
+from apps.users.selectors import get_user_by_username
+from apps.vds.selectors import get_active_key
 from apps.vds.services import get_issue_key_service
 
+if TYPE_CHECKING:
+    from apps.payments.services.dtos import CreatePaymentIn
 
+
+@final
 @dataclass(kw_only=True, slots=True, frozen=True)
 class CreatePaymentService:
+    """Оркестратор обработки платежа.
+
+    Определяет стратегию: продлить существующий ключ или выдать новый.
+    Создаёт запись Payment и делегирует нотификацию.
+
+    Raises:
+        BadPaymentData: если пользователь не найден по username.
+    """
+
+    extend_key_service: ExtendKeyService
+    notify_service: NotifyPaymentService
+
     @log_service_error
-    def __call__(self, *, username: str, charge_id: str, provider: str) -> None:
-        user, _ = SystemUser.objects.get_or_create(username=username)
+    def __call__(self, *, payment: CreatePaymentIn) -> None:
+        user = get_user_by_username(username=payment.username)
+        if user is None:
+            raise BadPaymentData(telegram_id=payment.username)
 
-        active_key = user.keys.filter(
-            was_deleted=False,
-            expired_date__gt=timezone.now(),
-        ).first()
+        active_key = get_active_key(user=user)
 
-        if active_key:
-            self._extend_key(
-                user=user,
-                key=active_key,
-                charge_id=charge_id,
-                provider=provider,
-            )
-        else:
-            self._issue_new_key(
-                user=user,
-                charge_id=charge_id,
-                provider=provider,
-            )
-
-    def _extend_key(
-        self,
-        *,
-        user: SystemUser,
-        key: MTPRotoKey,
-        charge_id: str,
-        provider: str,
-    ) -> None:
         with transaction.atomic():
-            key.expired_date += timedelta(days=30)
-            key.save(update_fields=["expired_date"])
-            Payment.objects.filter(key=key).update(key=None)
+            if active_key:
+                self.extend_key_service(key=active_key)
+                key = active_key
+            else:
+                key = get_issue_key_service()(
+                    user=user,
+                    expired_date=timezone.now() + timedelta(days=settings.SUBSCRIPTION_PERIOD_DAYS),
+                )
+
             Payment.objects.create(
                 user=user,
                 key=key,
-                charge_id=charge_id,
-                provider=provider,
+                charge_id=payment.charge_id,
+                provider=payment.provider,
             )
-        TelegramBot.send_proxy_link(
-            chat_id=user.username,
-            link=key.get_proxy_link(),
-        )
 
-    def _issue_new_key(self, *, user: SystemUser, charge_id: str, provider: str) -> None:
-        with transaction.atomic():
-            mtproto_key = get_issue_key_service()(
-                user=user,
-                expired_date=timezone.now() + timedelta(days=30),
-            )
-            Payment.objects.create(
-                user=user,
-                key=mtproto_key,
-                charge_id=charge_id,
-                provider=provider,
-            )
-        TelegramBot.send_proxy_link(
-            chat_id=user.username,
-            link=mtproto_key.get_proxy_link(),
-        )
+        self.notify_service(user=user, key=key)
 
 
 def get_create_payment_service() -> CreatePaymentService:
-    return CreatePaymentService()
+    return CreatePaymentService(
+        extend_key_service=get_extend_key_service(),
+        notify_service=get_notify_payment_service(),
+    )
