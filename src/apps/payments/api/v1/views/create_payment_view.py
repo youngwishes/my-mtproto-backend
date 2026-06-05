@@ -4,7 +4,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.payments.api.v1.serializers import CreatePaymentSerializer
-from apps.payments.services.create_payment_service import get_create_payment_service
+from apps.payments.services import get_create_payment_service
+from apps.payments.services.dtos import CreatePaymentIn
 from apps.users.permissions import BotAuthToken
 
 
@@ -17,10 +18,6 @@ class CreatePaymentView(APIView):
         serializer.is_valid(raise_exception=True)
 
         service = get_create_payment_service()
-        service(
-            username=serializer.validated_data["username"],
-            charge_id=serializer.validated_data["charge_id"],
-            provider=serializer.validated_data["provider"],
-        )
+        service(payment=CreatePaymentIn(**serializer.validated_data))
 
         return Response(status=status.HTTP_200_OK)
