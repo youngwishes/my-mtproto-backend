@@ -214,18 +214,25 @@ def remove_key_from_another_vds_instances_task(server: int, keys_id: list[int]) 
 
 
 @shared_task
-def broadcast_proxy_links_task() -> None:
+def broadcast_proxy_links_task(testing: bool = False) -> None:
     from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-    keys = (
-        MTPRotoKey.objects.filter(
+    if testing:
+        keys = MTPRotoKey.objects.filter(
+            user__pk=562,
             is_active=True,
             was_deleted=False,
-            user__first_month_free_used=True,
-            expired_date__gt=timezone.now(),
+        ).select_related("user")
+    else:
+        keys = (
+            MTPRotoKey.objects.filter(
+                is_active=True,
+                was_deleted=False,
+                user__first_month_free_used=True,
+                expired_date__gt=timezone.now(),
+            )
+            .select_related("user")
         )
-        .select_related("user")
-    )
 
     sent_count = 0
     for key in keys:
@@ -245,8 +252,10 @@ def broadcast_proxy_links_task() -> None:
                     keyboard=[
                         [
                             InlineKeyboardButton(
-                                text="Подключиться",
+                                text="🇳🇱 Подключиться",
                                 url=key.get_proxy_link(),
+                                callback_data=None,
+                                style="primary",
                             )
                         ]
                     ]
