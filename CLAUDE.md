@@ -87,6 +87,16 @@ Scheduled via Celery Beat (defined in `config/settings/celery.py`):
 - Referral reward: after 5 referrals activate their free period, the referrer gets a free key (`GetFreeLinkViaReferralsService`)
 - `MTPRotoKey` stores `token`, `tls_domain`, `node_number`, VDS assignment, and `expired_date`
 
+### Models
+
+Все новые модели наследуются от `BaseDjangoModel` (`apps/core/models.py`). Он предоставляет:
+- `is_active` (BooleanField, default=True)
+- `created_at` (auto_now_add)
+- `updated_at` (auto_now)
+- `ActiveQuerySet` как менеджер — метод `.active()` для фильтрации по `is_active=True`
+
+Не дублировать эти поля в моделях. Для фильтрации активных записей использовать `Model.objects.active()`, а не `filter(is_active=True)`.
+
 ## Rules
 
 1. **Никогда не выполнять git-команды.** Коммиты, пуши, ветки — пользователь делает сам.

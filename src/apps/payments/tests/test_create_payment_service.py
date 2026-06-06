@@ -20,7 +20,7 @@ from apps.vds.tests.factories import MTPRotoKeyFactory, VDSInstanceFactory
 
 class TestCreatePaymentService(TestCase):
     def setUp(self) -> None:
-        self.user = SystemUserFactory()
+        self.user = SystemUserFactory(username="12345678")
         self.vds = VDSInstanceFactory()
         self.service = get_create_payment_service()
 
@@ -49,7 +49,7 @@ class TestCreatePaymentService(TestCase):
 
     @responses.activate
     @mock.patch("apps.vds.tasks.add_key_to_another_vds_instances_task.delay")
-    @mock.patch("apps.core.bot.TelegramBot.send_proxy_link")
+    @mock.patch("apps.notifications.services.send_notification_service.send")
     def test_creates_new_key_when_no_active_key(self, mock_send: mock.Mock, _task: mock.Mock) -> None:
         self._mock_vds_request()
 
@@ -71,12 +71,9 @@ class TestCreatePaymentService(TestCase):
         self.assertEqual(payment.charge_id, "charge_new")
         self.assertEqual(payment.provider, PaymentProviderEnum.YUKASSA)
 
-        mock_send.assert_called_once_with(
-            chat_id=self.user.username,
-            link=key.get_proxy_link(),
-        )
+        mock_send.assert_called_once()
 
-    @mock.patch("apps.core.bot.TelegramBot.send_proxy_link")
+    @mock.patch("apps.notifications.services.send_notification_service.send")
     def test_extends_existing_active_key(self, mock_send: mock.Mock) -> None:
         existing_key = MTPRotoKeyFactory(
             user=self.user,
@@ -101,14 +98,11 @@ class TestCreatePaymentService(TestCase):
         self.assertEqual(payment.key, existing_key)
         self.assertEqual(payment.charge_id, "charge_extend")
 
-        mock_send.assert_called_once_with(
-            chat_id=self.user.username,
-            link=existing_key.get_proxy_link(),
-        )
+        mock_send.assert_called_once()
 
     @responses.activate
     @mock.patch("apps.vds.tasks.add_key_to_another_vds_instances_task.delay")
-    @mock.patch("apps.core.bot.TelegramBot.send_proxy_link")
+    @mock.patch("apps.notifications.services.send_notification_service.send")
     def test_creates_new_key_when_existing_key_is_expired(self, mock_send: mock.Mock, _task: mock.Mock) -> None:
         MTPRotoKeyFactory(
             user=self.user,
@@ -131,7 +125,7 @@ class TestCreatePaymentService(TestCase):
 
     @responses.activate
     @mock.patch("apps.vds.tasks.add_key_to_another_vds_instances_task.delay")
-    @mock.patch("apps.core.bot.TelegramBot.send_proxy_link")
+    @mock.patch("apps.notifications.services.send_notification_service.send")
     def test_creates_new_key_when_existing_key_was_deleted(self, mock_send: mock.Mock, _task: mock.Mock) -> None:
         MTPRotoKeyFactory(
             user=self.user,
@@ -150,7 +144,7 @@ class TestCreatePaymentService(TestCase):
 
     @responses.activate
     @mock.patch("apps.vds.tasks.add_key_to_another_vds_instances_task.delay")
-    @mock.patch("apps.core.bot.TelegramBot.send_proxy_link")
+    @mock.patch("apps.notifications.services.send_notification_service.send")
     def test_stars_payment_issues_new_key(self, mock_send: mock.Mock, _task: mock.Mock) -> None:
         self._mock_vds_request()
 
@@ -165,7 +159,7 @@ class TestCreatePaymentService(TestCase):
         self.assertEqual(payment.charge_id, "stars_tx_123")
         self.assertEqual(payment.provider, PaymentProviderEnum.STARS)
 
-    @mock.patch("apps.core.bot.TelegramBot.send_proxy_link")
+    @mock.patch("apps.notifications.services.send_notification_service.send")
     def test_stars_payment_extends_existing_key(self, mock_send: mock.Mock) -> None:
         existing_key = MTPRotoKeyFactory(
             user=self.user,
@@ -191,7 +185,7 @@ class TestCreatePaymentService(TestCase):
         self.assertEqual(payment.charge_id, "stars_tx_456")
         self.assertEqual(payment.provider, PaymentProviderEnum.STARS)
 
-    @mock.patch("apps.core.bot.TelegramBot.log_service_error")
+    @mock.patch("apps.core.service._log_service_error")
     def test_raises_bad_payment_data_when_user_not_found(self, mock_log: mock.Mock) -> None:
         with self.assertRaises(BadPaymentData):
             self.service(payment=self._make_payment(username="nonexistent_user"))

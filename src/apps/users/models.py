@@ -24,6 +24,10 @@ class SystemUser(AbstractUser):
         "количество активированных реф. ссылок",
         default=0,
     )
+
     @property
     def referral_link(self) -> str:
         return settings.BOT_LINK + f"/?start={self.username}"
+
+    def __str__(self) -> str:
+        return str(self.telegram_username)

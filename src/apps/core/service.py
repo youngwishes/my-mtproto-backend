@@ -1,8 +1,13 @@
+from __future__ import annotations
+
 import logging
 from functools import wraps
 from typing import Any, Callable, Protocol
 
-from apps.core.bot import TelegramBot
+from apps.core.telegram.error_logger import (
+    log_infra_error as _log_infra_error,
+    log_service_error as _log_service_error,
+)
 
 logger = logging.LoggerAdapter(
     logging.getLogger(__name__), extra={"tag": "service-layer"}
@@ -42,7 +47,7 @@ def log_service_error(__call__: Callable) -> Callable:
         try:
             return __call__(self, **kwargs)
         except BaseServiceError as service_error:
-            TelegramBot().log_service_error(service_error)
+            _log_service_error(service_error)
             raise service_error
 
     return wrapper
@@ -54,8 +59,17 @@ def log_infra_error(__call__: Callable) -> Callable:
         try:
             return __call__(self, **kwargs)
         except BaseInfraError as infra_error:
-            TelegramBot().send_sorry(infra_error)
-            TelegramBot().log_infra_error(infra_error)
+            from apps.notifications.services.send_notification_service import (
+                SendNotificationService,
+            )
+
+            try:
+                SendNotificationService(
+                    slug="sorry_server_error", context={},
+                )(chat_id=int(infra_error.telegram_id))
+            except Exception:
+                pass
+            _log_infra_error(infra_error)
             raise infra_error
 
     return wrapper

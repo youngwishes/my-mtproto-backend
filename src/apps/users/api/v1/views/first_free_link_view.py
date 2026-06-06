@@ -3,7 +3,6 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.core.bot import notify_bad_request
 from apps.users.api.v1.serializers import (
     CheckFirstFreeLinkSerializer,
     FirstFreeLinkSerializer,
@@ -19,7 +18,6 @@ from apps.users.services.dtos import CheckFirstFreeLinkIn
 class CreateFirstFreeLinkView(APIView):
     permission_classes = (BotAuthToken,)
 
-    @notify_bad_request
     def post(self, request: Request) -> Response:
         serializer = FirstFreeLinkSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -33,7 +31,6 @@ class CreateFirstFreeLinkView(APIView):
 class CheckFirstFreeLinkView(APIView):
     permission_classes = (BotAuthToken,)
 
-    @notify_bad_request
     def post(self, request: Request) -> Response:
         serializer = CheckFirstFreeLinkSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

@@ -1,10 +1,14 @@
+from __future__ import annotations
+
 import time
 from time import sleep
 
 from celery import shared_task
+from django.conf import settings
 from django.db import transaction
 
-from apps.core.bot import TelegramBot
+from apps.core.telegram.transport import is_channel_member, send
+from apps.notifications.selectors import get_template
 from apps.users.models import SystemUser
 from apps.users.services import get_first_free_link_service
 from apps.vds.models import MTPRotoKey
@@ -16,11 +20,16 @@ def send_invite_to_chat_task(telegram_ids: list[str]) -> None:
         telegram_ids = SystemUser.objects.filter(
             first_month_free_used=True
         ).values_list("username", flat=True)
+    template = get_template(slug="invite_to_channel")
     for user in telegram_ids:
         try:
-            is_channel_member = TelegramBot.is_channel_member(telegram_id=int(user))
-            if not is_channel_member:
-                TelegramBot.send_invite_to_chat_v2(telegram_id=int(user))
+            if not is_channel_member(telegram_id=int(user)):
+                message = template.render()
+                send(
+                    chat_id=int(user),
+                    text=message.text,
+                    markup=message.markup,
+                )
                 sleep(0.666)
         except Exception:
             ...
@@ -28,6 +37,7 @@ def send_invite_to_chat_task(telegram_ids: list[str]) -> None:
 
 @shared_task
 def send_free_link_to_user_task(telegram_ids: list[str]) -> None:
+    template = get_template(slug="proxy_link_with_message")
     for telegram_id in telegram_ids:
         user = SystemUser.objects.get(username=telegram_id)
         if user.first_month_free_used:
@@ -45,10 +55,14 @@ def send_free_link_to_user_task(telegram_ids: list[str]) -> None:
                     "👇 <b>Твоя ссылка:</b>"
                 ).format(expired_date=response.expired_date)
 
-                TelegramBot.send_message_with_link(
-                    text=text,
-                    link=response.link,
-                    chat_id=telegram_id,
+                message = template.render(
+                    context={"text": text, "link": response.link},
+                )
+                send(
+                    chat_id=int(telegram_id),
+                    text=message.text,
+                    markup=message.markup,
+                    timeout=settings.TELEGRAM_TIMEOUT,
                 )
                 user.first_month_free_used = True
                 if user.invited_from_username:
@@ -57,5 +71,3 @@ def send_free_link_to_user_task(telegram_ids: list[str]) -> None:
                 time.sleep(0.666)
         except Exception:
             pass
-
-

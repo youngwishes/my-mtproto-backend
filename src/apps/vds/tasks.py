@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import time
 from datetime import timedelta
 
@@ -6,7 +8,8 @@ from celery import shared_task
 from django.conf import settings
 from django.utils import html, timezone
 
-from apps.core.bot import TelegramBot, bot
+from apps.core.telegram.transport import send
+from apps.notifications.selectors import get_template
 from apps.vds.models import MTPRotoKey, VDSInstance
 
 
@@ -27,9 +30,9 @@ def migrate_vds_keys_task(from_instance_id: int) -> None:
                     timeout=settings.VDS_REQUEST_TIMEOUT,
                 )
             except Exception as exc:
-                escaped_error = html.escape(exc)
-                TelegramBot.send_message(
-                    chat_id=settings.MY_TELEGRAM_ID,
+                escaped_error = html.escape(str(exc))
+                send(
+                    chat_id=int(settings.MY_TELEGRAM_ID),
                     text=(
                         "🔴 <b>(BACKEND) Системное оповещение</b>\n\n"
                         "🛡 <b>Тип ошибки:</b> SERVER INTERNAL ERROR (500)\n"
@@ -59,14 +62,16 @@ def remove_user_keys_daily():
     for server in VDSInstance.objects.all():
         service(server=server, keys=queryset)
     queryset.update(is_active=False, was_deleted=True)
+    template = get_template(slug="link_deactivated")
     for username in usernames:
         try:
-            TelegramBot.send_message_deactivate_link(chat_id=username)
+            message = template.render()
+            send(chat_id=int(username), text=message.text, markup=message.markup)
             time.sleep(1)
         except Exception as exc:
-            escaped_error = html.escape(exc)
-            TelegramBot.send_message(
-                chat_id=settings.MY_TELEGRAM_ID,
+            escaped_error = html.escape(str(exc))
+            send(
+                chat_id=int(settings.MY_TELEGRAM_ID),
                 text=(
                     "🟡 <b>(BACKEND) Системное оповещение</b>\n\n"
                     "🛡 <b>Тип ошибки:</b> SERVICE (400)\n"
@@ -88,6 +93,7 @@ def notify_before_removing_daily():
         user_notified=False,
     )
 
+    template = get_template(slug="before_expiry_1day")
     already_sent = set()
     for key in queryset:
         username = None
@@ -97,15 +103,16 @@ def notify_before_removing_daily():
                 continue
             if username in already_sent:
                 continue
-            TelegramBot.notify_before_removing(chat_id=key.user.username)
+            message = template.render()
+            send(chat_id=int(username), text=message.text, markup=message.markup)
             already_sent.add(username)
             key.user_notified = True
             key.save(update_fields=["user_notified"])
             time.sleep(1)
         except Exception as exc:
-            escaped_error = html.escape(exc)
-            TelegramBot.send_message(
-                chat_id=settings.MY_TELEGRAM_ID,
+            escaped_error = html.escape(str(exc))
+            send(
+                chat_id=int(settings.MY_TELEGRAM_ID),
                 text=(
                     "🟡 <b>(BACKEND) Системное оповещение</b>\n\n"
                     "🛡 <b>Тип ошибки:</b> SERVICE (400)\n"
@@ -116,13 +123,13 @@ def notify_before_removing_daily():
                     "⚙️ <i>Возможно, требуется внимание команды</i>"
                 ),
             )
-
 
 
 @shared_task
 def notify_before_removing_daily_hour_before():
     queryset = MTPRotoKey.objects.active().filter(expired_date__date=timezone.now().date())
 
+    template = get_template(slug="before_expiry_1hour")
     already_sent = set()
     for key in queryset:
         username = None
@@ -132,13 +139,14 @@ def notify_before_removing_daily_hour_before():
                 continue
             if username in already_sent:
                 continue
-            TelegramBot.notify_before_removing_before_hour(chat_id=key.user.username)
+            message = template.render()
+            send(chat_id=int(username), text=message.text, markup=message.markup)
             already_sent.add(username)
             time.sleep(1)
         except Exception as exc:
-            escaped_error = html.escape(exc)
-            TelegramBot.send_message(
-                chat_id=settings.MY_TELEGRAM_ID,
+            escaped_error = html.escape(str(exc))
+            send(
+                chat_id=int(settings.MY_TELEGRAM_ID),
                 text=(
                     "🟡 <b>(BACKEND) Системное оповещение</b>\n\n"
                     "🛡 <b>Тип ошибки:</b> SERVICE (400)\n"
@@ -149,8 +157,6 @@ def notify_before_removing_daily_hour_before():
                     "⚙️ <i>Возможно, требуется внимание команды</i>"
                 ),
             )
-
-
 
 
 @shared_task
@@ -165,9 +171,9 @@ def add_key_to_another_vds_instances_task(exclude: int, username: str, secret: s
             )
             response.raise_for_status()
         except Exception as exc:
-            escaped_error = html.escape(exc)
-            TelegramBot.send_message(
-                chat_id=settings.MY_TELEGRAM_ID,
+            escaped_error = html.escape(str(exc))
+            send(
+                chat_id=int(settings.MY_TELEGRAM_ID),
                 text=(
                     "🔴 <b>(BACKEND) Системное оповещение</b>\n\n"
                     "🛡 <b>Тип ошибки:</b> SERVER INTERNAL ERROR (500)\n"
@@ -196,9 +202,9 @@ def remove_key_from_another_vds_instances_task(server: int, keys_id: list[int]) 
         response.raise_for_status()
         keys.update(was_deleted=True, is_active=False)
     except Exception as exc:
-        escaped_error = html.escape(exc)
-        TelegramBot.send_message(
-            chat_id=settings.MY_TELEGRAM_ID,
+        escaped_error = html.escape(str(exc))
+        send(
+            chat_id=int(settings.MY_TELEGRAM_ID),
             text=(
                 "🔴 <b>(BACKEND) Системное оповещение</b>\n\n"
                 "🛡 <b>Тип ошибки:</b> SERVER INTERNAL ERROR (500)\n"
@@ -237,8 +243,8 @@ def broadcast_proxy_links_task(testing: bool = False) -> None:
     sent_count = 0
     for key in keys:
         try:
-            bot.send_message(
-                chat_id=key.user.username,
+            send(
+                chat_id=int(key.user.username),
                 text=(
                     "✨ <b>Привет!</b>\n\n"
                     "В последнее время часть ссылок могла работать нестабильно из-за блокировок. "
@@ -247,15 +253,12 @@ def broadcast_proxy_links_task(testing: bool = False) -> None:
                     "в качестве компенсации за неудобства.\n\n"
                     f"👇 <b>Твоя ссылка (действует до {(key.expired_date + timedelta(days=3)).strftime('%d.%m.%Y')}):</b>"
                 ),
-                parse_mode="HTML",
-                reply_markup=InlineKeyboardMarkup(
+                markup=InlineKeyboardMarkup(
                     keyboard=[
                         [
                             InlineKeyboardButton(
                                 text="🇳🇱 Подключиться",
                                 url=key.get_proxy_link(),
-                                callback_data=None,
-                                style="primary",
                             )
                         ]
                     ]
@@ -269,8 +272,8 @@ def broadcast_proxy_links_task(testing: bool = False) -> None:
         except Exception as exc:
             try:
                 escaped_error = html.escape(str(exc))
-                bot.send_message(
-                    chat_id=settings.MY_TELEGRAM_ID,
+                send(
+                    chat_id=int(settings.MY_TELEGRAM_ID),
                     text=(
                         "🟡 <b>(BACKEND) Системное оповещение</b>\n\n"
                         "🛡 <b>Тип ошибки:</b> SERVICE (400)\n"
@@ -280,7 +283,6 @@ def broadcast_proxy_links_task(testing: bool = False) -> None:
                         f"<code>{escaped_error}</code>\n\n"
                         "⚙️ <i>Возможно, требуется внимание команды</i>"
                     ),
-                    parse_mode="HTML",
                 )
             except Exception:
                 pass

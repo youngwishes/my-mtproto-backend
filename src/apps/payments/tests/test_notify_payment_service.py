@@ -13,11 +13,11 @@ from apps.vds.tests.factories import MTPRotoKeyFactory, VDSInstanceFactory
 
 class TestNotifyPaymentService(TestCase):
     def setUp(self) -> None:
-        self.user = SystemUserFactory()
+        self.user = SystemUserFactory(username="12345")
         self.vds = VDSInstanceFactory()
         self.service = get_notify_payment_service()
 
-    @mock.patch("apps.core.bot.TelegramBot.send_proxy_link")
+    @mock.patch("apps.notifications.services.send_notification_service.send")
     def test_sends_proxy_link_to_user(self, mock_send: mock.Mock) -> None:
         key = MTPRotoKeyFactory(
             user=self.user,
@@ -28,7 +28,7 @@ class TestNotifyPaymentService(TestCase):
 
         self.service(user=self.user, key=key)
 
-        mock_send.assert_called_once_with(
-            chat_id=self.user.username,
-            link=key.get_proxy_link(),
-        )
+        mock_send.assert_called_once()
+        call_kwargs = mock_send.call_args.kwargs
+        self.assertEqual(call_kwargs["chat_id"], 12345)
+        self.assertIsNotNone(call_kwargs["markup"])

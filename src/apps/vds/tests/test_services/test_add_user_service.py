@@ -12,8 +12,8 @@ from apps.vds.services.exceptions import VDSConnectionLimit
 from apps.vds.tests.factories import MTPRotoKeyFactory, VDSInstanceFactory
 
 
-@mock.patch("apps.core.bot.TelegramBot.log_infra_error")
-@mock.patch("apps.core.bot.TelegramBot.send_sorry")
+@mock.patch("apps.notifications.services.send_notification_service.send")
+@mock.patch("apps.core.service._log_infra_error")
 class TestAddUserService(TestCase):
     def setUp(self) -> None:
         self.vds = VDSInstanceFactory()
@@ -33,7 +33,7 @@ class TestAddUserService(TestCase):
 
     @responses.activate
     @mock.patch("apps.vds.services.add_new_key_infra_service.add_key_to_another_vds_instances_task")
-    def test_add_key_service(self, add_to_other_servers, sorry, infra) -> None:
+    def test_add_key_service(self, add_to_other_servers, infra, mock_send) -> None:
         self._add_request()
         get_add_new_key_service_factory()(username="John", server=self.vds)
         self.assertEqual(len(responses.calls), 1)
@@ -45,10 +45,9 @@ class TestAddUserService(TestCase):
         request_body = json.loads(responses.calls[0].request.body)
         self.assertEqual(request_body.get("username"), "John")
         self.assertEqual(infra.call_count, 0)
-        self.assertEqual(sorry.call_count, 0)
         self.assertEqual(add_to_other_servers.delay.call_count, 1)
 
-    def test_add_key_service_limit(self, sorry, infra) -> None:
+    def test_add_key_service_limit(self, infra, mock_send) -> None:
         self._add_request()
         for _ in range(31):
             MTPRotoKeyFactory(vds=self.vds)
@@ -58,4 +57,3 @@ class TestAddUserService(TestCase):
             )
         self.assertEqual(len(responses.calls), 0)
         self.assertEqual(infra.call_count, 1)
-        self.assertEqual(sorry.call_count, 1)

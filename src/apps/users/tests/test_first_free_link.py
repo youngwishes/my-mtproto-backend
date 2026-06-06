@@ -111,7 +111,7 @@ class TestFirstFreeLink(APITestCase):
             },
         )
 
-    @mock.patch("apps.core.bot.TelegramBot.log_service_error")
+    @mock.patch("apps.core.service._log_service_error")
     def test_first_free_link_duplicate(self, service) -> None:
         self.user.first_month_free_used = True
         self.user.save(update_fields=["first_month_free_used"])
@@ -178,8 +178,7 @@ class TestFirstFreeLink(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-    @mock.patch("apps.core.bot.TelegramBot.log_bad_request")
-    def test_first_free_link_400(self, log) -> None:
+    def test_first_free_link_400(self) -> None:
         response = self.client.post(
             path=self.url,
             data={},

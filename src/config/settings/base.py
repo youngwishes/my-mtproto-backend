@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     "apps.vds",
     "apps.music",
     "apps.payments",
+    "apps.notifications",
     "rest_framework",
 ]
 
