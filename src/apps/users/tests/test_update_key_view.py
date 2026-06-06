@@ -71,7 +71,7 @@ class TestUpdateKeyView(APITestCase):
         )
 
     @responses.activate
-    @mock.patch("apps.core.service._log_service_error")
+    @mock.patch("apps.core.decorators._log_service_error")
     def test_update_user_key_if_not_active(self, service) -> None:
         self._mock_vds_request()
         user_key_before = MTPRotoKeyFactory(
@@ -101,7 +101,7 @@ class TestUpdateKeyView(APITestCase):
         self.assertEqual(service.call_count, 1)
 
     @responses.activate
-    @mock.patch("apps.core.service._log_service_error")
+    @mock.patch("apps.core.decorators._log_service_error")
     def test_update_user_key_if_was_deleted(self, service) -> None:
         self._mock_vds_request()
         user_key_before = MTPRotoKeyFactory(
@@ -131,7 +131,7 @@ class TestUpdateKeyView(APITestCase):
         self.assertEqual(service.call_count, 1)
 
     @responses.activate
-    @mock.patch("apps.core.service._log_service_error")
+    @mock.patch("apps.core.decorators._log_service_error")
     def test_update_user_key_if_not_exist(self, service) -> None:
         self._mock_vds_request()
         response = self.client.post(

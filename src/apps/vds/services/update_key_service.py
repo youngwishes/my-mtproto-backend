@@ -4,7 +4,8 @@ from datetime import timedelta
 from django.db import transaction
 from django.utils import timezone
 
-from apps.core.service import BaseServiceError, log_service_error
+from apps.core.decorators import log_service_error
+from apps.core.exceptions import BaseServiceError
 from apps.vds.models import MTPRotoKey
 from apps.vds.services import get_update_key_infra_service
 

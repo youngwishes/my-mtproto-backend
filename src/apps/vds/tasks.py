@@ -8,7 +8,7 @@ from celery import shared_task
 from django.conf import settings
 from django.utils import html, timezone
 
-from apps.core.telegram.transport import send
+from apps.core.telegram.transport import send_telegram_message
 from apps.notifications.selectors import get_template
 from apps.vds.models import MTPRotoKey, VDSInstance
 
@@ -31,7 +31,7 @@ def migrate_vds_keys_task(from_instance_id: int) -> None:
                 )
             except Exception as exc:
                 escaped_error = html.escape(str(exc))
-                send(
+                send_telegram_message(
                     chat_id=int(settings.MY_TELEGRAM_ID),
                     text=(
                         "🔴 <b>(BACKEND) Системное оповещение</b>\n\n"
@@ -66,11 +66,11 @@ def remove_user_keys_daily():
     for username in usernames:
         try:
             message = template.render()
-            send(chat_id=int(username), text=message.text, markup=message.markup)
+            send_telegram_message(chat_id=int(username), text=message.text, markup=message.markup)
             time.sleep(1)
         except Exception as exc:
             escaped_error = html.escape(str(exc))
-            send(
+            send_telegram_message(
                 chat_id=int(settings.MY_TELEGRAM_ID),
                 text=(
                     "🟡 <b>(BACKEND) Системное оповещение</b>\n\n"
@@ -104,14 +104,14 @@ def notify_before_removing_daily():
             if username in already_sent:
                 continue
             message = template.render()
-            send(chat_id=int(username), text=message.text, markup=message.markup)
+            send_telegram_message(chat_id=int(username), text=message.text, markup=message.markup)
             already_sent.add(username)
             key.user_notified = True
             key.save(update_fields=["user_notified"])
             time.sleep(1)
         except Exception as exc:
             escaped_error = html.escape(str(exc))
-            send(
+            send_telegram_message(
                 chat_id=int(settings.MY_TELEGRAM_ID),
                 text=(
                     "🟡 <b>(BACKEND) Системное оповещение</b>\n\n"
@@ -140,12 +140,12 @@ def notify_before_removing_daily_hour_before():
             if username in already_sent:
                 continue
             message = template.render()
-            send(chat_id=int(username), text=message.text, markup=message.markup)
+            send_telegram_message(chat_id=int(username), text=message.text, markup=message.markup)
             already_sent.add(username)
             time.sleep(1)
         except Exception as exc:
             escaped_error = html.escape(str(exc))
-            send(
+            send_telegram_message(
                 chat_id=int(settings.MY_TELEGRAM_ID),
                 text=(
                     "🟡 <b>(BACKEND) Системное оповещение</b>\n\n"
@@ -172,7 +172,7 @@ def add_key_to_another_vds_instances_task(exclude: int, username: str, secret: s
             response.raise_for_status()
         except Exception as exc:
             escaped_error = html.escape(str(exc))
-            send(
+            send_telegram_message(
                 chat_id=int(settings.MY_TELEGRAM_ID),
                 text=(
                     "🔴 <b>(BACKEND) Системное оповещение</b>\n\n"
@@ -203,7 +203,7 @@ def remove_key_from_another_vds_instances_task(server: int, keys_id: list[int]) 
         keys.update(was_deleted=True, is_active=False)
     except Exception as exc:
         escaped_error = html.escape(str(exc))
-        send(
+        send_telegram_message(
             chat_id=int(settings.MY_TELEGRAM_ID),
             text=(
                 "🔴 <b>(BACKEND) Системное оповещение</b>\n\n"
@@ -243,7 +243,7 @@ def broadcast_proxy_links_task(testing: bool = False) -> None:
     sent_count = 0
     for key in keys:
         try:
-            send(
+            send_telegram_message(
                 chat_id=int(key.user.username),
                 text=(
                     "✨ <b>Привет!</b>\n\n"
@@ -272,7 +272,7 @@ def broadcast_proxy_links_task(testing: bool = False) -> None:
         except Exception as exc:
             try:
                 escaped_error = html.escape(str(exc))
-                send(
+                send_telegram_message(
                     chat_id=int(settings.MY_TELEGRAM_ID),
                     text=(
                         "🟡 <b>(BACKEND) Системное оповещение</b>\n\n"

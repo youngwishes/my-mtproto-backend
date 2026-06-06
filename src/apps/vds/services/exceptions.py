@@ -1,4 +1,4 @@
-from apps.core.service import BaseInfraError
+from apps.core.exceptions import BaseInfraError
 
 
 class VDSNotAvailable(BaseInfraError):

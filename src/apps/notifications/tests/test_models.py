@@ -49,6 +49,47 @@ class TestNotificationTemplateRender(TestCase):
         result = template.render()
         self.assertEqual(result.text, "Текст без переменных")
 
+    def test_render_with_payment_button(self) -> None:
+        template = NotificationTemplateFactory(
+            text="Поддержите проект",
+            button_text="",
+            button_url="",
+            include_payment_buttons=True,
+        )
+        result = template.render()
+        self.assertIsNotNone(result.markup)
+        self.assertEqual(len(result.markup.keyboard), 1)
+        button = result.markup.keyboard[0][0]
+        self.assertEqual(button.text, "❤️ Поддержать")
+        self.assertEqual(button.callback_data, "boost_paid")
+
+    def test_render_with_custom_button_and_payment_button(self) -> None:
+        template = NotificationTemplateFactory(
+            text="Текст",
+            button_text="Перейти",
+            button_url="https://example.com",
+            include_payment_buttons=True,
+        )
+        result = template.render()
+        self.assertIsNotNone(result.markup)
+        self.assertEqual(len(result.markup.keyboard), 2)
+        custom_button = result.markup.keyboard[0][0]
+        self.assertEqual(custom_button.text, "Перейти")
+        self.assertEqual(custom_button.url, "https://example.com")
+        payment_button = result.markup.keyboard[1][0]
+        self.assertEqual(payment_button.text, "❤️ Поддержать")
+        self.assertEqual(payment_button.callback_data, "boost_paid")
+
+    def test_render_without_payment_button_flag(self) -> None:
+        template = NotificationTemplateFactory(
+            text="Обычное сообщение",
+            button_text="",
+            button_url="",
+            include_payment_buttons=False,
+        )
+        result = template.render()
+        self.assertIsNone(result.markup)
+
 
 class TestMailingLifecycle(TestCase):
     def test_mark_as_sending(self) -> None:
@@ -62,4 +103,20 @@ class TestMailingLifecycle(TestCase):
         mailing.mark_as_completed()
         mailing.refresh_from_db()
         self.assertEqual(mailing.status, MailingStatus.COMPLETED)
+        self.assertIsNotNone(mailing.sent_at)
+
+
+class TestMailingErrorHandling(TestCase):
+    def test_mark_as_failed(self) -> None:
+        mailing = MailingFactory(status=MailingStatus.SENDING)
+        mailing.mark_as_failed()
+        mailing.refresh_from_db()
+        self.assertEqual(mailing.status, MailingStatus.FAILED)
+        self.assertIsNotNone(mailing.sent_at)
+
+    def test_mark_as_partially_completed(self) -> None:
+        mailing = MailingFactory(status=MailingStatus.SENDING)
+        mailing.mark_as_partially_completed()
+        mailing.refresh_from_db()
+        self.assertEqual(mailing.status, MailingStatus.PARTIALLY_COMPLETED)
         self.assertIsNotNone(mailing.sent_at)

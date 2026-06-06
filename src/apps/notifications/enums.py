@@ -8,6 +8,7 @@ class MailingStatus(enum.IntEnum):
     SENDING = 2
     COMPLETED = 3
     FAILED = 4
+    PARTIALLY_COMPLETED = 5
 
     @classmethod
     def choices(cls) -> list[tuple[int, str]]:
@@ -16,6 +17,7 @@ class MailingStatus(enum.IntEnum):
             (cls.SENDING, "Отправляется"),
             (cls.COMPLETED, "Завершена"),
             (cls.FAILED, "Ошибка"),
+            (cls.PARTIALLY_COMPLETED, "Частично завершена"),
         ]
 
 

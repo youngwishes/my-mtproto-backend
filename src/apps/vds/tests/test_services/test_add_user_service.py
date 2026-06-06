@@ -12,8 +12,8 @@ from apps.vds.services.exceptions import VDSConnectionLimit
 from apps.vds.tests.factories import MTPRotoKeyFactory, VDSInstanceFactory
 
 
-@mock.patch("apps.notifications.services.send_notification_service.send")
-@mock.patch("apps.core.service._log_infra_error")
+@mock.patch("apps.notifications.services.send_notification_service.send_telegram_message")
+@mock.patch("apps.core.decorators._log_infra_error")
 class TestAddUserService(TestCase):
     def setUp(self) -> None:
         self.vds = VDSInstanceFactory()

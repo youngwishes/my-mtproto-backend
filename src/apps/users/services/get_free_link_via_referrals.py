@@ -8,7 +8,7 @@ from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
-from apps.core.service import log_service_error
+from apps.core.decorators import log_service_error
 from apps.users.exceptions import AlreadyUsedProgram, NotEnoughReferrals
 from apps.users.models import SystemUser
 from apps.users.selectors import get_active_referrals_count

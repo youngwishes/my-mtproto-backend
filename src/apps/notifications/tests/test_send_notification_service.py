@@ -9,7 +9,7 @@ from apps.notifications.tests.factories import NotificationTemplateFactory
 
 
 class TestSendNotificationService(TestCase):
-    @mock.patch("apps.notifications.services.send_notification_service.send")
+    @mock.patch("apps.notifications.services.send_notification_service.send_telegram_message")
     def test_sends_rendered_template(self, mock_send: mock.Mock) -> None:
         NotificationTemplateFactory(
             slug="test-notify",
@@ -30,7 +30,7 @@ class TestSendNotificationService(TestCase):
         self.assertIn("https://example.com", call_kwargs["text"])
         self.assertIsNotNone(call_kwargs["markup"])
 
-    @mock.patch("apps.notifications.services.send_notification_service.send")
+    @mock.patch("apps.notifications.services.send_notification_service.send_telegram_message")
     def test_sends_template_without_button(self, mock_send: mock.Mock) -> None:
         NotificationTemplateFactory(
             slug="no-button",

@@ -5,7 +5,7 @@ from typing import final
 
 from django.conf import settings
 
-from apps.core.service import log_service_error
+from apps.core.decorators import log_service_error
 from apps.users.enums import FreeAvailable
 from apps.users.models import SystemUser
 from apps.users.selectors import get_free_used_count, get_user_by_username

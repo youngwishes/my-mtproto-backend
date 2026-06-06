@@ -17,6 +17,9 @@ class NotificationTemplate(BaseDjangoModel):
     button_url = models.CharField(
         "URL кнопки (поддерживает {переменные})", max_length=512, blank=True, default="",
     )
+    include_payment_buttons = models.BooleanField(
+        "Прикрепить кнопки оплаты", default=False,
+    )
 
     class Meta:
         verbose_name = "Шаблон уведомления"
@@ -26,22 +29,29 @@ class NotificationTemplate(BaseDjangoModel):
         return self.title
 
     def render(self, context: dict | None = None) -> RenderedMessage:
+        from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
+
         ctx = context or {}
         text = self.text.format(**ctx)
-        markup = None
-        if self.button_text and self.button_url:
-            from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
+        keyboard_rows: list = []
 
-            markup = InlineKeyboardMarkup(
-                keyboard=[
-                    [
-                        InlineKeyboardButton(
-                            text=self.button_text,
-                            url=self.button_url.format(**ctx),
-                        )
-                    ]
-                ]
+        if self.button_text and self.button_url:
+            keyboard_rows.append(
+                [InlineKeyboardButton(
+                    text=self.button_text,
+                    url=self.button_url.format(**ctx),
+                )]
             )
+
+        if self.include_payment_buttons:
+            keyboard_rows.append(
+                [InlineKeyboardButton(
+                    text="❤️ Поддержать",
+                    callback_data="boost_paid",
+                )]
+            )
+
+        markup = InlineKeyboardMarkup(keyboard=keyboard_rows) if keyboard_rows else None
         return RenderedMessage(text=text, markup=markup)
 
 
@@ -82,6 +92,8 @@ class Mailing(BaseDjangoModel):
         default=MailingStatus.DRAFT,
     )
     sent_at = models.DateTimeField("Отправлена", null=True, blank=True)
+    sent_count = models.PositiveIntegerField("Отправлено", default=0)
+    failed_count = models.PositiveIntegerField("Ошибок", default=0)
 
     class Meta:
         verbose_name = "Рассылка"
@@ -96,5 +108,15 @@ class Mailing(BaseDjangoModel):
 
     def mark_as_completed(self) -> None:
         self.status = MailingStatus.COMPLETED
+        self.sent_at = timezone.now()
+        self.save(update_fields=["status", "sent_at"])
+
+    def mark_as_failed(self) -> None:
+        self.status = MailingStatus.FAILED
+        self.sent_at = timezone.now()
+        self.save(update_fields=["status", "sent_at"])
+
+    def mark_as_partially_completed(self) -> None:
+        self.status = MailingStatus.PARTIALLY_COMPLETED
         self.sent_at = timezone.now()
         self.save(update_fields=["status", "sent_at"])

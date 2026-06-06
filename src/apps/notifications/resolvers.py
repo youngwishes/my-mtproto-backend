@@ -1,4 +1,3 @@
-# src/apps/notifications/resolvers.py
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -9,7 +8,7 @@ if TYPE_CHECKING:
     from apps.users.models import SystemUser
 
 
-def resolve_context(*, resolver_type: int, user: SystemUser) -> dict | None:
+def resolve_context(*, resolver_type: ContextResolverType, user: SystemUser) -> dict[str, str] | None:
     """Возвращает персональный контекст для пользователя, или None если данных нет."""
     if resolver_type == ContextResolverType.NONE:
         return {}
@@ -20,7 +19,8 @@ def resolve_context(*, resolver_type: int, user: SystemUser) -> dict | None:
     return resolvers[resolver_type](user)
 
 
-def _resolve_active_key_link(user: SystemUser) -> dict | None:
+def _resolve_active_key_link(user: SystemUser) -> dict[str, str] | None:
+    """Возвращает ссылку на активный прокси-ключ пользователя."""
     from apps.vds.selectors import get_active_key
 
     key = get_active_key(user=user)

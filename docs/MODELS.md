@@ -107,3 +107,40 @@
 | `key` | OneToOne → MTPRotoKey? | За какой ключ (nullable) |
 | `charge_id` | str | ID платежа от провайдера |
 | `provider` | str | `YUKASSA` или `STARS` |
+
+---
+
+## NotificationTemplate (apps/notifications)
+
+Шаблон уведомления с поддержкой переменных и кнопок.
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `slug` | SlugField (unique) | Идентификатор шаблона |
+| `title` | str | Название для админки |
+| `text` | TextField | HTML-текст с `{переменными}` |
+| `button_text` | str | Текст кнопки (опционально) |
+| `button_url` | str | URL кнопки с `{переменными}` (опционально) |
+| `include_payment_buttons` | bool | Прикрепить кнопку "Поддержать" (default: False) |
+
+**Метод:** `render(context)` → `RenderedMessage(text, markup)`. Подставляет переменные, формирует InlineKeyboardMarkup из кнопки-ссылки и/или кнопки оплаты.
+
+---
+
+## Mailing (apps/notifications)
+
+Рассылка по фильтру пользователей.
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `template` | FK → NotificationTemplate | Шаблон сообщения |
+| `filter_type` | IntEnum | ALL_ACTIVE / EXPIRING_SOON / NOT_SUBSCRIBED |
+| `filter_params` | JSONField | Параметры фильтра (напр. `days_until_expiry`) |
+| `context` | JSONField | Статический контекст для шаблона |
+| `context_resolver` | IntEnum | NONE / ACTIVE_KEY_LINK |
+| `status` | IntEnum | DRAFT / SENDING / COMPLETED / FAILED / PARTIALLY_COMPLETED |
+| `sent_at` | DateTimeField? | Время завершения рассылки |
+| `sent_count` | PositiveInt | Успешно отправлено |
+| `failed_count` | PositiveInt | Ошибок при отправке |
+
+**Методы:** `mark_as_sending()`, `mark_as_completed()`, `mark_as_failed()`, `mark_as_partially_completed()`

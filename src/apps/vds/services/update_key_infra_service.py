@@ -4,7 +4,7 @@ from dataclasses import dataclass, asdict
 import requests
 from django.conf import settings
 
-from apps.core.service import log_infra_error
+from apps.core.decorators import log_infra_error
 from apps.vds.models import VDSInstance, MTPRotoKey
 from apps.vds.services.exceptions import VDSNotAvailable
 from apps.vds.tasks import (

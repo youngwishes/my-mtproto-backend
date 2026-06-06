@@ -1,4 +1,4 @@
-from apps.core.service import BaseServiceError
+from apps.core.exceptions import BaseServiceError
 
 
 class BadPaymentData(BaseServiceError):

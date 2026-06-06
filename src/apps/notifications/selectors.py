@@ -1,4 +1,3 @@
-# src/apps/notifications/selectors.py
 from __future__ import annotations
 
 from django.db.models import QuerySet
@@ -8,14 +7,17 @@ from apps.notifications.models import Mailing, NotificationTemplate
 
 
 def get_template(*, slug: str) -> NotificationTemplate:
+    """Возвращает активный шаблон уведомления по slug."""
     return NotificationTemplate.objects.active().get(slug=slug)
 
 
 def get_mailing_by_id(*, mailing_id: int) -> Mailing:
+    """Возвращает рассылку по ID с подгруженным шаблоном."""
     return Mailing.objects.select_related("template").get(id=mailing_id)
 
 
 def get_users_by_filter(*, filter_type: int, params: dict) -> QuerySet:
+    """Возвращает QuerySet пользователей по типу фильтра рассылки."""
     filters = {
         FilterType.ALL_ACTIVE: _all_active_users,
         FilterType.EXPIRING_SOON: _expiring_soon,

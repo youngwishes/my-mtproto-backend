@@ -6,10 +6,10 @@ from typing import TYPE_CHECKING
 
 from django.conf import settings
 
-from apps.core.telegram.transport import send
+from apps.core.telegram.transport import send_telegram_message
 
 if TYPE_CHECKING:
-    from apps.core.service import BaseInfraError, BaseServiceError
+    from apps.core.exceptions import BaseInfraError, BaseServiceError
 
 
 def _log_error(
@@ -22,7 +22,7 @@ def _log_error(
     error_dict = exc.to_dict()
     pretty_error = json.dumps(error_dict, indent=2, ensure_ascii=False)
     escaped_error = html.escape(pretty_error)
-    send(
+    send_telegram_message(
         chat_id=settings.MY_TELEGRAM_ID,
         text=(
             f"{emoji} <b>(BACKEND) Системное оповещение</b>\n\n"

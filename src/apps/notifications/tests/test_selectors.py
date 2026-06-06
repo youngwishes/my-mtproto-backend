@@ -1,4 +1,3 @@
-# src/apps/notifications/tests/test_selectors.py
 from __future__ import annotations
 
 from datetime import timedelta

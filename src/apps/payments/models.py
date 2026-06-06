@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import enum
 import json
 
 from django.db import models

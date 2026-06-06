@@ -29,7 +29,7 @@ class TestGetReferralLink(TestCase):
             },
         )
 
-    @mock.patch("apps.core.service._log_service_error")
+    @mock.patch("apps.core.decorators._log_service_error")
     def test_get_link_without_referrals(self, log) -> None:
         response = self.client.post(
             path=self.url,
@@ -45,7 +45,7 @@ class TestGetReferralLink(TestCase):
             },
         )
 
-    @mock.patch("apps.core.service._log_service_error")
+    @mock.patch("apps.core.decorators._log_service_error")
     def test_get_link_with_non_activated_referrals(self, log) -> None:
         for _ in range(5):
             SystemUserFactory(

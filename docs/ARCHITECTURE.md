@@ -59,7 +59,8 @@ src/
 │   ├── middlewares.py           # RequestLoggingMiddleware
 │   └── wsgi.py
 ├── apps/
-│   ├── core/                    # BaseDjangoModel, TelegramBot, декораторы
+│   ├── core/                    # BaseDjangoModel, исключения, декораторы, Telegram-транспорт
+│   ├── notifications/           # Шаблоны уведомлений, рассылки
 │   ├── users/                   # SystemUser, бесплатные ссылки, рефералы
 │   ├── vds/                     # VDSInstance, MTPRotoKey, инфра-сервисы, Celery-задачи
 │   ├── payments/                # Product, Payment, YuKassa/Stars
@@ -78,12 +79,28 @@ bot/
 └── Dockerfile
 ```
 
+## apps/core — Инфраструктурное ядро
+
+```
+apps/core/
+├── exceptions.py       # BaseError, BaseServiceError, BaseInfraError
+├── decorators.py       # @log_service_error, @log_infra_error
+├── protocols.py        # IService — протокол для всех сервисов
+├── models.py           # BaseDjangoModel, BaseServiceDTO
+├── handle_error.py     # DRF exception handler
+└── telegram/
+    ├── transport.py    # send_telegram_message(), is_channel_member()
+    └── error_logger.py # Отправка ошибок админу в Telegram
+```
+
 ## Service Layer
 
-Сервисы — frozen dataclasses с `__call__`. Два декоратора:
+Сервисы — frozen dataclasses с `__call__`. Два декоратора (из `apps.core.decorators`):
 
 - `@log_service_error` — бизнес-ошибка → Telegram-уведомление пользователю
 - `@log_infra_error` — инфра-ошибка → «извините» пользователю + алерт админу
+
+Исключения (из `apps.core.exceptions`): `BaseServiceError`, `BaseInfraError`.
 
 Каждый файл сервиса определяет фабричную функцию:
 
@@ -91,6 +108,24 @@ bot/
 def get_first_free_link_service() -> FirstFreeLinkService:
     return FirstFreeLinkService()
 ```
+
+## apps/notifications — Уведомления и рассылки
+
+```
+apps/notifications/
+├── models.py           # NotificationTemplate, Mailing, RenderedMessage
+├── enums.py            # MailingStatus, FilterType, ContextResolverType
+├── selectors.py        # get_template, get_mailing_by_id, get_users_by_filter
+├── resolvers.py        # resolve_context — персональный контекст для шаблонов
+├── services/
+│   ├── send_notification_service.py  # Отправка одного уведомления по slug
+│   └── send_mailing_service.py       # Массовая рассылка с фильтрами и счётчиками
+└── tasks.py            # Celery-задача send_mailing_task
+```
+
+`NotificationTemplate` хранит HTML-текст с `{переменными}`, опциональную кнопку-ссылку и флаг `include_payment_buttons` (добавляет кнопку "Поддержать" с `callback_data="boost_paid"`).
+
+`Mailing` отслеживает статусы: DRAFT → SENDING → COMPLETED / PARTIALLY_COMPLETED / FAILED. Поля `sent_count` и `failed_count` фиксируют результаты рассылки.
 
 ## Аутентификация
 

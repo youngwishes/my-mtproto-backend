@@ -41,7 +41,7 @@ class TestCreatePaymentView(APITestCase):
             headers={"Bot-Auth-Token": settings.BOT_AUTH_TOKEN},
         )
 
-    @mock.patch("apps.notifications.services.send_notification_service.send")
+    @mock.patch("apps.notifications.services.send_notification_service.send_telegram_message")
     @mock.patch("apps.vds.tasks.add_key_to_another_vds_instances_task.delay")
     @responses.activate
     def test_create_yukassa_payment(self, _task, telegram) -> None:
@@ -68,7 +68,7 @@ class TestCreatePaymentView(APITestCase):
             key.expired_date.date(), (timezone.now() + timedelta(days=30)).date()
         )
 
-    @mock.patch("apps.notifications.services.send_notification_service.send")
+    @mock.patch("apps.notifications.services.send_notification_service.send_telegram_message")
     @mock.patch("apps.vds.tasks.add_key_to_another_vds_instances_task.delay")
     @responses.activate
     def test_create_stars_payment(self, _task, telegram) -> None:
@@ -85,7 +85,7 @@ class TestCreatePaymentView(APITestCase):
         self.assertEqual(payment.charge_id, "stars_tx_789")
         self.assertEqual(payment.provider, PaymentProviderEnum.STARS)
 
-    @mock.patch("apps.notifications.services.send_notification_service.send")
+    @mock.patch("apps.notifications.services.send_notification_service.send_telegram_message")
     @mock.patch("apps.vds.tasks.add_key_to_another_vds_instances_task.delay")
     @responses.activate
     def test_create_payment_twice_extends_key(self, _task, telegram) -> None:

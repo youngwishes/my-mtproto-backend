@@ -7,7 +7,7 @@ from celery import shared_task
 from django.conf import settings
 from django.db import transaction
 
-from apps.core.telegram.transport import is_channel_member, send
+from apps.core.telegram.transport import is_channel_member, send_telegram_message
 from apps.notifications.selectors import get_template
 from apps.users.models import SystemUser
 from apps.users.services import get_first_free_link_service
@@ -25,7 +25,7 @@ def send_invite_to_chat_task(telegram_ids: list[str]) -> None:
         try:
             if not is_channel_member(telegram_id=int(user)):
                 message = template.render()
-                send(
+                send_telegram_message(
                     chat_id=int(user),
                     text=message.text,
                     markup=message.markup,
@@ -58,7 +58,7 @@ def send_free_link_to_user_task(telegram_ids: list[str]) -> None:
                 message = template.render(
                     context={"text": text, "link": response.link},
                 )
-                send(
+                send_telegram_message(
                     chat_id=int(telegram_id),
                     text=message.text,
                     markup=message.markup,

@@ -4,11 +4,11 @@ from unittest import mock
 
 from django.test import TestCase, override_settings
 
-from apps.core.service import BaseInfraError, BaseServiceError
+from apps.core.exceptions import BaseInfraError, BaseServiceError
 
 
 class TestLogInfraError(TestCase):
-    @mock.patch("apps.core.telegram.error_logger.send")
+    @mock.patch("apps.core.telegram.error_logger.send_telegram_message")
     @override_settings(MY_TELEGRAM_ID=999, TELEGRAM_TIMEOUT=5)
     def test_sends_red_error_to_admin(self, mock_send: mock.Mock) -> None:
         from apps.core.telegram.error_logger import log_infra_error
@@ -26,7 +26,7 @@ class TestLogInfraError(TestCase):
 
 
 class TestLogServiceError(TestCase):
-    @mock.patch("apps.core.telegram.error_logger.send")
+    @mock.patch("apps.core.telegram.error_logger.send_telegram_message")
     @override_settings(MY_TELEGRAM_ID=999, TELEGRAM_TIMEOUT=5)
     def test_sends_yellow_error_to_admin(self, mock_send: mock.Mock) -> None:
         from apps.core.telegram.error_logger import log_service_error

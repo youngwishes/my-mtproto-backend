@@ -19,7 +19,7 @@ class _LazyBot:
 bot = _LazyBot()
 
 
-def send(
+def send_telegram_message(
     chat_id: int,
     text: str,
     *,

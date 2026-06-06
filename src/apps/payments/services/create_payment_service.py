@@ -8,11 +8,11 @@ from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
-from apps.core.service import log_service_error
+from apps.core.decorators import log_service_error
 from apps.payments.exceptions import BadPaymentData
 from apps.payments.models import Payment
+from apps.notifications.services.send_notification_service import SendNotificationService
 from apps.payments.services.extend_key_service import ExtendKeyService, get_extend_key_service
-from apps.payments.services.notify_payment_service import NotifyPaymentService, get_notify_payment_service
 from apps.users.selectors import get_user_by_username
 from apps.vds.selectors import get_active_key
 from apps.vds.services import get_issue_key_service
@@ -34,7 +34,6 @@ class CreatePaymentService:
     """
 
     extend_key_service: ExtendKeyService
-    notify_service: NotifyPaymentService
 
     @log_service_error
     def __call__(self, *, payment: CreatePaymentIn) -> None:
@@ -61,11 +60,13 @@ class CreatePaymentService:
                 provider=payment.provider,
             )
 
-        self.notify_service(user=user, key=key)
+        SendNotificationService(
+            slug="proxy_purchased",
+            context={"link": key.get_proxy_link()},
+        )(chat_id=int(user.username))
 
 
 def get_create_payment_service() -> CreatePaymentService:
     return CreatePaymentService(
         extend_key_service=get_extend_key_service(),
-        notify_service=get_notify_payment_service(),
     )

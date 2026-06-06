@@ -9,9 +9,9 @@ from telebot.types import InlineKeyboardMarkup
 class TestSend(TestCase):
     @mock.patch("apps.core.telegram.transport.bot")
     def test_send_calls_bot_send_message_with_defaults(self, mock_bot: mock.Mock) -> None:
-        from apps.core.telegram.transport import send
+        from apps.core.telegram.transport import send_telegram_message
 
-        send(chat_id=123, text="hello")
+        send_telegram_message(chat_id=123, text="hello")
 
         mock_bot.send_message.assert_called_once_with(
             chat_id=123,
@@ -23,10 +23,10 @@ class TestSend(TestCase):
 
     @mock.patch("apps.core.telegram.transport.bot")
     def test_send_passes_markup_and_timeout(self, mock_bot: mock.Mock) -> None:
-        from apps.core.telegram.transport import send
+        from apps.core.telegram.transport import send_telegram_message
 
         markup = InlineKeyboardMarkup()
-        send(chat_id=456, text="test", markup=markup, timeout=10)
+        send_telegram_message(chat_id=456, text="test", markup=markup, timeout=10)
 
         mock_bot.send_message.assert_called_once_with(
             chat_id=456,
@@ -38,9 +38,9 @@ class TestSend(TestCase):
 
     @mock.patch("apps.core.telegram.transport.bot")
     def test_send_custom_parse_mode(self, mock_bot: mock.Mock) -> None:
-        from apps.core.telegram.transport import send
+        from apps.core.telegram.transport import send_telegram_message
 
-        send(chat_id=789, text="**bold**", parse_mode="Markdown")
+        send_telegram_message(chat_id=789, text="**bold**", parse_mode="Markdown")
 
         mock_bot.send_message.assert_called_once_with(
             chat_id=789,

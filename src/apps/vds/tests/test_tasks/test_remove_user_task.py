@@ -36,7 +36,7 @@ class TestRemoveUserTask(TestCase):
 
     @mock.patch("apps.vds.tasks.time.sleep")
     @mock.patch("apps.vds.tasks.get_template")
-    @mock.patch("apps.vds.tasks.send")
+    @mock.patch("apps.vds.tasks.send_telegram_message")
     @responses.activate
     def test_remove_user_task_case3(self, mock_send, mock_get_template, _sleep) -> None:
         mock_rendered = mock.Mock()
@@ -57,7 +57,7 @@ class TestRemoveUserTask(TestCase):
 
     @mock.patch("apps.vds.tasks.time.sleep")
     @mock.patch("apps.vds.tasks.get_template")
-    @mock.patch("apps.vds.tasks.send")
+    @mock.patch("apps.vds.tasks.send_telegram_message")
     @responses.activate
     def test_remove_user_task_case4(self, mock_send, mock_get_template, _sleep) -> None:
         mock_rendered = mock.Mock()
