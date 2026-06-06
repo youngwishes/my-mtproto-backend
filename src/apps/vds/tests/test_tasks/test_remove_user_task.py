@@ -34,9 +34,10 @@ class TestRemoveUserTask(TestCase):
         remove_user_keys_daily()
         self.assertEqual(service.call_count, 0)
 
+    @mock.patch("apps.vds.tasks.time.sleep")
     @mock.patch("apps.core.bot.TelegramBot.send_message_deactivate_link")
     @responses.activate
-    def test_remove_user_task_case3(self, deactivate) -> None:
+    def test_remove_user_task_case3(self, deactivate, _sleep) -> None:
         self._add_vds_response()
         self.key.expired_date = timezone.now()
         self.key.save()
@@ -48,9 +49,10 @@ class TestRemoveUserTask(TestCase):
         self.assertEqual(len(responses.calls), 1)
         self.assertEqual(deactivate.call_count, 1)
 
+    @mock.patch("apps.vds.tasks.time.sleep")
     @mock.patch("apps.core.bot.TelegramBot.send_message_deactivate_link")
     @responses.activate
-    def test_remove_user_task_case4(self, deactivate) -> None:
+    def test_remove_user_task_case4(self, deactivate, _sleep) -> None:
         self._add_vds_response()
         self.key.expired_date = timezone.now() - timedelta(days=1)
         self.key.save()

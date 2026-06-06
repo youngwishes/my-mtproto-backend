@@ -13,7 +13,19 @@ from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
 if TYPE_CHECKING:
     from apps.core.service import BaseInfraError, BaseServiceError
 
-bot = TeleBot(token=settings.BOT_TOKEN)
+
+class _LazyBot:
+    """Прокси, создающий TeleBot при первом обращении, а не при импорте модуля."""
+
+    _instance: TeleBot | None = None
+
+    def __getattr__(self, name: str):
+        if self._instance is None:
+            self._instance = TeleBot(token=settings.BOT_TOKEN)
+        return getattr(self._instance, name)
+
+
+bot = _LazyBot()
 
 
 class TelegramBot:

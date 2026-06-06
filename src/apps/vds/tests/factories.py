@@ -2,7 +2,7 @@ import factory
 from uuid import uuid4
 from apps.users.tests.factories import SystemUserFactory
 from apps.vds.models import VDSInstance, MTPRotoKey
-from datetime import datetime
+from django.utils import timezone
 
 class VDSInstanceFactory(factory.django.DjangoModelFactory):
     name = factory.Sequence(lambda n: f"vds-server-{n}")
@@ -22,7 +22,7 @@ class MTPRotoKeyFactory(factory.django.DjangoModelFactory):
     token = factory.LazyFunction(function=uuid4)
     vds = factory.SubFactory(VDSInstanceFactory)
     user = factory.SubFactory(SystemUserFactory)
-    expired_date = factory.LazyFunction(datetime.now)
+    expired_date = factory.LazyFunction(timezone.now)
     tls_domain = "petrovich.ru"
     is_active = True
     was_deleted = False

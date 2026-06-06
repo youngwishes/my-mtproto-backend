@@ -6,7 +6,7 @@ from rest_framework import status
 from apps.users.tests.factories import SystemUserFactory
 from apps.vds.models import MTPRotoKey
 from apps.vds.tests.factories import MTPRotoKeyFactory, VDSInstanceFactory
-from datetime import datetime
+from django.utils import timezone
 from unittest import mock
 
 class TestUpdateKeyView(APITestCase):
@@ -40,7 +40,7 @@ class TestUpdateKeyView(APITestCase):
             tls_domain="dzen.ru",
             node_number="node1",
             token="test1",
-            expired_date=datetime.now(),
+            expired_date=timezone.now(),
         )
         response = self.client.post(
             path=self.url,
@@ -80,7 +80,7 @@ class TestUpdateKeyView(APITestCase):
             tls_domain="dzen.ru",
             node_number="node1",
             token="test1",
-            expired_date=datetime.now(),
+            expired_date=timezone.now(),
             is_active=False,
         )
         response = self.client.post(
@@ -110,7 +110,7 @@ class TestUpdateKeyView(APITestCase):
             tls_domain="dzen.ru",
             node_number="node1",
             token="test1",
-            expired_date=datetime.now(),
+            expired_date=timezone.now(),
             was_deleted=True,
         )
         response = self.client.post(

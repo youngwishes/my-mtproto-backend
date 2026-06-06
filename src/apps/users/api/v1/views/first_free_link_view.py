@@ -13,6 +13,7 @@ from apps.users.services import get_first_free_link_service
 from apps.users.services.check_first_free_link_service import (
     get_check_first_free_link_service,
 )
+from apps.users.services.dtos import CheckFirstFreeLinkIn
 
 
 class CreateFirstFreeLinkView(APIView):
@@ -38,12 +39,8 @@ class CheckFirstFreeLinkView(APIView):
         serializer.is_valid(raise_exception=True)
 
         service = get_check_first_free_link_service()
-        first_month_free_used = service(
-            username=serializer.validated_data["username"],
-            telegram_username=serializer.validated_data["telegram_username"],
-            invited_from_username=serializer.validated_data.get("invited_from_username"),
-        )
+        result = service(data=CheckFirstFreeLinkIn(**serializer.validated_data))
         return Response(
-            data={"available_free_period": first_month_free_used},
+            data={"available_free_period": result},
             status=status.HTTP_200_OK,
         )

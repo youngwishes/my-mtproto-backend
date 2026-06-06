@@ -1,52 +1,55 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
-from enum import StrEnum
+from typing import final
 
 from django.conf import settings
 
 from apps.core.service import log_service_error
+from apps.users.enums import FreeAvailable
 from apps.users.models import SystemUser
+from apps.users.selectors import get_free_used_count, get_user_by_username
+from apps.users.services.dtos import CheckFirstFreeLinkIn
 
 
-class FreeAvailable(StrEnum):
-    MONTH = "MONTH"
-    TWO_WEEK = "TWO_WEEK"
-    WEEK = "WEEK"
-    NOT_AVAILABLE = "NOT_AVAILABLE"
-
-
+@final
 @dataclass(kw_only=True, slots=True, frozen=True)
 class CheckFirstFreeLinkService:
-    @log_service_error
-    def __call__(
-        self,
-        *,
-        username: str,
-        telegram_username: str,
-        invited_from_username: str | None = None,
-    ) -> FreeAvailable:
-        try:
-            user = SystemUser.objects.get(username=username)
-            if not user.telegram_username:
-                user.telegram_username = telegram_username
-                user.save(update_fields=["telegram_username"])
-        except SystemUser.DoesNotExist:
-            user = SystemUser.objects.create(
-                username=username,
-                telegram_username=telegram_username,
-                invited_from_username=invited_from_username,
-            )
+    """Проверяет доступность бесплатного периода для пользователя.
 
-        if SystemUser.objects.filter(first_month_free_used=True).count() >= settings.FIRST_MONTH_LIMIT:
-            available_free_period = FreeAvailable.WEEK
-            if user.invited_from_username:
-                available_free_period = FreeAvailable.TWO_WEEK
-        else:
-            available_free_period = FreeAvailable.MONTH
+    Побочный эффект: создаёт пользователя, если его нет,
+    и обновляет telegram_username.
+    """
+
+    @log_service_error
+    def __call__(self, *, data: CheckFirstFreeLinkIn) -> FreeAvailable:
+        user = self._ensure_user(data=data)
 
         if user.first_month_free_used:
-            available_free_period = FreeAvailable.NOT_AVAILABLE
+            return FreeAvailable.NOT_AVAILABLE
 
-        return available_free_period
+        if get_free_used_count() >= settings.FIRST_MONTH_LIMIT:
+            if user.invited_from_username:
+                return FreeAvailable.TWO_WEEK
+            return FreeAvailable.WEEK
+
+        return FreeAvailable.MONTH
+
+    def _ensure_user(self, *, data: CheckFirstFreeLinkIn) -> SystemUser:
+        user = get_user_by_username(username=data.username)
+
+        if user is None:
+            return SystemUser.objects.create(
+                username=data.username,
+                telegram_username=data.telegram_username,
+                invited_from_username=data.invited_from_username,
+            )
+
+        if not user.telegram_username:
+            user.telegram_username = data.telegram_username
+            user.save(update_fields=["telegram_username"])
+
+        return user
 
 
 def get_check_first_free_link_service() -> CheckFirstFreeLinkService:

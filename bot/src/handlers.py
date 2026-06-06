@@ -34,16 +34,17 @@ router = Router()
 
 @router.message(Command("start"))
 async def cmd_start(message: Message):
+    invited_from_username = None
     try:
-        invited_from_username = int(message.text.split()[-1])
-        if invited_from_username == message.from_user.id:
-            invited_from_username = ""
+        referrer_id = int(message.text.split()[-1])
+        if referrer_id != message.from_user.id:
+            invited_from_username = str(referrer_id)
     except ValueError:
-        invited_from_username = ""
+        pass
     available_free_period = await CheckFirstMonthFreeService()(
         telegram_id=str(message.from_user.id),
         telegram_username=str(getattr(message.from_user, "username", None)),
-        invited_from_username=str(invited_from_username),
+        invited_from_username=invited_from_username,
     )
     text = FREE_AVAILABLE_TEXT_MAPPING.get(available_free_period)
     if available_free_period != "NOT_AVAILABLE":
@@ -75,11 +76,9 @@ async def cmd_start(message: Message):
 
 @router.callback_query(F.data == "show_start_screen")
 async def cmd_start_inline(callback: CallbackQuery):
-    invited_from_username = ""
     available_free_period = await CheckFirstMonthFreeService()(
         telegram_id=str(callback.message.chat.id),
         telegram_username=str(getattr(callback.message.from_user, "username", None)),
-        invited_from_username=str(invited_from_username),
     )
     text = FREE_AVAILABLE_TEXT_MAPPING.get(available_free_period)
     if available_free_period != "NOT_AVAILABLE":

@@ -7,5 +7,5 @@ class FirstFreeLinkSerializer(serializers.Serializer):
 
 class CheckFirstFreeLinkSerializer(serializers.Serializer):
     username = serializers.CharField()
-    telegram_username = serializers.CharField(required=False)
-    invited_from_username = serializers.CharField(required=False)
+    telegram_username = serializers.CharField()
+    invited_from_username = serializers.CharField(default=None)

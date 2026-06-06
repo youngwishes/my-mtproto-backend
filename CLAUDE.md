@@ -22,14 +22,14 @@ python manage.py runserver 0.0.0.0:8000
 python manage.py migrate
 python manage.py makemigrations
 
-# Run all tests
-python manage.py test
+# Run all tests (from repo root, uses test_settings with suppressed logs)
+make test
 
 # Run a single test module
-python manage.py test apps.users.tests.test_first_free_link
+make test ARGS="apps.users.tests.test_first_free_link"
 
 # Run a single test case
-python manage.py test apps.users.tests.test_first_free_link.TestFirstFreeLink.test_first_free_link_30days
+make test ARGS="apps.users.tests.test_first_free_link.TestFirstFreeLink.test_first_free_link_30days"
 ```
 
 Production runs via Docker Compose:
@@ -86,6 +86,22 @@ Scheduled via Celery Beat (defined in `config/settings/celery.py`):
 - First free key: 30 days by default, 14 days if referred, 7 days if free quota (`FIRST_MONTH_LIMIT`) is exhausted
 - Referral reward: after 5 referrals activate their free period, the referrer gets a free key (`GetFreeLinkViaReferralsService`)
 - `MTPRotoKey` stores `token`, `tls_domain`, `node_number`, VDS assignment, and `expired_date`
+
+## Rules
+
+1. **Никогда не выполнять git-команды.** Коммиты, пуши, ветки — пользователь делает сам.
+2. **Поддерживать документацию в актуальном виде.** При изменении бизнес-логики, контрактов или архитектуры — обновлять docstrings и соответствующие файлы в `docs/` (BUSINESS.md, ARCHITECTURE.md, CONTRACTS.md, MODELS.md).
+3. **Всегда прогонять тесты.** После любых изменений запускать тесты и убедиться, что нет регрессий. Не считать задачу выполненной без зелёных тестов.
+4. **Переиспользовать селекторы.** ORM-запросы живут в `selectors.py` — не дублировать их в сервисах. Перед написанием нового запроса проверить, есть ли подходящий селектор.
+5. **Следовать SOLID, DRY, DDD.** Единая ответственность для сервисов, инъекция зависимостей через поля dataclass, доменные исключения в `exceptions.py`, enum в `enums.py`, DTO для передачи данных между слоями.
+6. **Всегда использовать `from __future__ import annotations`.** Импорты, нужные только для аннотаций типов, выносить в блок `TYPE_CHECKING`:
+   ```python
+   from __future__ import annotations
+   from typing import TYPE_CHECKING
+
+   if TYPE_CHECKING:
+       from apps.users.models import SystemUser
+   ```
 
 ## Testing Patterns
 

@@ -18,7 +18,7 @@ LOGGING = {
         "level": "INFO",
     },
     "loggers": {
-        "config.middleware": {
+        "config.middlewares": {
             "handlers": ["console"],
             "level": "INFO",
             "propagate": False,

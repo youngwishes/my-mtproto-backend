@@ -27,8 +27,9 @@ class TestNotifyUserTask(TestCase):
         notify_before_removing_daily()
         self.assertEqual(notify.call_count, 0)
 
+    @mock.patch("apps.vds.tasks.time.sleep")
     @mock.patch("apps.core.bot.TelegramBot.notify_before_removing")
-    def test_notify_user_task_case3(self, notify) -> None:
+    def test_notify_user_task_case3(self, notify, _sleep) -> None:
         self.key.expired_date = timezone.now() + timedelta(days=1)
         self.key.save()
         notify_before_removing_daily()
