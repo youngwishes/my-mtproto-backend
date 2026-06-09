@@ -1,13 +1,16 @@
+from datetime import timedelta
+from unittest import mock
+
 import responses
 from django.conf import settings
 from django.urls import reverse
-from rest_framework.test import APITestCase
+from django.utils import timezone
 from rest_framework import status
+from rest_framework.test import APITestCase
+
 from apps.users.tests.factories import SystemUserFactory
 from apps.vds.models import MTPRotoKey
 from apps.vds.tests.factories import MTPRotoKeyFactory, VDSInstanceFactory
-from django.utils import timezone
-from unittest import mock
 
 class TestUpdateKeyView(APITestCase):
     url: str = reverse("update-link")
@@ -40,7 +43,7 @@ class TestUpdateKeyView(APITestCase):
             tls_domain="dzen.ru",
             node_number="node1",
             token="test1",
-            expired_date=timezone.now(),
+            expired_date=timezone.now() + timedelta(days=10),
         )
         response = self.client.post(
             path=self.url,

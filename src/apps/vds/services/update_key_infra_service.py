@@ -1,31 +1,24 @@
+from __future__ import annotations
+
 import os
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
+from typing import final
 
 import requests
 from django.conf import settings
 
 from apps.core.decorators import log_infra_error
-from apps.vds.models import VDSInstance, MTPRotoKey
-from apps.vds.services.exceptions import VDSNotAvailable
-from apps.vds.tasks import (
-    remove_key_from_another_vds_instances_task,
-    add_key_to_another_vds_instances_task,
-)
+from apps.vds.exceptions import VDSNotAvailable
+from apps.vds.models import MTPRotoKey
+from apps.vds.services.dtos import VDSKeyResponseOut
+from apps.vds.tasks import add_key_to_another_vds_instances_task
 
 
-@dataclass(kw_only=True, slots=True, frozen=True)
-class Response:
-    key: str
-    tls_domain: str
-
-    def asdict(self) -> dict:
-        return asdict(self)
-
-
+@final
 @dataclass(kw_only=True, slots=True, frozen=True)
 class UpdateKeyInfraService:
     @log_infra_error
-    def __call__(self, *, old_key: MTPRotoKey, username: str) -> Response | None:
+    def __call__(self, *, old_key: MTPRotoKey, username: str) -> VDSKeyResponseOut | None:
         try:
             secret = str(os.urandom(16).hex())
             response = requests.patch(
@@ -37,7 +30,7 @@ class UpdateKeyInfraService:
             add_key_to_another_vds_instances_task.delay(
                 exclude=old_key.vds.pk, username=username, secret=secret
             )
-            return Response(**response.json())
+            return VDSKeyResponseOut(**response.json())
         except Exception as exc:
             raise VDSNotAvailable(
                 method="add-user",

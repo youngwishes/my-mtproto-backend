@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, final
 
-from apps.vds.models import MTPRotoKey, VDSInstance
+from apps.vds.models import MTPRotoKey
+from apps.vds.selectors import get_least_populated_vds
 from apps.vds.services.add_new_key_infra_service import get_add_new_key_service_factory
 
 if TYPE_CHECKING:
@@ -12,6 +13,7 @@ if TYPE_CHECKING:
     from apps.users.models import SystemUser
 
 
+@final
 @dataclass(kw_only=True, slots=True, frozen=True)
 class IssueKeyService:
     """Выдаёт новый MTPRoto-ключ на наименее загруженном VDS."""
@@ -22,7 +24,7 @@ class IssueKeyService:
         user: SystemUser,
         expired_date: datetime,
     ) -> MTPRotoKey:
-        server = VDSInstance.objects.get_least_populated()
+        server = get_least_populated_vds()
         response = get_add_new_key_service_factory()(
             server=server,
             username=str(user.username),

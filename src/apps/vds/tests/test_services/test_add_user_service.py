@@ -8,7 +8,7 @@ from apps.vds.models import VDSInstance
 from apps.vds.services import (
     get_add_new_key_service_factory,
 )
-from apps.vds.services.exceptions import VDSConnectionLimit
+from apps.vds.exceptions import VDSConnectionLimit
 from apps.vds.tests.factories import MTPRotoKeyFactory, VDSInstanceFactory
 
 

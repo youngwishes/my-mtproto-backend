@@ -1,14 +1,19 @@
+from __future__ import annotations
+
 from copy import deepcopy
 from dataclasses import dataclass
+from typing import final
+
 import requests
 from django.conf import settings
 from django.db.models import QuerySet
 
 from apps.core.decorators import log_infra_error
 from apps.vds.models import VDSInstance, MTPRotoKey
-from apps.vds.services.exceptions import VDSNotAvailable
+from apps.vds.exceptions import VDSNotAvailable
 
 
+@final
 @dataclass(kw_only=True, slots=True, frozen=True)
 class RemoveUserKeyInfraService:
     @log_infra_error
