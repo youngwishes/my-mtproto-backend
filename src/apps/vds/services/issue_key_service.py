@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, final
 
+from apps.vds.exceptions import NoVDSAvailable
 from apps.vds.models import MTPRotoKey
 from apps.vds.selectors import get_least_populated_vds
 from apps.vds.services.add_new_key_infra_service import get_add_new_key_service_factory
@@ -25,6 +26,8 @@ class IssueKeyService:
         expired_date: datetime,
     ) -> MTPRotoKey:
         server = get_least_populated_vds()
+        if server is None:
+            raise NoVDSAvailable(telegram_id=str(user.username))
         response = get_add_new_key_service_factory()(
             server=server,
             username=str(user.username),

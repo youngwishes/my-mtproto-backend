@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from django.db import models
 from django.db.models import Count
 from django.db.models.enums import IntegerChoices
@@ -48,7 +50,7 @@ class VDSInstance(BaseDjangoModel):
 
 
 class MTPRotoKeyQuerySet(ActiveQuerySet):
-    def expired_today(self) -> "MTPRotoKeyQuerySet":
+    def expired_today(self) -> MTPRotoKeyQuerySet:
         from django.utils import timezone
 
         return self.filter(

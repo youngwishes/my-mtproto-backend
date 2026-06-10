@@ -9,7 +9,7 @@ from django.utils import timezone
 
 from apps.core.decorators import log_service_error
 from apps.users.selectors import get_user_by_username
-from apps.vds.exceptions import KeyDoesNotExist, TooManyRequests
+from apps.vds.exceptions import KeyDoesNotExist, NoVDSAvailable, TooManyRequests
 from apps.vds.selectors import get_active_key, get_keys_by_username, get_least_populated_vds
 from apps.vds.services import get_update_key_infra_service
 from apps.vds.services.dtos import UpdateKeyOut
@@ -32,8 +32,11 @@ class UpdateKeyService:
         ):
             raise TooManyRequests(telegram_id=username)
 
+        server = get_least_populated_vds()
+        if server is None:
+            raise NoVDSAvailable(telegram_id=username)
+
         with transaction.atomic():
-            server = get_least_populated_vds()
             infra = get_update_key_infra_service()
             response = infra(username=username, server=server)
 

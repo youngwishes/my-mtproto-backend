@@ -11,7 +11,7 @@ from django.utils import timezone
 from apps.core.decorators import log_service_error
 from apps.users.exceptions import AlreadyUsedProgram, NotEnoughReferrals
 from apps.users.models import SystemUser
-from apps.users.selectors import get_active_referrals_count
+from apps.users.selectors import get_active_referrals_count, get_user_by_username
 from apps.users.services.dtos import IssuedKeyOut
 
 if TYPE_CHECKING:
@@ -31,7 +31,7 @@ class GetReferralVDSLinkService:
 
     @log_service_error
     def __call__(self, *, username: str) -> IssuedKeyOut:
-        user = SystemUser.objects.get(username=username)
+        user = get_user_by_username(username=username)
 
         if user.referral_link_activated_count >= settings.REFERRAL_LINKS_LIMIT:
             raise AlreadyUsedProgram(telegram_id=username)

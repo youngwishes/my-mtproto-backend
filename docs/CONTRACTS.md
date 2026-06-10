@@ -140,7 +140,7 @@
 }
 ```
 
-**Ошибки:** `KeyDoesNotExist`, `TooManyRequests` (чаще 1 раза в 5 минут).
+**Ошибки:** `KeyDoesNotExist`, `TooManyRequests` (чаще 1 раза в 5 минут), `NoVDSAvailable` (нет доступных серверов).
 
 ---
 

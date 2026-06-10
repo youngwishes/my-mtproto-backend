@@ -12,6 +12,7 @@ from apps.vds.tests.factories import MTPRotoKeyFactory, VDSInstanceFactory
 
 
 @mock.patch("apps.notifications.services.send_notification_service.send_telegram_message")
+@mock.patch("apps.core.decorators._log_service_error")
 @mock.patch("apps.core.decorators._log_infra_error")
 class TestUpdateKeyServiceVDSSelection(TestCase):
     def setUp(self) -> None:
@@ -20,7 +21,7 @@ class TestUpdateKeyServiceVDSSelection(TestCase):
     @responses.activate
     @mock.patch("apps.vds.services.update_key_infra_service.update_key_on_another_vds_instances_task")
     def test_stays_on_same_vds_when_available(
-        self, mock_task, mock_log, mock_send
+        self, mock_task, mock_log_infra, mock_log_service, mock_send
     ) -> None:
         vds = VDSInstanceFactory(is_keys_available=True)
         key = MTPRotoKeyFactory(vds=vds, expired_date=self.future)
@@ -40,7 +41,7 @@ class TestUpdateKeyServiceVDSSelection(TestCase):
     @responses.activate
     @mock.patch("apps.vds.services.update_key_infra_service.update_key_on_another_vds_instances_task")
     def test_migrates_to_new_vds_when_current_has_keys_unavailable(
-        self, mock_task, mock_log, mock_send
+        self, mock_task, mock_log_infra, mock_log_service, mock_send
     ) -> None:
         old_vds = VDSInstanceFactory(is_keys_available=False)
         new_vds = VDSInstanceFactory(is_keys_available=True)
@@ -62,7 +63,7 @@ class TestUpdateKeyServiceVDSSelection(TestCase):
     @responses.activate
     @mock.patch("apps.vds.services.update_key_infra_service.update_key_on_another_vds_instances_task")
     def test_patch_is_sent_to_selected_vds_not_old_vds(
-        self, mock_task, mock_log, mock_send
+        self, mock_task, mock_log_infra, mock_log_service, mock_send
     ) -> None:
         old_vds = VDSInstanceFactory(is_keys_available=False)
         new_vds = VDSInstanceFactory(is_keys_available=True)
@@ -80,3 +81,14 @@ class TestUpdateKeyServiceVDSSelection(TestCase):
             responses.calls[0].request.url,
             f"{new_vds.internal_url}/api/users",
         )
+
+    def test_raises_when_no_vds_available(
+        self, mock_log_infra, mock_log_service, mock_send
+    ) -> None:
+        # All VDS have is_keys_available=False → get_least_populated_vds() returns None
+        vds = VDSInstanceFactory(is_keys_available=False)
+        key = MTPRotoKeyFactory(vds=vds, expired_date=self.future)
+
+        from apps.vds.exceptions import NoVDSAvailable
+        with self.assertRaises(NoVDSAvailable):
+            get_update_key_service()(username=str(key.user.username))

@@ -42,10 +42,11 @@
 | `internal_ip_address` | str | IP в Docker-сети |
 | `port` | SmallInt | Порт FastAPI (default: 8000) |
 | `user_limit` | SmallInt | Максимум активных ключей (default: 200) |
+| `is_keys_available` | bool | Разрешён ли выпуск ключей на сервере (default: True) |
 
 **Менеджер:**
-- `order_by_population()` — сортировка по количеству ключей (ascending)
-- `get_least_populated()` — наименее нагруженный сервер
+- `order_by_population()` — сортировка по количеству ключей среди серверов с `is_keys_available=True` (ascending)
+- `get_least_populated()` — наименее нагруженный доступный сервер
 
 **Методы:**
 - `is_available()` — `True`, если количество активных ключей < `user_limit`
