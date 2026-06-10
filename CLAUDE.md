@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Django backend for BeatVault — an MTProto proxy subscription service. Users receive Telegram proxy keys via a Telegram bot. The bot is a separate containerized service in `bot/`. All business user interaction happens through Telegram, not a web UI.
 
-Подробная документация — в `docs/` (BUSINESS.md, ARCHITECTURE.md, CONTRACTS.md, MODELS.md, SERVICES.md).
+Подробная документация — в `docs/` (BUSINESS.md, ARCHITECTURE.md, CONTRACTS.md, MODELS.md).
 
 ## Commands
 
@@ -99,12 +99,11 @@ Scheduled via Celery Beat (defined in `config/settings/celery.py`):
 
 ## Rules
 
-1. **Никогда не выполнять git-команды.** Коммиты, пуши, ветки — пользователь делает сам.
-2. **Поддерживать документацию в актуальном виде.** При изменении бизнес-логики, контрактов или архитектуры — обновлять docstrings и соответствующие файлы в `docs/` (BUSINESS.md, ARCHITECTURE.md, CONTRACTS.md, MODELS.md).
-3. **Всегда прогонять тесты.** После любых изменений запускать тесты и убедиться, что нет регрессий. Не считать задачу выполненной без зелёных тестов.
-4. **Переиспользовать селекторы.** ORM-запросы живут в `selectors.py` — не дублировать их в сервисах. Перед написанием нового запроса проверить, есть ли подходящий селектор.
-5. **Следовать SOLID, DRY, DDD.** Единая ответственность для сервисов, инъекция зависимостей через поля dataclass, доменные исключения в `exceptions.py`, enum в `enums.py`, DTO для передачи данных между слоями.
-6. **Всегда использовать `from __future__ import annotations`.** Импорты, нужные только для аннотаций типов, выносить в блок `TYPE_CHECKING`:
+1. **Поддерживать документацию в актуальном виде.** При изменении бизнес-логики, контрактов или архитектуры — обновлять docstrings и соответствующие файлы в `docs/` (BUSINESS.md, ARCHITECTURE.md, CONTRACTS.md, MODELS.md).
+2. **Всегда прогонять тесты.** После любых изменений запускать тесты и убедиться, что нет регрессий. Не считать задачу выполненной без зелёных тестов.
+3. **Переиспользовать селекторы.** ORM-запросы живут в `selectors.py` — не дублировать их в сервисах. Перед написанием нового запроса проверить, есть ли подходящий селектор.
+4. **Следовать SOLID, DRY, DDD.** Единая ответственность для сервисов, инъекция зависимостей через поля dataclass, доменные исключения в `exceptions.py`, enum в `enums.py`, DTO для передачи данных между слоями.
+5. **Всегда использовать `from __future__ import annotations`.** Импорты, нужные только для аннотаций типов, выносить в блок `TYPE_CHECKING`:
    ```python
    from __future__ import annotations
    from typing import TYPE_CHECKING
