@@ -35,7 +35,7 @@ class UpdateKeyService:
         with transaction.atomic():
 
             infra = get_update_key_infra_service()
-            response = infra(username=username, old_key=key)
+            response = infra(username=username, server=key.vds)
 
             key.vds = key.vds
             key.token = response.key

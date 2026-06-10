@@ -34,7 +34,7 @@ class TestUpdateKeyView(APITestCase):
         )
 
     @responses.activate
-    @mock.patch("apps.vds.tasks.add_key_to_another_vds_instances_task.delay")
+    @mock.patch("apps.vds.tasks.update_key_on_another_vds_instances_task.delay")
     def test_update_user_key(self, _task) -> None:
         self._mock_vds_request()
         user_key_before = MTPRotoKeyFactory(
