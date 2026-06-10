@@ -8,6 +8,7 @@ class VDSQuerySet(ActiveQuerySet):
     def order_by_population(self):
         return (
             self.active()
+            .filter(is_keys_available=True)
             .annotate(keys_count_annotation=Count("keys"))
             .order_by("keys_count_annotation")
         )
@@ -23,6 +24,7 @@ class VDSInstance(BaseDjangoModel):
     internal_ip_address = models.CharField("внутренний IP-адрес", blank=True)
     port = models.SmallIntegerField("порт", default=8000)
     user_limit = models.PositiveSmallIntegerField("лимит пользователей", default=200)
+    is_keys_available = models.BooleanField("выпуск ключей доступен", default=True)
 
     objects = VDSQuerySet.as_manager()
 
