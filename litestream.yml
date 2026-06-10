@@ -1,0 +1,10 @@
+dbs:
+  - path: /app/data/db.sqlite3
+    replicas:
+      - type: s3
+        bucket: sqlite-backup
+        path: db
+        endpoint: https://s3.twcstorage.ru
+        region: ru
+        access-key-id: ${LITESTREAM_ACCESS_KEY_ID}
+        secret-access-key: ${LITESTREAM_SECRET_ACCESS_KEY}
