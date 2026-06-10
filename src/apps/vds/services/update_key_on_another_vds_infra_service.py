@@ -40,7 +40,7 @@ class UpdateKeyOnAnotherVdsInfraService:
             chat_id=int(settings.MY_TELEGRAM_ID),
             text=(
                 "🔴 <b>(BACKEND) Системное оповещение</b>\n\n"
-                "🛡 <b>Тип ошибки:</b> SERVER INTERNAL ERROR (500)\n"
+                "🛡 <b>Тип ошибки:</b> REPLICATION ERROR\n"
                 "📋 <b>Детали:</b>\n"
                 f"- Не удалось обновить ключ на сервере\n"
                 f"- Сервер — <b>{server.internal_url}</b>\n"
