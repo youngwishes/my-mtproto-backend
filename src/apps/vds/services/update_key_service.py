@@ -37,7 +37,7 @@ class UpdateKeyService:
             infra = get_update_key_infra_service()
             response = infra(username=username, server=key.vds)
 
-            key.vds = key.vds
+            key.vds = key.vds  # replaced with selected server in Task 4
             key.token = response.key
             key.tls_domain = response.tls_domain
             key.node_number = key.vds.name
