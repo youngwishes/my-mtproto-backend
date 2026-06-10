@@ -25,6 +25,13 @@ def add_key_to_another_vds_instances_task(exclude: int, username: str, secret: s
 
 
 @shared_task
+def update_key_on_another_vds_instances_task(exclude: int, username: str, secret: str) -> None:
+    from apps.vds.services import get_update_key_on_another_vds_instances_service
+
+    get_update_key_on_another_vds_instances_service()(exclude=exclude, username=username, secret=secret)
+
+
+@shared_task
 def remove_key_from_another_vds_instances_task(server: int, keys_id: list[int]) -> None:
     from apps.vds.services import get_remove_keys_from_vds_instance_infra_service
 

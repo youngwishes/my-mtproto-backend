@@ -36,6 +36,10 @@ from apps.vds.services.update_key_service import (
     UpdateKeyService,
     get_update_key_service,
 )
+from apps.vds.services.update_key_on_another_vds_infra_service import (
+    UpdateKeyOnAnotherVdsInfraService,
+    get_update_key_on_another_vds_instances_service,
+)
 
 __all__ = [
     "AddKeyToAnotherVdsInfraService",
@@ -56,4 +60,6 @@ __all__ = [
     "get_remove_keys_from_vds_instance_infra_service",
     "UpdateKeyService",
     "get_update_key_service",
+    "UpdateKeyOnAnotherVdsInfraService",
+    "get_update_key_on_another_vds_instances_service",
 ]
