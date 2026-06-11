@@ -5,13 +5,19 @@ from django.utils import timezone
 from django.utils.html import format_html
 
 from apps.vds.models import MTPRotoKey, VDSInstance
-from apps.vds.tasks import migrate_vds_keys_task
+from apps.vds.tasks import migrate_vds_keys_task, remove_expired_keys_from_vds_task
 
 
 @admin.action(description="Перенести все ключи на другие VDS-машины.")
 def migrate_vds_keys(modeladmin, request, queryset):
     for instance in queryset:
         migrate_vds_keys_task.delay(from_instance_id=instance.pk)
+
+
+@admin.action(description="Очистить истекшие ключи с выбранных VDS-машин.")
+def remove_expired_keys(modeladmin, request, queryset):
+    for instance in queryset:
+        remove_expired_keys_from_vds_task.delay(instance_id=instance.pk)
 
 
 @admin.register(VDSInstance)
@@ -27,7 +33,7 @@ class VDSInstanceAdmin(admin.ModelAdmin):
         "is_active",
     ]
     list_editable = ["is_active"]
-    actions = (migrate_vds_keys,)
+    actions = (migrate_vds_keys, remove_expired_keys)
 
     @admin.display(description="Количество активных ключей")
     def active_keys_count(self, obj):

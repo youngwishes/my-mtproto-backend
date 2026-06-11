@@ -18,6 +18,13 @@ def remove_user_keys_daily():
 
 
 @shared_task
+def remove_expired_keys_from_vds_task(instance_id: int) -> None:
+    from apps.vds.services.remove_expired_keys_from_vds_infra_service import get_remove_expired_keys_from_vds_infra_service
+
+    get_remove_expired_keys_from_vds_infra_service()(instance_id=instance_id)
+
+
+@shared_task
 def add_key_to_another_vds_instances_task(exclude: int, username: str, secret: str) -> None:
     from apps.vds.services import get_add_key_to_another_vds_instances_service
 

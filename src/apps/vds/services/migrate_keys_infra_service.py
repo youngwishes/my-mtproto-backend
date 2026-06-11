@@ -24,6 +24,9 @@ class MigrateVdsKeysInfraService:
             if not getattr(key.user, "username", None) or not key.token:
                 continue
 
+            if key.was_deleted or (not key.is_active):
+                continue
+
             for target in target_servers:
                 self._migrate_key_to_server(key=key, target=target)
 

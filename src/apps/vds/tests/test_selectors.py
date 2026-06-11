@@ -10,6 +10,7 @@ from apps.vds.selectors import (
     get_active_broadcast_keys,
     get_active_key,
     get_all_active_vds_instances,
+    get_expired_keys_for_vds_instance,
     get_keys_by_username,
     get_keys_expired_up_to_date,
     get_keys_expiring_on_date,
@@ -318,6 +319,52 @@ class TestGetVdsInstanceKeys(TestCase):
         with self.assertNumQueries(0):
             for key in keys:
                 _ = key.user.username
+
+
+class TestGetExpiredKeysForVdsInstance(TestCase):
+    def setUp(self) -> None:
+        self.vds = VDSInstanceFactory()
+        self.other_vds = VDSInstanceFactory()
+
+    def test_returns_expired_keys_for_given_instance(self) -> None:
+        key = MTPRotoKeyFactory(
+            vds=self.vds,
+            expired_date=timezone.now() - timedelta(days=1),
+            is_active=True,
+            was_deleted=False,
+        )
+        result = get_expired_keys_for_vds_instance(instance=self.vds)
+        self.assertIn(key, result)
+
+    def test_excludes_future_keys(self) -> None:
+        MTPRotoKeyFactory(
+            vds=self.vds,
+            expired_date=timezone.now() + timedelta(days=1),
+            is_active=True,
+            was_deleted=False,
+        )
+        result = get_expired_keys_for_vds_instance(instance=self.vds)
+        self.assertFalse(result.exists())
+
+    def test_excludes_already_deleted_keys(self) -> None:
+        MTPRotoKeyFactory(
+            vds=self.vds,
+            expired_date=timezone.now() - timedelta(days=1),
+            is_active=False,
+            was_deleted=True,
+        )
+        result = get_expired_keys_for_vds_instance(instance=self.vds)
+        self.assertFalse(result.exists())
+
+    def test_excludes_keys_from_other_instances(self) -> None:
+        MTPRotoKeyFactory(
+            vds=self.other_vds,
+            expired_date=timezone.now() - timedelta(days=1),
+            is_active=True,
+            was_deleted=False,
+        )
+        result = get_expired_keys_for_vds_instance(instance=self.vds)
+        self.assertFalse(result.exists())
 
 
 class TestGetActiveBroadcastKeys(TestCase):
