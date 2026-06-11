@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock
 
-import pytest
-
 from domains.free_trial.client import FreeLink, FreeTrialClient, get_free_trial_client
 
 
@@ -23,6 +21,7 @@ async def test_check_eligibility_returns_available_period():
         telegram_id="123",
         data={"username": "123", "telegram_username": "testuser"},
     )
+    assert "invited_from_username" not in mock_http.post.call_args.kwargs["data"]
 
 
 async def test_check_eligibility_includes_referrer_when_provided():

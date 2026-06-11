@@ -21,7 +21,7 @@ from domains.free_trial.messages import (
 router = Router()
 
 
-def _build_start_keyboard(available_free_period: str) -> InlineKeyboardMarkup:
+def _build_start_keyboard(available_free_period: FreeAvailable) -> InlineKeyboardMarkup:
     callback_data = (
         "boost_free"
         if available_free_period != FreeAvailable.NOT_AVAILABLE
@@ -51,24 +51,25 @@ async def cmd_start(message: Message) -> None:
     client = get_free_trial_client()
     available_free_period = await client.check_eligibility(
         telegram_id=str(message.from_user.id),
-        telegram_username=str(getattr(message.from_user, "username", None)),
+        telegram_username=message.from_user.username,
         invited_from_username=invited_from_username,
     )
     await message.answer(
-        text=FREE_AVAILABLE_TEXT_MAPPING.get(available_free_period),
+        text=FREE_AVAILABLE_TEXT_MAPPING[available_free_period],
         reply_markup=_build_start_keyboard(available_free_period),
     )
 
 
 @router.callback_query(F.data == "show_start_screen")
 async def cmd_start_inline(callback: CallbackQuery) -> None:
+    await callback.answer()
     client = get_free_trial_client()
     available_free_period = await client.check_eligibility(
         telegram_id=str(callback.message.chat.id),
-        telegram_username=str(getattr(callback.message.from_user, "username", None)),
+        telegram_username=callback.from_user.username,
     )
     await callback.message.edit_text(
-        text=FREE_AVAILABLE_TEXT_MAPPING.get(available_free_period),
+        text=FREE_AVAILABLE_TEXT_MAPPING[available_free_period],
         reply_markup=_build_start_keyboard(available_free_period),
     )
 

@@ -5,6 +5,7 @@ from typing import final
 
 from core.backend_client import BackendClient
 from core.handle_error import log_service_error
+from domains.free_trial.enums import FreeAvailable
 
 
 @final
@@ -24,9 +25,9 @@ class FreeTrialClient:
         self,
         *,
         telegram_id: str,
-        telegram_username: str,
+        telegram_username: str | None,
         invited_from_username: str | None = None,
-    ) -> str:
+    ) -> FreeAvailable:
         data: dict = {"username": telegram_id, "telegram_username": telegram_username}
         if invited_from_username is not None:
             data["invited_from_username"] = invited_from_username
@@ -35,7 +36,7 @@ class FreeTrialClient:
             telegram_id=telegram_id,
             data=data,
         )
-        return result["available_free_period"]
+        return FreeAvailable(result["available_free_period"])
 
     @log_service_error
     async def activate(self, *, telegram_id: str) -> FreeLink:
@@ -44,7 +45,7 @@ class FreeTrialClient:
             telegram_id=telegram_id,
             data={"username": telegram_id},
         )
-        return FreeLink(**result)
+        return FreeLink(link=result["link"], expired_date=result["expired_date"])
 
 
 def get_free_trial_client() -> FreeTrialClient:
