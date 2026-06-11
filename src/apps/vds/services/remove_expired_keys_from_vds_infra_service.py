@@ -3,16 +3,17 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import final
 
-from apps.vds.selectors import get_all_active_vds_instances, get_expired_keys_for_vds_instance, get_vds_instance_by_id
+from django.utils import timezone
+
+from apps.vds.selectors import get_all_active_vds_instances, get_keys_expired_up_to_date
 from apps.vds.services.remove_key_infra_service import get_remove_user_key_infra_service
 
 
 @final
 @dataclass(kw_only=True, slots=True, frozen=True)
 class RemoveExpiredKeysFromVdsInfraService:
-    def __call__(self, *, instance_id: int) -> None:
-        instance = get_vds_instance_by_id(pk=instance_id)
-        keys = get_expired_keys_for_vds_instance(instance=instance)
+    def __call__(self) -> None:
+        keys = get_keys_expired_up_to_date(date=timezone.now().date())
 
         if not keys.exists():
             return

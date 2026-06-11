@@ -36,6 +36,10 @@ from apps.vds.services.update_key_service import (
     UpdateKeyService,
     get_update_key_service,
 )
+from apps.vds.services.remove_dead_keys_from_vds_infra_service import (
+    RemoveDeadKeysFromVdsInfraService,
+    get_remove_dead_keys_from_vds_infra_service,
+)
 from apps.vds.services.remove_expired_keys_from_vds_infra_service import (
     RemoveExpiredKeysFromVdsInfraService,
     get_remove_expired_keys_from_vds_infra_service,
@@ -68,4 +72,6 @@ __all__ = [
     "get_update_key_on_another_vds_instances_service",
     "RemoveExpiredKeysFromVdsInfraService",
     "get_remove_expired_keys_from_vds_infra_service",
+    "RemoveDeadKeysFromVdsInfraService",
+    "get_remove_dead_keys_from_vds_infra_service",
 ]

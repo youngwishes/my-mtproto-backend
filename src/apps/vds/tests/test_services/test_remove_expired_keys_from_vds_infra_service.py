@@ -15,78 +15,80 @@ from apps.vds.tests.factories import MTPRotoKeyFactory, VDSInstanceFactory
 
 class TestRemoveExpiredKeysFromVdsInfraService(TestCase):
     def setUp(self) -> None:
-        self.instance = VDSInstanceFactory()
+        self.server_a = VDSInstanceFactory()
+        self.server_b = VDSInstanceFactory()
 
-    def _add_delete_response(self, server=None) -> None:
-        target = server or self.instance
+    def _add_delete_response(self, server) -> None:
         responses.add(
             method=responses.DELETE,
-            url=target.internal_url + "/api/users",
+            url=server.internal_url + "/api/users",
         )
 
     @mock.patch("apps.vds.services.remove_key_infra_service.RemoveUserKeyInfraService.__call__")
     def test_no_expired_keys_exits_early(self, infra_service) -> None:
         MTPRotoKeyFactory(
-            vds=self.instance,
+            vds=self.server_a,
             expired_date=timezone.now() + timedelta(days=1),
         )
-        get_remove_expired_keys_from_vds_infra_service()(instance_id=self.instance.pk)
+        get_remove_expired_keys_from_vds_infra_service()()
         self.assertEqual(infra_service.call_count, 0)
 
     @responses.activate
-    def test_removes_expired_key_from_all_vds_servers(self) -> None:
-        other = VDSInstanceFactory()
-        self._add_delete_response(server=self.instance)
-        self._add_delete_response(server=other)
+    def test_removes_expired_keys_from_all_vds_servers(self) -> None:
+        self._add_delete_response(self.server_a)
+        self._add_delete_response(self.server_b)
 
         MTPRotoKeyFactory(
-            vds=self.instance,
+            vds=self.server_a,
             expired_date=timezone.now() - timedelta(days=1),
         )
 
-        get_remove_expired_keys_from_vds_infra_service()(instance_id=self.instance.pk)
+        get_remove_expired_keys_from_vds_infra_service()()
 
         self.assertEqual(len(responses.calls), 2)
 
     @responses.activate
     def test_marks_expired_keys_as_deleted_in_db(self) -> None:
-        self._add_delete_response()
+        self._add_delete_response(self.server_a)
+        self._add_delete_response(self.server_b)
+
         key = MTPRotoKeyFactory(
-            vds=self.instance,
+            vds=self.server_a,
             expired_date=timezone.now() - timedelta(days=1),
         )
 
-        get_remove_expired_keys_from_vds_infra_service()(instance_id=self.instance.pk)
+        get_remove_expired_keys_from_vds_infra_service()()
 
         key.refresh_from_db()
         self.assertFalse(key.is_active)
         self.assertTrue(key.was_deleted)
 
     @responses.activate
-    def test_does_not_touch_keys_on_other_instances(self) -> None:
-        other_instance = VDSInstanceFactory()
-        self._add_delete_response()
-        key_other = MTPRotoKeyFactory(
-            vds=other_instance,
-            expired_date=timezone.now() - timedelta(days=1),
-        )
+    def test_cleans_expired_keys_from_all_home_servers(self) -> None:
+        """Ключи с разных home-серверов чистятся в одном прогоне."""
+        self._add_delete_response(self.server_a)
+        self._add_delete_response(self.server_b)
 
-        get_remove_expired_keys_from_vds_infra_service()(instance_id=self.instance.pk)
+        key_a = MTPRotoKeyFactory(vds=self.server_a, expired_date=timezone.now() - timedelta(days=1))
+        key_b = MTPRotoKeyFactory(vds=self.server_b, expired_date=timezone.now() - timedelta(days=1))
 
-        key_other.refresh_from_db()
-        self.assertTrue(key_other.is_active)
-        self.assertFalse(key_other.was_deleted)
+        get_remove_expired_keys_from_vds_infra_service()()
+
+        key_a.refresh_from_db()
+        key_b.refresh_from_db()
+        self.assertFalse(key_a.is_active)
+        self.assertFalse(key_b.is_active)
 
     @mock.patch("apps.vds.services.remove_key_infra_service.RemoveUserKeyInfraService.__call__")
     def test_idempotent_on_second_call(self, infra_service) -> None:
-        key = MTPRotoKeyFactory(
-            vds=self.instance,
-            expired_date=timezone.now() - timedelta(days=1),
-        )
         infra_service.return_value = None
 
-        get_remove_expired_keys_from_vds_infra_service()(instance_id=self.instance.pk)
-        get_remove_expired_keys_from_vds_infra_service()(instance_id=self.instance.pk)
+        MTPRotoKeyFactory(
+            vds=self.server_a,
+            expired_date=timezone.now() - timedelta(days=1),
+        )
 
-        # второй вызов не должен обрабатывать уже удалённый ключ
-        self.assertEqual(infra_service.call_count, 1)
+        get_remove_expired_keys_from_vds_infra_service()()
+        get_remove_expired_keys_from_vds_infra_service()()
+
+        self.assertEqual(infra_service.call_count, 2)  # 2 сервера, 1 прогон

@@ -54,13 +54,13 @@ def get_unnotified_keys_expiring_on_date(*, date: date) -> QuerySet[MTPRotoKey]:
     return get_keys_expiring_on_date(date=date).filter(user_notified=False)
 
 
-def get_expired_keys_for_vds_instance(*, instance: VDSInstance) -> QuerySet[MTPRotoKey]:
-    """Активные истёкшие ключи конкретного VDS-инстанса."""
-    return MTPRotoKey.objects.active().filter(
-        vds=instance,
-        was_deleted=False,
+def get_all_dead_expired_keys() -> QuerySet[MTPRotoKey]:
+    """Все истёкшие ключи, помеченные как удалённые или неактивные."""
+    from django.db.models import Q
+
+    return MTPRotoKey.objects.filter(
         expired_date__date__lte=timezone.now().date(),
-    )
+    ).filter(Q(was_deleted=True) | Q(is_active=False))
 
 
 def get_all_active_vds_instances() -> QuerySet[VDSInstance]:
