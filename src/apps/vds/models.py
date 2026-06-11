@@ -98,6 +98,7 @@ class MTPRotoKey(BaseDjangoModel):
         return f"ee{self.token}{domain_hex}"
 
     def get_proxy_link_for_server(self, server_name: str) -> str:
+        """Generate a proxy link using a specific server name instead of the primary node."""
         secret = self.get_secret_token()
         return f"tg://proxy?server={server_name}.beatvault.ru&port=443&secret={secret}"
 

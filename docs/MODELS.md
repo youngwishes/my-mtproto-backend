@@ -77,6 +77,7 @@
 
 **Методы:**
 - `get_proxy_link()` — формирует `tg://proxy?server={node}.beatvault.ru&port=443&secret={secret}`
+- `get_proxy_link_for_server(server_name: str)` — формирует прокси-ссылку для конкретного сервера вместо первичной ноды
 - `get_secret_token()` — `ee{token}{hex(tls_domain)}`
 
 ---
