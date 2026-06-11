@@ -5,7 +5,7 @@ class BaseServiceError(Exception):
     def __init__(
         self,
         telegram_id: int | str | list[int | str],
-        message: str = None,
+        message: str | None = None,
         **context,
     ) -> None:
         self.telegram_id = telegram_id

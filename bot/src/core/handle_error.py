@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import html
 import json
 from collections.abc import Callable
@@ -11,6 +12,7 @@ from core.exceptions import BaseServiceError
 
 
 def log_service_error(__call__: Callable) -> Callable:
+    @functools.wraps(__call__)
     async def wrapped(self, **kwargs) -> Any:
         try:
             return await __call__(self, **kwargs)
