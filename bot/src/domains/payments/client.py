@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from copy import copy
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from typing import final
 
 from aiogram.types import LabeledPrice
@@ -25,7 +25,16 @@ class InvoiceData:
     provider_token: str
 
     def as_send_invoice_kwargs(self) -> dict:
-        return asdict(self)
+        return {
+            "title": self.title,
+            "description": self.description,
+            "currency": self.currency,
+            "provider_data": self.provider_data,
+            "send_email_to_provider": self.send_email_to_provider,
+            "need_email": self.need_email,
+            "prices": self.prices,
+            "provider_token": self.provider_token,
+        }
 
 
 @final

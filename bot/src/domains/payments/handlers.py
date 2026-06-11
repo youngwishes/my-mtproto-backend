@@ -12,6 +12,7 @@ from aiogram.types import (
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from bot import bot
+from core.exceptions import BaseServiceError
 from domains.payments.client import get_payments_client
 from domains.payments.messages import PAYMENT_ERROR_TEXT, PAYMENT_SELECTION_TEXT
 
@@ -86,6 +87,10 @@ async def process_successful_payment(message: Message) -> None:
             charge_id=charge_id,
             provider=provider,
         )
+    except BaseServiceError:
+        # @log_service_error already sent the user a domain error message and re-raised.
+        # Nothing further to do — avoid sending PAYMENT_ERROR_TEXT on top.
+        pass
     except Exception:
         logging.exception("Failed to record purchase for telegram_id=%s", message.from_user.id)
         await message.answer(PAYMENT_ERROR_TEXT)
