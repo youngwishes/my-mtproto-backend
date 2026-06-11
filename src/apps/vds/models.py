@@ -20,7 +20,7 @@ class VDSQuerySet(ActiveQuerySet):
 
 
 class VDSInstance(BaseDjangoModel):
-    name = models.CharField("название сервера", unique=True)
+    name = models.CharField("название сервера")
     number = models.PositiveSmallIntegerField("порядковый номер", unique=True)
     ip_address = models.CharField("IP-адрес", unique=True)
     internal_ip_address = models.CharField("внутренний IP-адрес", blank=True)
