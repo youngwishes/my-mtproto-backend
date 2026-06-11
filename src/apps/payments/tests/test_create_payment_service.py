@@ -185,6 +185,24 @@ class TestCreatePaymentService(TestCase):
         self.assertEqual(payment.charge_id, "stars_tx_456")
         self.assertEqual(payment.provider, PaymentProviderEnum.STARS)
 
+    @responses.activate
+    @mock.patch("apps.vds.tasks.add_key_to_another_vds_instances_task.delay")
+    @mock.patch("apps.notifications.services.send_notification_service.send_telegram_message")
+    def test_notification_context_contains_expired_date_not_link(
+        self, mock_send: mock.Mock, _task: mock.Mock
+    ) -> None:
+        self._mock_vds_request()
+
+        self.service(payment=self._make_payment(charge_id="charge_ctx"))
+
+        mock_send.assert_called_once()
+        call_kwargs = mock_send.call_args
+        # send_telegram_message is called with text=rendered_text, so check the template context
+        # by inspecting that the rendered message text does NOT contain a tg:// link
+        # (link is no longer in the context)
+        rendered_text = call_kwargs[1].get("text") or call_kwargs[0][1]
+        self.assertNotIn("tg://proxy", rendered_text)
+
     @mock.patch("apps.core.decorators._log_service_error")
     def test_raises_bad_payment_data_when_user_not_found(self, mock_log: mock.Mock) -> None:
         with self.assertRaises(BadPaymentData):

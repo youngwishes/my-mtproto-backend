@@ -62,7 +62,7 @@ class CreatePaymentService:
 
         SendNotificationService(
             slug="proxy_purchased",
-            context={"link": key.get_proxy_link()},
+            context={"expired_date": key.expired_date.date().strftime("%d.%m.%y")},
         )(chat_id=int(user.username))
 
 
