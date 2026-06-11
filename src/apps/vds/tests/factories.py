@@ -12,6 +12,7 @@ class VDSInstanceFactory(factory.django.DjangoModelFactory):
     user_limit = 30
     is_keys_available = True
     port = 8000
+    location = factory.Sequence(lambda n: f"🌍 Server {n}")
 
     class Meta:
         model = VDSInstance

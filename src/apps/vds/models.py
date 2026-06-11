@@ -27,6 +27,7 @@ class VDSInstance(BaseDjangoModel):
     port = models.SmallIntegerField("порт", default=8000)
     user_limit = models.PositiveSmallIntegerField("лимит пользователей", default=200)
     is_keys_available = models.BooleanField("выпуск ключей доступен", default=True)
+    location = models.CharField("геолокация", default="", blank=True)
 
     objects = VDSQuerySet.as_manager()
 
