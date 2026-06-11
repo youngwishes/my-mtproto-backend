@@ -5,7 +5,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
-from src.config import BOT_TOKEN
+from core.config import BOT_TOKEN
 
 logging.basicConfig(level=logging.INFO)
 
