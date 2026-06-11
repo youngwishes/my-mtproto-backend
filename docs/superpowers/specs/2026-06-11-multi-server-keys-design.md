@@ -82,6 +82,56 @@ If user has no active key:
 - Screen re-renders as «Мои серверы» with fresh links
 - `KEY_UPDATED_TEXT` message is removed
 
+## Notification System Changes
+
+### Problem
+After payment, `CreatePaymentService` sends a notification via `SendNotificationService` using the `proxy_purchased` `NotificationTemplate` stored in Django admin. The template currently renders a `url` button ("Подключиться" → `tg://proxy?...`). The new design needs a `callback_data` button ("📡 Мои серверы") instead.
+
+`NotificationTemplate.render()` uses `telebot` to build `InlineKeyboardMarkup`. Messages sent this way (from Django backend via `telebot.TeleBot`) still deliver `callback_query` events to the running aiogram bot — so a `callback_data="my_servers"` button in a telebot-sent message will correctly trigger the `F.data == "my_servers"` aiogram handler.
+
+### `NotificationTemplate` — one new field (with migration)
+```python
+button_callback_data = models.CharField(
+    "callback_data кнопки", max_length=128, blank=True, default=""
+)
+```
+
+### `NotificationTemplate.render()` — updated logic
+```python
+if self.button_text and self.button_url:
+    keyboard_rows.append(
+        [InlineKeyboardButton(text=self.button_text, url=self.button_url.format(**ctx))]
+    )
+elif self.button_text and self.button_callback_data:
+    keyboard_rows.append(
+        [InlineKeyboardButton(text=self.button_text, callback_data=self.button_callback_data)]
+    )
+```
+
+### `proxy_purchased` template — updated in Django admin (data change, no code)
+| Field | Before | After |
+|-------|--------|-------|
+| `button_text` | `🇳🇱 Подключиться` | `📡 Мои серверы` |
+| `button_url` | `{link}` | *(cleared)* |
+| `button_callback_data` | *(not existed)* | `my_servers` |
+
+### `CreatePaymentService` — updated context
+```python
+# Before
+SendNotificationService(
+    slug="proxy_purchased",
+    context={"link": key.get_proxy_link()},
+)(chat_id=int(user.username))
+
+# After
+SendNotificationService(
+    slug="proxy_purchased",
+    context={"expired_date": key.expired_date.date().strftime("%d.%m.%y")},
+)(chat_id=int(user.username))
+```
+
+The `proxy_purchased` template text should be updated in admin to use `{expired_date}` instead of `{link}`.
+
 ## Data Model Changes
 
 ### `VDSInstance` — one new field
@@ -174,7 +224,7 @@ Response on missing/expired key: service error with user-facing message.
 |------|--------|-------|
 | Main menu | has `🔄 Перевыпустить ссылку` | replaced by `📡 Мои серверы` |
 | After free/referral key issued | `🇳🇱 Подключиться` url-button | `📡 Мои серверы` callback-button |
-| After payment success | no follow-up button | sends message "✅ Оплата прошла!" + `📡 Мои серверы` button |
+| After payment success | `proxy_purchased` template with url-button | `proxy_purchased` template with `callback_data="my_servers"` button (configured in admin) |
 | `update_link` handler | sends new message with KEY_UPDATED_TEXT | `callback.answer("✅ Ссылки обновлены!")` toast + re-renders «Мои серверы» |
 | `KEY_UPDATED_TEXT` | used | removed |
 
@@ -201,6 +251,14 @@ No new selectors needed. `get_all_active_vds_instances()` and `get_active_key()`
 ### `TestGetProxyLinkForServer`
 - Unit test on `MTPRotoKey.get_proxy_link_for_server("de1")`: verify `server=de1.beatvault.ru` in URL, secret formed correctly
 
+### `TestNotificationTemplateRender`
+- `button_url` set → renders `InlineKeyboardButton` with `url`
+- `button_callback_data` set → renders `InlineKeyboardButton` with `callback_data`
+- Both unset → no keyboard
+
+### `TestCreatePaymentService` (update existing)
+- Verify `SendNotificationService` is called with `context={"expired_date": ...}`, not `link`
+
 ## Files to Create / Modify
 
 **Create:**
@@ -213,6 +271,8 @@ No new selectors needed. `get_all_active_vds_instances()` and `get_active_key()`
 - `bot/src/services/get_my_servers_service.py`
 
 **Modify:**
+- `src/apps/notifications/models.py` — add `button_callback_data` to `NotificationTemplate`, update `render()`
+- `src/apps/payments/services/create_payment_service.py` — update `SendNotificationService` context
 - `src/apps/vds/models.py` — add `location` to `VDSInstance`, add `get_proxy_link_for_server` to `MTPRotoKey`
 - `src/apps/vds/services/dtos/__init__.py` — export `MyServerOut`, `MyServersOut`
 - `src/apps/vds/services/__init__.py` — export `GetMyServersService`
