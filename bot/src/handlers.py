@@ -43,8 +43,8 @@ router = Router()
 def _build_main_menu_keyboard(callback_data: str) -> InlineKeyboardMarkup:
     keyboard = InlineKeyboardBuilder(
         markup=[
-            [InlineKeyboardButton(text="⚡️ Ускорить Telegram", callback_data=callback_data)],
-            [InlineKeyboardButton(text="📡 Мои серверы", callback_data="my_servers")],
+            [InlineKeyboardButton(text="⚡️ Ускорить Telegram", callback_data=callback_data, style="success")],
+            [InlineKeyboardButton(text="📡 Мои серверы", callback_data="my_servers", style="primary")],
             [InlineKeyboardButton(text="📋 Информация", callback_data="info")],
             [InlineKeyboardButton(text="🤝 Реферальный кабинет", callback_data="referral")],
         ],
@@ -55,8 +55,8 @@ def _build_main_menu_keyboard(callback_data: str) -> InlineKeyboardMarkup:
 def _build_my_servers_keyboard(servers: list[ServerItem]) -> InlineKeyboardMarkup:
     keyboard = []
     for server in servers:
-        keyboard.append([InlineKeyboardButton(text=server.location, url=server.proxy_link)])
-    keyboard.append([InlineKeyboardButton(text="🔄 Перевыпустить ссылки", callback_data="update_link")])
+        keyboard.append([InlineKeyboardButton(text=server.location, url=server.proxy_link, style="success")])
+    keyboard.append([InlineKeyboardButton(text="🔄 Перевыпустить ссылки", callback_data="update_link", style="primary")])
     keyboard.append([InlineKeyboardButton(text="🔙 Назад", callback_data="show_start_screen")])
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
@@ -102,7 +102,7 @@ async def process_boost_free(callback: CallbackQuery):
     await callback.answer()
     response = await FirstMonthFreeService()(telegram_id=str(callback.message.chat.id))
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📡 Мои серверы", callback_data="my_servers")],
+        [InlineKeyboardButton(text="📡 Мои серверы", callback_data="my_servers", style="primary")],
         [InlineKeyboardButton(text="🔙 Назад", callback_data="show_start_screen")],
     ])
     await callback.message.edit_text(
@@ -151,10 +151,13 @@ async def process_referral(callback: CallbackQuery):
     keyboard = []
     if response.active_referrals_count >= 5:
         keyboard.append(
-            [InlineKeyboardButton(
-                text="🎁 Получить бесплатную ссылку",
-                callback_data="get-referral-link",
-            )]
+            [
+                InlineKeyboardButton(
+                    text="🎁 Получить бесплатную ссылку",
+                    callback_data="get-referral-link",
+                    style="success",
+                )
+            ]
         )
     keyboard.append(
         [InlineKeyboardButton(
@@ -179,7 +182,7 @@ async def process_referral_link(callback: CallbackQuery):
     await callback.answer()
     response = await GetReferralLinkService()(telegram_id=str(callback.message.chat.id))
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📡 Мои серверы", callback_data="my_servers")],
+        [InlineKeyboardButton(text="📡 Мои серверы", callback_data="my_servers", style="primary")],
     ])
     await callback.message.answer(
         text=KEY_GENERATED_TEXT.format(expired_date=response.expired_date),
@@ -193,8 +196,8 @@ async def process_boost_paid(callback: CallbackQuery):
     await callback.answer()
     keyboard = InlineKeyboardBuilder(
         markup=[
-            [InlineKeyboardButton(text="💳 ЮKassa — 99 ₽", callback_data="pay_yukassa")],
-            [InlineKeyboardButton(text="⭐ Telegram Stars — 80 ★", callback_data="pay_stars")],
+            [InlineKeyboardButton(text="💳 ЮKassa — 99 ₽", callback_data="pay_yukassa", style="primary")],
+            [InlineKeyboardButton(text="⭐ Telegram Stars — 80 ★", callback_data="pay_stars", style="primary")],
             [InlineKeyboardButton(text="🔙 Назад", callback_data="show_start_screen")],
         ],
     )
