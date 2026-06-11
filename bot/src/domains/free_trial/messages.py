@@ -1,4 +1,6 @@
-from enums import FreeAvailable
+from __future__ import annotations
+
+from domains.free_trial.enums import FreeAvailable
 
 WELCOME_TEXT_MONTH = """
 🚀 <b>Привет! Я помогу ускорить твой Telegram</b>
@@ -38,7 +40,6 @@ WELCOME_TEXT_TWO_WEEK = """
 <b>👇 Первые 2 недели — в подарок!</b>
 """
 
-
 WELCOME_TEXT_NOT_FREE = """
 🚀 <b>Привет! Я помогу ускорить твой Telegram</b>
 
@@ -58,7 +59,6 @@ FREE_AVAILABLE_TEXT_MAPPING = {
     FreeAvailable.NOT_AVAILABLE: WELCOME_TEXT_NOT_FREE,
 }
 
-
 KEY_GENERATED_TEXT = """
 🎉 <b>Твой персональный ключ готов!</b>
 
@@ -70,7 +70,7 @@ KEY_GENERATED_TEXT = """
 
 ✅ <b>Готово!</b> Telegram теперь работает быстрее
 
-⏳ Сссылка действительна до: <b>{expired_date}</b>
+⏳ Ссылка действительна до: <b>{expired_date}</b>
 
 <i>🤝 Чтобы быть в курсе всех новостей, пожалуйста, подпишись на наш канал — @mtproto_keys</i>
 """
@@ -97,26 +97,4 @@ FAQ_TEXT = """
 💳 Банковская карта, SberPay, ЮMoney, ⭐ Telegram Stars
 
 Остались вопросы? Напиши @mtproto_keys
-"""
-
-REFERRAL_CABINET = """
-<b>⚡️Твой реферальный кабинет </b> 
-
-• Общее количество инвайтов: <b>{total_referrals_count}</b>
-• Активированные инвайты: <b>{active_referrals_count}</b>
-
-🔗 Как только количество активированных инвайтов станет равно <b>5</b>, ты сможешь получить бесплатную ссылку <b>сроком действия 2 недели!</b>
-
-👇 <b>Поделиться ссылкой</b>
-"""
-
-
-KEY_UPDATED_TEXT = """
-<b>✅ Ссылка успешно обновлена!</b>
- 
-• ⚠️ Не забудь <b>удалить старую ссылку</b>, чтобы не запутаться! Она больше <b>НЕ будет работать</b>.
-• ⚡️ Ссылка действительна до: <b>{expired_date}</b>.
-• 📝 Не забудь подписаться на наш канал — там все новости: @mtproto_keys
-
-<b>👇 Новая ссылка!</b>
 """

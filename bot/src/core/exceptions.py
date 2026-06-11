@@ -1,6 +1,12 @@
+from __future__ import annotations
+
+
 class BaseServiceError(Exception):
     def __init__(
-        self, telegram_id: int | str | list[int | str], message: str = None, **context
+        self,
+        telegram_id: int | str | list[int | str],
+        message: str | None = None,
+        **context,
     ) -> None:
         self.telegram_id = telegram_id
         self.message = message or self.__doc__
