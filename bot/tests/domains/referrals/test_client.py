@@ -24,6 +24,8 @@ async def test_get_cabinet_returns_cabinet():
     assert isinstance(result, ReferralCabinet)
     assert result.active_referrals_count == 5
     assert result.referral_link == "https://t.me/bot?start=123"
+    assert result.total_referrals_count == 10
+    assert result.link_activated_count == 3
     mock_http.post.assert_called_once_with(
         path="/api/v1/users/referral/cabinet/",
         telegram_id="123",
@@ -42,6 +44,7 @@ async def test_get_referral_link_returns_link():
 
     assert isinstance(result, ReferralLink)
     assert result.link == "https://t.me/proxy?server=1.2.3.4"
+    assert result.expired_date == "2026-07-11"
     mock_http.post.assert_called_once_with(
         path="/api/v1/users/referral/link/",
         telegram_id="123",

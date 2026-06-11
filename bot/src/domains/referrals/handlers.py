@@ -15,8 +15,8 @@ async def process_referral(callback: CallbackQuery) -> None:
     client = get_referrals_client()
     response = await client.get_cabinet(telegram_id=str(callback.message.chat.id))
 
-    keyboard: list = []
-    if response.active_referrals_count >= 5:
+    keyboard: list[list[InlineKeyboardButton]] = []
+    if response.active_referrals_count is not None and response.active_referrals_count >= 5:
         keyboard.append(
             [InlineKeyboardButton(text="🎁 Получить бесплатную ссылку", callback_data="get-referral-link")]
         )
@@ -34,7 +34,6 @@ async def process_referral(callback: CallbackQuery) -> None:
         text=REFERRAL_CABINET.format(
             total_referrals_count=response.total_referrals_count,
             active_referrals_count=response.active_referrals_count,
-            referral_link=response.referral_link,
         ),
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard),
@@ -48,10 +47,11 @@ async def process_referral_link(callback: CallbackQuery) -> None:
     response = await client.get_referral_link(telegram_id=str(callback.message.chat.id))
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="🇳🇱 Подключиться", url=response.link)]
+            [InlineKeyboardButton(text="🇳🇱 Подключиться", url=response.link)],
+            [InlineKeyboardButton(text="🔙 Назад", callback_data="show_start_screen")],
         ]
     )
-    await callback.message.answer(
+    await callback.message.edit_text(
         text=KEY_GENERATED_TEXT.format(expired_date=response.expired_date),
         parse_mode="HTML",
         reply_markup=keyboard,
