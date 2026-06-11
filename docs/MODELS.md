@@ -43,6 +43,7 @@
 | `port` | SmallInt | Порт FastAPI (default: 8000) |
 | `user_limit` | SmallInt | Максимум активных ключей (default: 200) |
 | `is_keys_available` | bool | Разрешён ли выпуск ключей на сервере (default: True) |
+| `location` | str | Географический регион сервера (default: "") |
 
 **Менеджер:**
 - `order_by_population()` — сортировка по количеству ключей среди серверов с `is_keys_available=True` (ascending)
