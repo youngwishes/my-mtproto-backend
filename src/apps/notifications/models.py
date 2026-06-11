@@ -17,6 +17,9 @@ class NotificationTemplate(BaseDjangoModel):
     button_url = models.CharField(
         "URL кнопки (поддерживает {переменные})", max_length=512, blank=True, default="",
     )
+    button_callback_data = models.CharField(
+        "callback_data кнопки", max_length=128, blank=True, default="",
+    )
     include_payment_buttons = models.BooleanField(
         "Прикрепить кнопки оплаты", default=False,
     )
@@ -40,6 +43,13 @@ class NotificationTemplate(BaseDjangoModel):
                 [InlineKeyboardButton(
                     text=self.button_text,
                     url=self.button_url.format(**ctx),
+                )]
+            )
+        elif self.button_text and self.button_callback_data:
+            keyboard_rows.append(
+                [InlineKeyboardButton(
+                    text=self.button_text,
+                    callback_data=self.button_callback_data,
                 )]
             )
 

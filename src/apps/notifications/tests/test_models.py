@@ -90,6 +90,32 @@ class TestNotificationTemplateRender(TestCase):
         result = template.render()
         self.assertIsNone(result.markup)
 
+    def test_render_with_callback_button(self) -> None:
+        template = NotificationTemplateFactory(
+            text="Нажми кнопку",
+            button_text="📡 Мои серверы",
+            button_url="",
+            button_callback_data="my_servers",
+        )
+        result = template.render()
+        self.assertIsNotNone(result.markup)
+        button = result.markup.keyboard[0][0]
+        self.assertEqual(button.text, "📡 Мои серверы")
+        self.assertEqual(button.callback_data, "my_servers")
+        self.assertIsNone(button.url)
+
+    def test_render_url_button_takes_priority_over_callback_data(self) -> None:
+        template = NotificationTemplateFactory(
+            text="Текст",
+            button_text="Кнопка",
+            button_url="https://example.com",
+            button_callback_data="some_callback",
+        )
+        result = template.render()
+        button = result.markup.keyboard[0][0]
+        self.assertEqual(button.url, "https://example.com")
+        self.assertIsNone(button.callback_data)
+
 
 class TestMailingLifecycle(TestCase):
     def test_mark_as_sending(self) -> None:

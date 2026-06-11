@@ -12,6 +12,7 @@ class NotificationTemplateFactory(factory.django.DjangoModelFactory):
     text = "Default text"
     button_text = ""
     button_url = ""
+    button_callback_data = ""
     include_payment_buttons = False
 
     class Meta:
