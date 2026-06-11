@@ -72,3 +72,31 @@ async def test_get_returns_json_on_success():
     client = BackendClient()
     result = await client.get(path="/api/v1/payments/")
     assert result == {"title": "BeatVault", "price": 7900}
+
+
+@respx.mock
+async def test_get_sends_auth_header():
+    route = respx.get("http://test.api/api/v1/payments/").mock(
+        return_value=httpx.Response(200, json={})
+    )
+    await BackendClient().get(path="/api/v1/payments/")
+    assert route.calls[0].request.headers["bot-auth-token"] == "test-bot-auth"
+
+
+@respx.mock
+async def test_get_raises_api_error_with_message_on_http_error_with_body():
+    respx.get("http://test.api/api/v1/payments/").mock(
+        return_value=httpx.Response(400, json={"error": "not found"})
+    )
+    with pytest.raises(APIError) as exc_info:
+        await BackendClient().get(path="/api/v1/payments/")
+    assert exc_info.value.message == "not found"
+
+
+@respx.mock
+async def test_get_raises_api_error_on_network_error():
+    respx.get("http://test.api/api/v1/payments/").mock(
+        side_effect=httpx.ConnectError("Connection refused")
+    )
+    with pytest.raises(APIError):
+        await BackendClient().get(path="/api/v1/payments/")

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from typing import final
 
@@ -23,23 +22,20 @@ class BackendClient:
                     headers={"Bot-Auth-Token": config.BOT_AUTH_TOKEN},
                 )
                 response.raise_for_status()
-                return response.json()
-        except Exception as exc:
+        except httpx.HTTPStatusError as exc:
             try:
-                body = json.loads(exc.response.content)
+                body = exc.response.json()
             except Exception:
-                raise APIError(
-                    telegram_id=telegram_id,
-                    request_url=url,
-                    error=str(exc),
-                )
-            else:
-                raise APIError(
-                    telegram_id=telegram_id,
-                    request_url=url,
-                    error=str(exc),
-                    message=body.get("error"),
-                )
+                raise APIError(telegram_id=telegram_id, request_url=url, error=str(exc))
+            raise APIError(
+                telegram_id=telegram_id,
+                request_url=url,
+                error=str(exc),
+                message=body.get("error"),
+            )
+        except httpx.RequestError as exc:
+            raise APIError(telegram_id=telegram_id, request_url=url, error=str(exc))
+        return response.json()
 
     async def get(
         self,
@@ -57,20 +53,25 @@ class BackendClient:
                     headers={"Bot-Auth-Token": config.BOT_AUTH_TOKEN},
                 )
                 response.raise_for_status()
-                return response.json()
-        except Exception as exc:
+        except httpx.HTTPStatusError as exc:
             try:
-                body = json.loads(exc.response.content)
+                body = exc.response.json()
             except Exception:
                 raise APIError(
                     telegram_id=telegram_id or "unknown",
                     request_url=url,
                     error=str(exc),
                 )
-            else:
-                raise APIError(
-                    telegram_id=telegram_id or "unknown",
-                    request_url=url,
-                    error=str(exc),
-                    message=body.get("error"),
-                )
+            raise APIError(
+                telegram_id=telegram_id or "unknown",
+                request_url=url,
+                error=str(exc),
+                message=body.get("error"),
+            )
+        except httpx.RequestError as exc:
+            raise APIError(
+                telegram_id=telegram_id or "unknown",
+                request_url=url,
+                error=str(exc),
+            )
+        return response.json()
