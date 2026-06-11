@@ -9,3 +9,6 @@ from .referral_cabinet_serializer import (
 from .update_key_serializer import (
     UpdateKeySerializer,
 )
+from .my_servers_serializer import (
+    MyServersSerializer,
+)

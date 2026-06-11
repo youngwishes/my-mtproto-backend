@@ -5,6 +5,7 @@ from apps.users.api.v1.views import (
     ReferralCabinetView,
     GetReferralLinkView,
     UpdateKeyView,
+    MyServersView,
 )
 
 urlpatterns = [
@@ -21,4 +22,5 @@ urlpatterns = [
     ),
     path("referral/link/", GetReferralLinkView.as_view(), name="get-referral-link"),
     path("update-link/", UpdateKeyView.as_view(), name="update-link"),
+    path("my-servers/", MyServersView.as_view(), name="my-servers"),
 ]
