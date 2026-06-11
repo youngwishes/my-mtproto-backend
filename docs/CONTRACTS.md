@@ -144,6 +144,40 @@
 
 ---
 
+### POST /users/my-servers/
+
+Возвращает информацию о текущем ключе пользователя и списке серверов.
+
+**Запрос:**
+
+```json
+{
+  "username": "1487189460"
+}
+```
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `username` | string | Telegram ID пользователя |
+
+**Ответ:** `200 OK`
+
+```json
+{
+  "expired_date": "11.07.26",
+  "servers": [
+    {
+      "location": "🇳🇱 Нидерланды",
+      "proxy_link": "tg://proxy?server=space.beatvault.ru&port=443&secret=ee..."
+    }
+  ]
+}
+```
+
+**Ошибки:** `KeyDoesNotExist` (пользователь не имеет активного ключа).
+
+---
+
 ## Payments
 
 ### GET /payments/
