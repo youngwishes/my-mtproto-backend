@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.types import (
@@ -8,6 +12,9 @@ from aiogram.types import (
     PreCheckoutQuery,
 )
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+
+if TYPE_CHECKING:
+    from services.get_my_servers_service import ServerItem
 
 from messages import (
     FAQ_TEXT,
@@ -45,7 +52,7 @@ def _build_main_menu_keyboard(callback_data: str) -> InlineKeyboardMarkup:
     return keyboard.adjust(1).as_markup()
 
 
-def _build_my_servers_keyboard(servers) -> InlineKeyboardMarkup:
+def _build_my_servers_keyboard(servers: list[ServerItem]) -> InlineKeyboardMarkup:
     keyboard = []
     for server in servers:
         keyboard.append([InlineKeyboardButton(text=server.location, url=server.proxy_link)])
