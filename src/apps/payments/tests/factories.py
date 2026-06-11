@@ -8,8 +8,8 @@ class ProductFactory(factory.django.DjangoModelFactory):
     title = factory.Sequence(function=lambda n: f"title{n}")
     provider_data = factory.Sequence(function=lambda n: '{"key": "value"}')
     description = factory.Sequence(function=lambda n: f"description_{n}")
-    price = 79
-    stars_price = 60
+    price = 99
+    stars_price = 80
     currency = "RUB"
 
     class Meta:

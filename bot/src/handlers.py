@@ -193,17 +193,17 @@ async def process_boost_paid(callback: CallbackQuery):
     await callback.answer()
     keyboard = InlineKeyboardBuilder(
         markup=[
-            [InlineKeyboardButton(text="💳 ЮKassa — 79 ₽", callback_data="pay_yukassa")],
-            [InlineKeyboardButton(text="⭐ Telegram Stars — 60 ★", callback_data="pay_stars")],
+            [InlineKeyboardButton(text="💳 ЮKassa — 99 ₽", callback_data="pay_yukassa")],
+            [InlineKeyboardButton(text="⭐ Telegram Stars — 80 ★", callback_data="pay_stars")],
             [InlineKeyboardButton(text="🔙 Назад", callback_data="show_start_screen")],
         ],
     )
     await callback.message.edit_text(
         text=(
             "💰 <b>Выберите способ оплаты</b>\n\n"
-            "• 💳 <b>ЮKassa</b> — 79 ₽/месяц\n"
+            "• 💳 <b>ЮKassa</b> — 99 ₽/месяц\n"
             "  Банковская карта, SberPay, ЮMoney\n\n"
-            "• ⭐ <b>Telegram Stars</b> — 60 ★/месяц\n"
+            "• ⭐ <b>Telegram Stars</b> — 80 ★/месяц\n"
             "  Оплата прямо в Telegram\n"
         ),
         parse_mode="HTML",

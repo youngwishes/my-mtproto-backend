@@ -12,8 +12,8 @@ class ProductQuerySet(ActiveQuerySet):
     def create_test_product(self) -> "Product":
         return self.create(
             title="MTPRoto Proxy Key",
-            price=79 * 100,
-            stars_price=60,
+            price=99 * 100,
+            stars_price=80,
             description="Позволяет ускорить работу мессенджера Telegram. Работает сразу на 3-ех устройствах.",
             provider_data=json.dumps(
                 {
@@ -23,7 +23,7 @@ class ProductQuerySet(ActiveQuerySet):
                             "description": "Оплата подписки на телеграмм-канал на один месяц.",
                             "quantity": "1.00",
                             "amount": {
-                                "value": 79,
+                                "value": 99,
                                 "currency": "RUB",
                             },
                             "vat_code": 4,
@@ -45,7 +45,7 @@ class Product(BaseDjangoModel):
     )
     need_email = models.BooleanField("спрашивать почту", default=True)
     price = models.DecimalField("цена", max_digits=10, decimal_places=2)
-    stars_price = models.PositiveIntegerField("цена в звёздах", default=60)
+    stars_price = models.PositiveIntegerField("цена в звёздах", default=80)
 
     objects = ProductQuerySet.as_manager()
 
