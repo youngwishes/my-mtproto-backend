@@ -21,10 +21,10 @@ class InvoiceData:
     provider_data: str
     send_email_to_provider: bool
     need_email: bool
-    prices: list
+    prices: list[LabeledPrice]
     provider_token: str
 
-    def asdict(self) -> dict:
+    def as_send_invoice_kwargs(self) -> dict:
         return asdict(self)
 
 
@@ -33,7 +33,7 @@ class InvoiceData:
 class StarsInvoiceData:
     title: str
     description: str
-    prices: list
+    prices: list[LabeledPrice]
     currency: str = "XTR"
     provider_token: str = ""
 
@@ -43,8 +43,9 @@ class StarsInvoiceData:
 class PaymentsClient:
     _http: BackendClient = field(default_factory=BackendClient)
 
-    async def get_invoice_data(self) -> InvoiceData:
-        raw = copy(await self._http.get(path="/api/v1/payments/"))
+    @log_service_error
+    async def get_invoice_data(self, *, telegram_id: str) -> InvoiceData:
+        raw = copy(await self._http.get(path="/api/v1/payments/", telegram_id=telegram_id))
         prices = [LabeledPrice(label=raw.get("title"), amount=raw.pop("price"))]
         provider_data = json.dumps(raw.pop("provider_data"))
         raw.pop("stars_price", None)
@@ -55,8 +56,9 @@ class PaymentsClient:
             provider_token=config.PROVIDER_TOKEN,
         )
 
-    async def get_stars_invoice_data(self) -> StarsInvoiceData:
-        raw = await self._http.get(path="/api/v1/payments/")
+    @log_service_error
+    async def get_stars_invoice_data(self, *, telegram_id: str) -> StarsInvoiceData:
+        raw = await self._http.get(path="/api/v1/payments/", telegram_id=telegram_id)
         prices = [LabeledPrice(label=raw["title"], amount=raw["stars_price"])]
         return StarsInvoiceData(
             title=raw["title"],

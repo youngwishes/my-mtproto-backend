@@ -28,7 +28,7 @@ async def test_get_invoice_data_returns_invoice():
     with patch("domains.payments.client.config") as mock_config:
         mock_config.PROVIDER_TOKEN = "test-provider"
         client = PaymentsClient(_http=mock_http)
-        result = await client.get_invoice_data()
+        result = await client.get_invoice_data(telegram_id="123")
 
     assert isinstance(result, InvoiceData)
     assert result.title == "BeatVault"
@@ -37,6 +37,7 @@ async def test_get_invoice_data_returns_invoice():
     assert len(result.prices) == 1
     assert isinstance(result.prices[0], LabeledPrice)
     assert result.prices[0].amount == 7900
+    mock_http.get.assert_called_once_with(path="/api/v1/payments/", telegram_id="123")
 
 
 async def test_get_stars_invoice_data_returns_stars_invoice():
@@ -47,12 +48,13 @@ async def test_get_stars_invoice_data_returns_stars_invoice():
         "stars_price": 60,
     }
     client = PaymentsClient(_http=mock_http)
-    result = await client.get_stars_invoice_data()
+    result = await client.get_stars_invoice_data(telegram_id="123")
 
     assert isinstance(result, StarsInvoiceData)
     assert result.currency == "XTR"
     assert result.provider_token == ""
     assert result.prices[0].amount == 60
+    mock_http.get.assert_called_once_with(path="/api/v1/payments/", telegram_id="123")
 
 
 async def test_record_purchase_calls_correct_endpoint():

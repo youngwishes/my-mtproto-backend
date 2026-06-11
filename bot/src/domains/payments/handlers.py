@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from aiogram import F, Router
 from aiogram.types import (
     CallbackQuery,
@@ -37,12 +39,12 @@ async def process_boost_paid(callback: CallbackQuery) -> None:
 async def process_pay_yukassa(callback: CallbackQuery) -> None:
     await callback.answer()
     client = get_payments_client()
-    response = await client.get_invoice_data()
+    response = await client.get_invoice_data(telegram_id=str(callback.message.chat.id))
     await bot.send_invoice(
         chat_id=callback.message.chat.id,
         start_parameter="payment",
         payload="payment",
-        **response.asdict(),
+        **response.as_send_invoice_kwargs(),
     )
 
 
@@ -50,7 +52,7 @@ async def process_pay_yukassa(callback: CallbackQuery) -> None:
 async def process_pay_stars(callback: CallbackQuery) -> None:
     await callback.answer()
     client = get_payments_client()
-    response = await client.get_stars_invoice_data()
+    response = await client.get_stars_invoice_data(telegram_id=str(callback.message.chat.id))
     await bot.send_invoice(
         chat_id=callback.message.chat.id,
         title=response.title,
@@ -85,4 +87,5 @@ async def process_successful_payment(message: Message) -> None:
             provider=provider,
         )
     except Exception:
+        logging.exception("Failed to record purchase for telegram_id=%s", message.from_user.id)
         await message.answer(PAYMENT_ERROR_TEXT)
