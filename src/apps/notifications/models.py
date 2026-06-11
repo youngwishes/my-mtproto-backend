@@ -58,6 +58,7 @@ class NotificationTemplate(BaseDjangoModel):
                 [InlineKeyboardButton(
                     text="❤️ Поддержать",
                     callback_data="boost_paid",
+                    style="primary",
                 )]
             )
 
