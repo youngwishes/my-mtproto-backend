@@ -97,6 +97,10 @@ class MTPRotoKey(BaseDjangoModel):
         domain_hex = self.tls_domain.encode("utf-8").hex()
         return f"ee{self.token}{domain_hex}"
 
+    def get_proxy_link_for_server(self, server_name: str) -> str:
+        secret = self.get_secret_token()
+        return f"tg://proxy?server={server_name}.beatvault.ru&port=443&secret={secret}"
+
     class Meta:
         verbose_name = "MTPRoto ключ"
         verbose_name_plural = "MTPRoto ключи"
