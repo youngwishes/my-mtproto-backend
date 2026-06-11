@@ -6,7 +6,6 @@ import httpx
 
 import config
 from config import API_URL
-from exceptions import APIError
 from services.handle_error import log_service_error
 
 
