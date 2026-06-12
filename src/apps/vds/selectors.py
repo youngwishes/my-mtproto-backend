@@ -97,6 +97,11 @@ def get_all_active_valid_keys() -> QuerySet[MTPRotoKey]:
     ).select_related("user")
 
 
+def get_unhealthy_vds_instances() -> QuerySet[VDSInstance]:
+    """Активные VDS-серверы, помеченные как нездоровые."""
+    return VDSInstance.objects.active().filter(is_healthy=False)
+
+
 def get_active_broadcast_keys(*, testing: bool = False) -> QuerySet[MTPRotoKey]:
     """Ключи для рассылки.
 

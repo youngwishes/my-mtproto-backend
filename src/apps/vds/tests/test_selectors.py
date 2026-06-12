@@ -16,6 +16,7 @@ from apps.vds.selectors import (
     get_keys_expiring_on_date,
     get_least_populated_vds,
     get_other_active_vds_instances,
+    get_unhealthy_vds_instances,
     get_unnotified_keys_expiring_on_date,
     get_vds_instance_by_id,
     get_vds_instance_keys,
@@ -444,3 +445,16 @@ class TestGetAllActiveValidKeys(TestCase):
         with self.assertNumQueries(0):
             for key in keys:
                 _ = key.user.username
+
+
+class TestGetUnhealthyVdsInstances(TestCase):
+    def test_returns_only_active_unhealthy_instances(self) -> None:
+        healthy = VDSInstanceFactory(is_healthy=True)
+        unhealthy = VDSInstanceFactory(is_healthy=False)
+        inactive_unhealthy = VDSInstanceFactory(is_active=False, is_healthy=False)
+
+        result = list(get_unhealthy_vds_instances())
+
+        self.assertNotIn(healthy, result)
+        self.assertIn(unhealthy, result)
+        self.assertNotIn(inactive_unhealthy, result)
