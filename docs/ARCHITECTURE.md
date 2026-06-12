@@ -123,7 +123,7 @@ apps/notifications/
 └── tasks.py            # Celery-задача send_mailing_task
 ```
 
-`NotificationTemplate` хранит HTML-текст с `{переменными}`, опциональную кнопку-ссылку и флаг `include_payment_buttons` (добавляет кнопку "Поддержать" с `callback_data="boost_paid"`).
+`NotificationTemplate` хранит HTML-текст с `{переменными}`, опциональную кнопку и флаг `include_payment_buttons` (добавляет кнопку "Поддержать" с `callback_data="boost_paid"`). Кнопка может быть URL (`button_url`) или callback (`button_callback_data`) — URL имеет приоритет.
 
 `Mailing` отслеживает статусы: DRAFT → SENDING → COMPLETED / PARTIALLY_COMPLETED / FAILED. Поля `sent_count` и `failed_count` фиксируют результаты рассылки.
 

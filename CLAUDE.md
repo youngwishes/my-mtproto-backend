@@ -77,6 +77,10 @@ Scheduled via Celery Beat (defined in `config/settings/celery.py`):
 - `notify_before_removing_daily` — 15:00 UTC, warns users
 - `notify_before_removing_daily_hour_before` — 8:00 UTC, 1-hour pre-warning
 
+### NotificationTemplate buttons
+
+Кнопка шаблона — либо URL (`button_url`), либо callback (`button_callback_data`), не оба сразу. URL имеет приоритет. Используй `button_callback_data` когда уведомление должно открывать экран бота (например `"my_servers"`). Соответствующий aiogram-хендлер для этого `callback_data` должен существовать в `bot/src/handlers.py`.
+
 ### apps/music/ — FakeTLS-заглушка
 
 Приложение `music/` — статическая заглушка без бизнес-логики. Она развёрнута на домене, под который маскируется FakeTLS прокси-сервера. Не изучать, не рефакторить, не трогать.
@@ -85,17 +89,13 @@ Scheduled via Celery Beat (defined in `config/settings/celery.py`):
 
 - First free key: 30 days by default, 14 days if referred, 7 days if free quota (`FIRST_MONTH_LIMIT`) is exhausted
 - Referral reward: after 5 referrals activate their free period, the referrer gets a free key (`GetFreeLinkViaReferralsService`)
-- `MTPRotoKey` stores `token`, `tls_domain`, `node_number`, VDS assignment, and `expired_date`
+- Key token is replicated to **all** active VDS instances on creation/reissue — one `MTPRotoKey` record covers every server
+- `GetMyServersService` generates proxy links on-the-fly for each active `VDSInstance` using the stored `token` + `VDSInstance.name`
+- `VDSInstance.location` holds the display label (e.g. `"🇳🇱 Нидерланды"`) shown as a button in the bot
 
 ### Models
 
-Все новые модели наследуются от `BaseDjangoModel` (`apps/core/models.py`). Он предоставляет:
-- `is_active` (BooleanField, default=True)
-- `created_at` (auto_now_add)
-- `updated_at` (auto_now)
-- `ActiveQuerySet` как менеджер — метод `.active()` для фильтрации по `is_active=True`
-
-Не дублировать эти поля в моделях. Для фильтрации активных записей использовать `Model.objects.active()`, а не `filter(is_active=True)`.
+Все новые модели наследуются от `BaseDjangoModel` (`apps/core/models.py`). Не дублировать поля `is_active`, `created_at`, `updated_at`. Фильтровать через `Model.objects.active()`, не через `filter(is_active=True)`.
 
 ## Rules
 

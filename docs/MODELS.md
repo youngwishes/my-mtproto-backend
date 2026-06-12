@@ -96,7 +96,7 @@
 | `send_email_to_provider` | bool | Отправлять email провайдеру |
 | `need_email` | bool | Запрашивать email у пользователя |
 | `price` | Decimal(10,2) | Цена в рублях |
-| `stars_price` | PositiveInt | Цена в Telegram Stars (default: 60) |
+| `stars_price` | PositiveInt | Цена в Telegram Stars (default: 80) |
 
 ---
 

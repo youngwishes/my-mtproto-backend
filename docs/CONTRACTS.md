@@ -194,8 +194,8 @@
   "provider_data": "{\"receipt\": ...}",
   "send_email_to_provider": true,
   "need_email": true,
-  "price": 79.00,
-  "stars_price": 60
+  "price": 99.00,
+  "stars_price": 80
 }
 ```
 
