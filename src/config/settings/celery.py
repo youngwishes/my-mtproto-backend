@@ -20,4 +20,8 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.notifications.tasks.notify_before_removing_daily_hour_before",
         "schedule": crontab(hour=8, minute=0),
     },
+    "check-vds-health": {
+        "task": "apps.vds.tasks.check_vds_health_task",
+        "schedule": crontab(minute="*/5"),
+    },
 }
