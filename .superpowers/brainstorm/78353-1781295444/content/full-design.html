@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MTProto Keys — Design Preview</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #09090f;
+    color: #fff;
+    overflow-x: hidden;
+  }
+
+  /* ─── LABEL ─── */
+  .section-label {
+    display: inline-block;
+    background: rgba(167,139,250,0.15);
+    border: 1px solid rgba(167,139,250,0.3);
+    color: #a78bfa;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 20px;
+    margin-bottom: 12px;
+  }
+
+  /* ─── NAVBAR ─── */
+  .nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 40px;
+    background: rgba(9,9,15,0.8);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    position: sticky; top: 0; z-index: 100;
+    backdrop-filter: blur(12px);
+  }
+  .nav-logo {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .nav-logo-icon {
+    width: 32px; height: 32px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+  .nav-logo-text { font-weight: 700; font-size: 15px; letter-spacing: 0.3px; }
+  .nav-logo-text span { color: #a78bfa; }
+  .nav-links { display: flex; gap: 28px; }
+  .nav-links a {
+    color: rgba(255,255,255,0.5);
+    text-decoration: none;
+    font-size: 13px;
+    transition: color 0.2s;
+  }
+  .nav-links a:hover { color: #fff; }
+  .nav-cta {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: #fff;
+    border: none;
+    padding: 8px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  /* ─── HERO ─── */
+  .hero {
+    position: relative;
+    min-height: 92vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 60px 24px;
+    overflow: hidden;
+  }
+  .hero-bg {
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(102,126,234,0.25) 0%, transparent 60%),
+                radial-gradient(ellipse 50% 40% at 80% 80%, rgba(118,75,162,0.2) 0%, transparent 50%),
+                radial-gradient(ellipse 40% 30% at 20% 70%, rgba(96,165,250,0.1) 0%, transparent 50%);
+  }
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(167,139,250,0.1);
+    border: 1px solid rgba(167,139,250,0.25);
+    border-radius: 20px;
+    padding: 5px 14px;
+    font-size: 12px;
+    color: #c4b5fd;
+    margin-bottom: 28px;
+  }
+  .hero-badge-dot {
+    width: 6px; height: 6px;
+    background: #a78bfa;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+  .hero h1 {
+    font-size: 64px;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -2px;
+    margin-bottom: 20px;
+    position: relative;
+  }
+  .hero h1 .grad {
+    background: linear-gradient(135deg, #a78bfa, #60a5fa, #c4b5fd);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .hero-sub {
+    font-size: 18px;
+    color: rgba(255,255,255,0.55);
+    max-width: 500px;
+    line-height: 1.6;
+    margin-bottom: 36px;
+  }
+  .hero-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn-primary {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: #fff;
+    border: none;
+    padding: 14px 28px;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex; align-items: center; gap: 8px;
+    box-shadow: 0 8px 32px rgba(102,126,234,0.35);
+  }
+  .btn-secondary {
+    background: rgba(255,255,255,0.05);
+    color: rgba(255,255,255,0.7);
+    border: 1px solid rgba(255,255,255,0.1);
+    padding: 14px 28px;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .hero-stats {
+    display: flex; gap: 40px; margin-top: 56px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    padding-top: 32px;
+  }
+  .stat { text-align: center; }
+  .stat-num {
+    font-size: 28px; font-weight: 800;
+    background: linear-gradient(135deg, #a78bfa, #60a5fa);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  }
+  .stat-label { font-size: 12px; color: rgba(255,255,255,0.4); margin-top: 2px; }
+
+  /* ─── SECTION WRAPPER ─── */
+  .section {
+    padding: 90px 40px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  .section-header { text-align: center; margin-bottom: 56px; }
+  .section-header h2 {
+    font-size: 40px; font-weight: 800; letter-spacing: -1px;
+    margin-bottom: 12px;
+  }
+  .section-header p {
+    color: rgba(255,255,255,0.45);
+    font-size: 16px; max-width: 480px; margin: 0 auto;
+  }
+
+  /* ─── JOURNEY ─── */
+  .journey-wrap {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
+    align-items: center;
+  }
+  .journey-steps { display: flex; flex-direction: column; gap: 8px; }
+  .step {
+    display: flex; gap: 16px; align-items: flex-start;
+    padding: 16px 20px;
+    border-radius: 12px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.25s;
+    position: relative;
+  }
+  .step.active {
+    background: rgba(167,139,250,0.07);
+    border-color: rgba(167,139,250,0.25);
+  }
+  .step-num {
+    width: 32px; height: 32px; min-width: 32px;
+    background: linear-gradient(135deg, rgba(102,126,234,0.3), rgba(118,75,162,0.3));
+    border: 1px solid rgba(167,139,250,0.3);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; color: #a78bfa;
+  }
+  .step.active .step-num {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    border-color: transparent;
+    color: #fff;
+  }
+  .step-text h4 { font-size: 14px; font-weight: 600; margin-bottom: 3px; }
+  .step-text p { font-size: 12px; color: rgba(255,255,255,0.45); }
+
+  /* Telegram mockup */
+  .tg-phone {
+    background: #1c1c1e;
+    border-radius: 28px;
+    border: 1px solid rgba(255,255,255,0.08);
+    overflow: hidden;
+    box-shadow: 0 32px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05);
+    max-width: 280px;
+    margin: 0 auto;
+  }
+  .tg-header {
+    background: #2c2c2e;
+    padding: 14px 16px;
+    display: flex; align-items: center; gap: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .tg-avatar {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+  .tg-name { font-size: 13px; font-weight: 600; }
+  .tg-status { font-size: 10px; color: #4cd964; }
+  .tg-messages { padding: 14px 12px; display: flex; flex-direction: column; gap: 8px; }
+  .msg-bot {
+    background: #2c2c2e;
+    border-radius: 12px 12px 12px 4px;
+    padding: 10px 12px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: rgba(255,255,255,0.85);
+    max-width: 88%;
+  }
+  .msg-user {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    border-radius: 12px 12px 4px 12px;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: #fff;
+    max-width: 70%;
+    align-self: flex-end;
+  }
+  .msg-key {
+    background: rgba(102,126,234,0.12);
+    border: 1px solid rgba(102,126,234,0.3);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 11px;
+  }
+  .msg-key .key-label { color: rgba(255,255,255,0.4); font-size: 10px; margin-bottom: 3px; }
+  .msg-key .key-val { color: #a78bfa; font-family: monospace; word-break: break-all; }
+  .tg-btn-row { display: flex; gap: 6px; margin-top: 4px; }
+  .tg-btn {
+    flex: 1; text-align: center;
+    background: rgba(102,126,234,0.2);
+    border: 1px solid rgba(102,126,234,0.3);
+    border-radius: 8px;
+    padding: 7px 4px;
+    font-size: 10px;
+    color: #a78bfa;
+    font-weight: 500;
+  }
+
+  /* ─── FEATURES ─── */
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+  .feature-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 16px;
+    padding: 24px;
+    transition: border-color 0.25s;
+  }
+  .feature-card:hover { border-color: rgba(167,139,250,0.3); }
+  .feature-icon {
+    width: 44px; height: 44px;
+    background: linear-gradient(135deg, rgba(102,126,234,0.2), rgba(118,75,162,0.2));
+    border: 1px solid rgba(167,139,250,0.2);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    margin-bottom: 16px;
+  }
+  .feature-card h4 { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+  .feature-card p { font-size: 13px; color: rgba(255,255,255,0.45); line-height: 1.5; }
+
+  /* ─── PRICING ─── */
+  .pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    align-items: start;
+  }
+  .price-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 20px;
+    padding: 28px 24px;
+  }
+  .price-card.featured {
+    background: linear-gradient(160deg, rgba(102,126,234,0.15), rgba(118,75,162,0.1));
+    border-color: rgba(167,139,250,0.35);
+    position: relative;
+  }
+  .price-badge {
+    position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: #fff; font-size: 10px; font-weight: 700;
+    padding: 3px 12px; border-radius: 20px;
+    white-space: nowrap;
+  }
+  .price-label { font-size: 12px; color: rgba(255,255,255,0.4); margin-bottom: 8px; }
+  .price-amount {
+    font-size: 40px; font-weight: 800;
+    background: linear-gradient(135deg, #a78bfa, #60a5fa);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    margin-bottom: 4px;
+  }
+  .price-period { font-size: 12px; color: rgba(255,255,255,0.35); margin-bottom: 20px; }
+  .price-features { list-style: none; display: flex; flex-direction: column; gap: 8px; margin-bottom: 24px; }
+  .price-features li { font-size: 13px; color: rgba(255,255,255,0.6); display: flex; gap: 8px; align-items: center; }
+  .price-features li::before { content: '✓'; color: #a78bfa; font-weight: 700; }
+  .price-btn {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: none;
+    font-size: 14px; font-weight: 600;
+    cursor: pointer;
+  }
+  .price-btn.primary {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: #fff;
+  }
+  .price-btn.outline {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.6);
+  }
+
+  /* ─── REFERRAL ─── */
+  .referral-wrap {
+    background: linear-gradient(160deg, rgba(102,126,234,0.1), rgba(118,75,162,0.07));
+    border: 1px solid rgba(167,139,250,0.2);
+    border-radius: 24px;
+    padding: 52px 48px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
+    align-items: center;
+  }
+  .referral-steps { display: flex; flex-direction: column; gap: 20px; }
+  .ref-step { display: flex; align-items: center; gap: 16px; }
+  .ref-num {
+    width: 36px; height: 36px; min-width: 36px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 700;
+  }
+  .ref-step p { font-size: 14px; color: rgba(255,255,255,0.7); }
+  .ref-step p strong { color: #fff; }
+  .ref-visual { text-align: center; }
+  .ref-counter {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    padding: 24px;
+    display: inline-block;
+    min-width: 180px;
+  }
+  .ref-counter-label { font-size: 11px; color: rgba(255,255,255,0.35); margin-bottom: 12px; }
+  .ref-dots { display: flex; gap: 8px; justify-content: center; margin-bottom: 16px; }
+  .ref-dot {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    border: 2px solid rgba(167,139,250,0.3);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px;
+  }
+  .ref-dot.filled {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    border-color: transparent;
+  }
+  .ref-reward {
+    font-size: 12px;
+    background: rgba(167,139,250,0.1);
+    border: 1px solid rgba(167,139,250,0.25);
+    color: #c4b5fd;
+    padding: 6px 14px;
+    border-radius: 20px;
+  }
+
+  /* ─── FAQ ─── */
+  .faq-list { display: flex; flex-direction: column; gap: 10px; max-width: 720px; margin: 0 auto; }
+  .faq-item {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .faq-q {
+    padding: 18px 20px;
+    display: flex; justify-content: space-between; align-items: center;
+    cursor: pointer;
+    font-size: 14px; font-weight: 500;
+  }
+  .faq-icon { color: #a78bfa; font-size: 18px; }
+  .faq-a {
+    padding: 0 20px 16px;
+    font-size: 13px;
+    color: rgba(255,255,255,0.45);
+    line-height: 1.6;
+    display: none;
+  }
+  .faq-item.open .faq-a { display: block; }
+  .faq-item.open { border-color: rgba(167,139,250,0.25); }
+
+  /* ─── FOOTER ─── */
+  .footer {
+    border-top: 1px solid rgba(255,255,255,0.06);
+    padding: 32px 40px;
+    display: flex; justify-content: space-between; align-items: center;
+    color: rgba(255,255,255,0.3);
+    font-size: 12px;
+  }
+  .footer-logo { font-weight: 700; color: rgba(255,255,255,0.5); }
+  .footer-logo span { color: #a78bfa; }
+
+  /* ─── DIVIDER ─── */
+  .section-divider {
+    border: none;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    margin: 0 40px;
+  }
+
+  /* Annotation overlay */
+  .anno {
+    position: fixed;
+    bottom: 20px; right: 20px;
+    background: rgba(9,9,15,0.92);
+    border: 1px solid rgba(167,139,250,0.35);
+    border-radius: 12px;
+    padding: 14px 18px;
+    font-size: 12px;
+    color: rgba(255,255,255,0.6);
+    max-width: 220px;
+    backdrop-filter: blur(8px);
+    z-index: 999;
+  }
+  .anno strong { color: #a78bfa; display: block; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="nav">
+  <div class="nav-logo">
+    <div class="nav-logo-icon">🔑</div>
+    <div class="nav-logo-text">MTProto <span>Keys</span></div>
+  </div>
+  <div class="nav-links">
+    <a href="#">Как работает</a>
+    <a href="#">Тарифы</a>
+    <a href="#">Рефералы</a>
+    <a href="#">FAQ</a>
+  </div>
+  <button class="nav-cta">Открыть бота</button>
+</nav>
+
+<!-- ░░░ HERO ░░░ -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-badge">
+    <div class="hero-badge-dot"></div>
+    Все серверы работают
+  </div>
+  <h1>Telegram без<br><span class="grad">ограничений</span></h1>
+  <p class="hero-sub">MTProto-прокси с автоматическим переключением серверов. Работает даже там, где Telegram заблокирован.</p>
+  <div class="hero-actions">
+    <button class="btn-primary">✈️ Открыть @mtproto_keys_bot</button>
+    <button class="btn-secondary">Как это работает?</button>
+  </div>
+  <div class="hero-stats">
+    <div class="stat">
+      <div class="stat-num">30 дней</div>
+      <div class="stat-label">бесплатно при первом входе</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">3</div>
+      <div class="stat-label">устройства одновременно</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">99₽</div>
+      <div class="stat-label">в месяц</div>
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<!-- ░░░ JOURNEY ░░░ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-label">Как это работает</div>
+    <h2>Ключ за 30 секунд</h2>
+    <p>Всё через Telegram-бота — никаких сайтов и регистраций</p>
+  </div>
+  <div class="journey-wrap">
+    <div class="journey-steps">
+      <div class="step active">
+        <div class="step-num">1</div>
+        <div class="step-text">
+          <h4>Открываешь бота</h4>
+          <p>Пишешь /start — бот проверяет право на пробный период</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-text">
+          <h4>Получаешь бесплатный ключ</h4>
+          <p>30 дней бесплатно для новых пользователей</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-text">
+          <h4>Один клик — и ты в сети</h4>
+          <p>Ссылка tg://proxy открывается прямо в Telegram</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-text">
+          <h4>Продлеваешь при желании</h4>
+          <p>Оплата через YuKassa или Telegram Stars</p>
+        </div>
+      </div>
+    </div>
+    <div class="tg-phone">
+      <div class="tg-header">
+        <div class="tg-avatar">🔑</div>
+        <div>
+          <div class="tg-name">MTProto Keys Bot</div>
+          <div class="tg-status">● онлайн</div>
+        </div>
+      </div>
+      <div class="tg-messages">
+        <div class="msg-user">/start</div>
+        <div class="msg-bot">
+          👋 Привет! Вам доступен <strong>бесплатный период 30 дней</strong>.<br><br>
+          Хотите получить ключ?
+        </div>
+        <div class="tg-btn-row">
+          <div class="tg-btn">🎁 Получить бесплатно</div>
+        </div>
+        <div class="msg-key">
+          <div class="key-label">Ваш прокси-ключ активен до 12 июля</div>
+          <div class="key-val">tg://proxy?server=mtproto keys.ru&port=443&secret=ee…</div>
+        </div>
+        <div class="tg-btn-row">
+          <div class="tg-btn">🔗 Подключить</div>
+          <div class="tg-btn">📋 Скопировать</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr class="section-divider">
+
+<!-- ░░░ FEATURES ░░░ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-label">Преимущества</div>
+    <h2>Почему MTProto Keys</h2>
+    <p>Технология которой доверяют тысячи пользователей</p>
+  </div>
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">📱</div>
+      <h4>3 устройства</h4>
+      <p>Один ключ работает на телефоне, планшете и компьютере одновременно</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">⚡</div>
+      <h4>Авто-переключение</h4>
+      <p>При падении сервера автоматически подключается к резервному узлу</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔒</div>
+      <h4>FakeTLS маскировка</h4>
+      <p>Трафик выглядит как обычный HTTPS — не виден провайдеру</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🌍</div>
+      <h4>Несколько серверов</h4>
+      <p>Ключ реплицируется на все узлы сети одновременно</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🤖</div>
+      <h4>Всё в боте</h4>
+      <p>Никаких сторонних приложений — управление прямо в Telegram</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">💳</div>
+      <h4>Удобная оплата</h4>
+      <p>YuKassa или Telegram Stars — как тебе удобнее</p>
+    </div>
+  </div>
+</div>
+
+<hr class="section-divider">
+
+<!-- ░░░ PRICING ░░░ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-label">Тарифы</div>
+    <h2>Просто и честно</h2>
+    <p>Один тариф, два способа оплаты</p>
+  </div>
+  <div class="pricing-grid">
+    <div class="price-card">
+      <div class="price-label">Пробный период</div>
+      <div class="price-amount">0₽</div>
+      <div class="price-period">первые 30 дней</div>
+      <ul class="price-features">
+        <li>Полный доступ к сервису</li>
+        <li>3 устройства</li>
+        <li>Без привязки карты</li>
+      </ul>
+      <button class="price-btn outline">Попробовать бесплатно</button>
+    </div>
+    <div class="price-card featured">
+      <div class="price-badge">Популярный</div>
+      <div class="price-label">Месячная подписка</div>
+      <div class="price-amount">99₽</div>
+      <div class="price-period">в месяц через YuKassa</div>
+      <ul class="price-features">
+        <li>Все серверы</li>
+        <li>3 устройства</li>
+        <li>Авто-продление</li>
+        <li>Приоритетная поддержка</li>
+      </ul>
+      <button class="price-btn primary">Оплатить картой</button>
+    </div>
+    <div class="price-card">
+      <div class="price-label">Telegram Stars</div>
+      <div class="price-amount">80★</div>
+      <div class="price-period">в месяц через Telegram</div>
+      <ul class="price-features">
+        <li>Все серверы</li>
+        <li>3 устройства</li>
+        <li>Оплата внутри Telegram</li>
+      </ul>
+      <button class="price-btn outline">Оплатить Stars</button>
+    </div>
+  </div>
+</div>
+
+<hr class="section-divider">
+
+<!-- ░░░ REFERRAL ░░░ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-label">Реферальная программа</div>
+    <h2>Приглашай — получай бесплатно</h2>
+    <p>Каждый друг приближает тебя к бесплатному месяцу</p>
+  </div>
+  <div class="referral-wrap">
+    <div class="referral-steps">
+      <div class="ref-step">
+        <div class="ref-num">1</div>
+        <p>Получаешь <strong>свою реферальную ссылку</strong> в боте</p>
+      </div>
+      <div class="ref-step">
+        <div class="ref-num">2</div>
+        <p>Друг переходит и получает <strong>14 дней бесплатно</strong></p>
+      </div>
+      <div class="ref-step">
+        <div class="ref-num">3</div>
+        <p>После <strong>5 активных приглашений</strong> — ты получаешь 14 дней в подарок</p>
+      </div>
+    </div>
+    <div class="ref-visual">
+      <div class="ref-counter">
+        <div class="ref-counter-label">Прогресс рефералов</div>
+        <div class="ref-dots">
+          <div class="ref-dot filled">✓</div>
+          <div class="ref-dot filled">✓</div>
+          <div class="ref-dot filled">✓</div>
+          <div class="ref-dot">4</div>
+          <div class="ref-dot">5</div>
+        </div>
+        <div class="ref-reward">🎁 Ещё 2 — и ключ бесплатно</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr class="section-divider">
+
+<!-- ░░░ FAQ ░░░ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-label">FAQ</div>
+    <h2>Частые вопросы</h2>
+  </div>
+  <div class="faq-list">
+    <div class="faq-item open">
+      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+        Что такое MTProto-прокси?
+        <span class="faq-icon">+</span>
+      </div>
+      <div class="faq-a">MTProto — протокол Telegram. Прокси маскирует трафик под HTTPS, поэтому провайдер не видит что вы используете Telegram.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+        Почему Telegram заблокирован?
+        <span class="faq-icon">+</span>
+      </div>
+      <div class="faq-a">В ряде стран и сетей Telegram ограничен на уровне DPI-фильтрации провайдера. MTProto-прокси обходит это ограничение.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+        Сколько устройств можно подключить?
+        <span class="faq-icon">+</span>
+      </div>
+      <div class="faq-a">Один ключ работает одновременно на 3 устройствах: телефон, планшет, компьютер — любая комбинация.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+        Что будет когда закончится подписка?
+        <span class="faq-icon">+</span>
+      </div>
+      <div class="faq-a">Бот пришлёт уведомление за сутки и за час до истечения. После окончания ключ деактивируется, но данные сохраняются — можно продлить в любой момент.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+        Безопасно ли это?
+        <span class="faq-icon">+</span>
+      </div>
+      <div class="faq-a">Да. MTProto-прокси не расшифровывает ваш трафик — он только передаёт зашифрованные пакеты Telegram. Переписка остаётся приватной.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ░░░ FOOTER ░░░ -->
+<footer class="footer">
+  <div class="footer-logo">MTProto <span>Keys</span></div>
+  <div>mtprotokeys.ru · 2025</div>
+  <div>@mtproto_keys_bot</div>
+</footer>
+
+<!-- Annotation -->
+<div class="anno">
+  <strong>Это мокап дизайна</strong>
+  Скролл работает, FAQ кликабелен. Анимации будут в финальной версии.
+</div>
+
+</body>
+</html>

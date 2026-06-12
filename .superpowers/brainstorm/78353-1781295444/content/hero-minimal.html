@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hero — варианты</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #09090f; color: #fff; padding: 32px 24px; }
+
+  h2 { font-size: 18px; font-weight: 700; margin-bottom: 6px; color: #fff; }
+  .meta { font-size: 12px; color: rgba(255,255,255,0.35); margin-bottom: 32px; }
+
+  .variants { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+  .variant {
+    border: 2px solid rgba(255,255,255,0.08);
+    border-radius: 20px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    position: relative;
+  }
+  .variant:hover { border-color: rgba(167,139,250,0.4); }
+  .variant.selected { border-color: #a78bfa; }
+  .variant-label {
+    position: absolute; top: 12px; left: 12px;
+    background: rgba(9,9,15,0.85);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.6);
+    backdrop-filter: blur(6px);
+    z-index: 2;
+  }
+  .variant.selected .variant-label {
+    background: rgba(167,139,250,0.2);
+    border-color: rgba(167,139,250,0.4);
+    color: #c4b5fd;
+  }
+
+  /* ── VARIANT A: Ultra minimal ── */
+  .hero-a {
+    min-height: 360px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 48px 32px;
+    background: radial-gradient(ellipse 90% 60% at 50% 0%, rgba(102,126,234,0.2) 0%, transparent 65%);
+    position: relative;
+  }
+  .hero-a h1 {
+    font-size: 52px;
+    font-weight: 800;
+    letter-spacing: -2px;
+    line-height: 1.05;
+    margin-bottom: 20px;
+  }
+  .hero-a h1 .g {
+    background: linear-gradient(135deg, #a78bfa, #60a5fa);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  }
+  .hero-a .sub {
+    font-size: 15px;
+    color: rgba(255,255,255,0.4);
+    margin-bottom: 32px;
+    line-height: 1.5;
+  }
+  .btn-a {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: #fff;
+    border: none;
+    padding: 14px 32px;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 8px 28px rgba(102,126,234,0.3);
+  }
+  .free-tag-a {
+    margin-top: 18px;
+    font-size: 12px;
+    color: rgba(255,255,255,0.3);
+  }
+  .free-tag-a span { color: #a78bfa; }
+
+  /* ── VARIANT B: Badge + 1 stat ── */
+  .hero-b {
+    min-height: 360px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 48px 32px;
+    background: radial-gradient(ellipse 80% 55% at 50% -10%, rgba(118,75,162,0.25) 0%, transparent 65%);
+  }
+  .badge-b {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid rgba(167,139,250,0.25);
+    border-radius: 20px;
+    padding: 5px 14px;
+    font-size: 12px;
+    color: #c4b5fd;
+    margin-bottom: 24px;
+    background: rgba(167,139,250,0.07);
+  }
+  .dot-b { width: 6px; height: 6px; background: #a78bfa; border-radius: 50%; }
+  .hero-b h1 {
+    font-size: 48px;
+    font-weight: 800;
+    letter-spacing: -2px;
+    line-height: 1.08;
+    margin-bottom: 14px;
+  }
+  .hero-b h1 .g {
+    background: linear-gradient(135deg, #a78bfa, #60a5fa);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  }
+  .hero-b .sub {
+    font-size: 14px;
+    color: rgba(255,255,255,0.38);
+    margin-bottom: 30px;
+  }
+  .btn-b {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: #fff;
+    border: none;
+    padding: 13px 28px;
+    border-radius: 11px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 7px;
+    box-shadow: 0 6px 24px rgba(102,126,234,0.28);
+    margin-bottom: 32px;
+  }
+  .single-stat {
+    display: flex; align-items: center; gap: 10px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    padding-top: 24px;
+    font-size: 13px;
+    color: rgba(255,255,255,0.35);
+  }
+  .single-stat strong { color: #a78bfa; }
+</style>
+<script>
+  function pick(el) {
+    document.querySelectorAll('.variant').forEach(v => v.classList.remove('selected'));
+    el.classList.add('selected');
+    if (window.__superpowers_select) window.__superpowers_select(el.dataset.choice, el.querySelector('.variant-label').textContent.trim());
+  }
+</script>
+</head>
+<body>
+
+<h2>Минималистичный Hero — выбери вариант</h2>
+<p class="meta">Оба варианта убраны лишние блоки. Нажми на понравившийся.</p>
+
+<div class="variants">
+
+  <!-- A -->
+  <div class="variant" data-choice="a" onclick="pick(this)">
+    <div class="variant-label">A — Ультра-минимал</div>
+    <div class="hero-a">
+      <h1>Telegram<br><span class="g">без границ</span></h1>
+      <p class="sub">MTProto-прокси. Работает там,<br>где Telegram заблокирован.</p>
+      <button class="btn-a">✈ Открыть бота</button>
+      <p class="free-tag-a">Первые <span>30 дней бесплатно</span></p>
+    </div>
+  </div>
+
+  <!-- B -->
+  <div class="variant" data-choice="b" onclick="pick(this)">
+    <div class="variant-label">B — Бейдж + один акцент</div>
+    <div class="hero-b">
+      <div class="badge-b"><div class="dot-b"></div> Все серверы работают</div>
+      <h1>Telegram<br><span class="g">без ограничений</span></h1>
+      <p class="sub">MTProto-прокси за 99₽/мес</p>
+      <button class="btn-b">✈ @mtproto_keys_bot</button>
+      <div class="single-stat">
+        <strong>30 дней</strong> бесплатно при первом входе · <strong>3 устройства</strong>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

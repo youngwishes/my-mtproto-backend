@@ -5,7 +5,6 @@
 **Bot:** @mtproto_keys_bot  
 
 ---
-
 ## Overview
 
 A single-page Russian-language marketing landing site for MTProto Keys — a subscription-based MTProto proxy service. The goal is to explain what the service is, show the user journey in the Telegram bot, present pricing, and drive traffic to @mtproto_keys_bot.
