@@ -1,13 +1,12 @@
-import json
+from __future__ import annotations
 
-import responses
+from unittest.mock import call, patch
+
 from django.test import TestCase
 
 from apps.vds.models import VDSInstance
-
 from apps.vds.tasks import add_key_to_another_vds_instances_task
 from apps.vds.tests.factories import VDSInstanceFactory
-
 
 
 class TestAddUserTask(TestCase):
@@ -16,25 +15,12 @@ class TestAddUserTask(TestCase):
         for _ in range(5):
             VDSInstanceFactory()
 
-    def _add_requests(self):
-        for server in VDSInstance.objects.all():
-            responses.add(
-                method=responses.POST,
-                url=server.internal_url + "/api/users",
-                json={
-                    "tls_domain": "petrovich.ru",
-                    "key": "test",
-                },
-            )
-
-    @responses.activate
-    def test_add_key_service(self) -> None:
-        self._add_requests()
+    @patch("apps.vds.tasks.replicate_key_add_to_server_task")
+    def test_add_key_service(self, mock_task) -> None:
         add_key_to_another_vds_instances_task(exclude=self.vds.pk, username="John", secret="test")
-        self.assertEqual(len(responses.calls), 5)
-        for call in responses.calls:
-            self.assertTrue(call.request.url.endswith("/api/users"))
-            self.assertEqual(call.request.method, "POST")
-            request_body = json.loads(call.request.body)
-            self.assertEqual(request_body.get("username"), "John")
-            self.assertEqual(request_body.get("secret"), "test")
+
+        other_servers = VDSInstance.objects.active().exclude(pk=self.vds.pk)
+        self.assertEqual(mock_task.delay.call_count, other_servers.count())
+
+        expected_calls = [call(server.pk, "John", "test") for server in other_servers]
+        mock_task.delay.assert_has_calls(expected_calls, any_order=True)
