@@ -37,8 +37,9 @@ class VDSInstanceAdmin(admin.ModelAdmin):
         "not_active_keys_count",
         "user_limit",
         "is_active",
+        "is_healthy",
     ]
-    list_editable = ["is_active"]
+    list_editable = ["is_active", "is_healthy"]
     actions = (migrate_vds_keys, remove_dead_keys, sync_keys_to_vds)
 
     @admin.display(description="Количество активных ключей")
