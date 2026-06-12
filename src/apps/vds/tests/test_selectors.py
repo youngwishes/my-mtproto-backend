@@ -9,6 +9,7 @@ from apps.users.tests.factories import SystemUserFactory
 from apps.vds.selectors import (
     get_active_broadcast_keys,
     get_active_key,
+    get_all_active_valid_keys,
     get_all_active_vds_instances,
     get_keys_by_username,
     get_keys_expired_up_to_date,
@@ -386,3 +387,60 @@ class TestGetActiveBroadcastKeys(TestCase):
 
         result = get_active_broadcast_keys(testing=True)
         self.assertEqual(list(result), [key])
+
+
+class TestGetAllActiveValidKeys(TestCase):
+    def setUp(self) -> None:
+        self.vds = VDSInstanceFactory()
+
+    def test_returns_active_non_deleted_non_expired_key(self) -> None:
+        key = MTPRotoKeyFactory(
+            vds=self.vds,
+            is_active=True,
+            was_deleted=False,
+            expired_date=timezone.now() + timedelta(days=30),
+        )
+        result = get_all_active_valid_keys()
+        self.assertIn(key, result)
+
+    def test_excludes_expired_keys(self) -> None:
+        MTPRotoKeyFactory(
+            vds=self.vds,
+            is_active=True,
+            was_deleted=False,
+            expired_date=timezone.now() - timedelta(days=1),
+        )
+        result = get_all_active_valid_keys()
+        self.assertFalse(result.exists())
+
+    def test_excludes_deleted_keys(self) -> None:
+        MTPRotoKeyFactory(
+            vds=self.vds,
+            is_active=True,
+            was_deleted=True,
+            expired_date=timezone.now() + timedelta(days=30),
+        )
+        result = get_all_active_valid_keys()
+        self.assertFalse(result.exists())
+
+    def test_excludes_inactive_keys(self) -> None:
+        MTPRotoKeyFactory(
+            vds=self.vds,
+            is_active=False,
+            was_deleted=False,
+            expired_date=timezone.now() + timedelta(days=30),
+        )
+        result = get_all_active_valid_keys()
+        self.assertFalse(result.exists())
+
+    def test_select_related_user_no_extra_queries(self) -> None:
+        MTPRotoKeyFactory(
+            vds=self.vds,
+            is_active=True,
+            was_deleted=False,
+            expired_date=timezone.now() + timedelta(days=30),
+        )
+        keys = list(get_all_active_valid_keys())
+        with self.assertNumQueries(0):
+            for key in keys:
+                _ = key.user.username

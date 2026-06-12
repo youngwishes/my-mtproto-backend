@@ -52,6 +52,10 @@ from apps.vds.services.get_my_servers_service import (
     GetMyServersService,
     get_my_servers_service,
 )
+from apps.vds.services.sync_keys_to_vds_infra_service import (
+    SyncKeysToVdsInfraService,
+    get_sync_keys_to_vds_infra_service,
+)
 
 __all__ = [
     "AddKeyToAnotherVdsInfraService",
@@ -80,4 +84,6 @@ __all__ = [
     "get_remove_dead_keys_from_vds_infra_service",
     "GetMyServersService",
     "get_my_servers_service",
+    "SyncKeysToVdsInfraService",
+    "get_sync_keys_to_vds_infra_service",
 ]

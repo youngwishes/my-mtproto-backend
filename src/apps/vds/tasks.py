@@ -50,3 +50,10 @@ def remove_key_from_another_vds_instances_task(server: int, keys_id: list[int]) 
     from apps.vds.services import get_remove_keys_from_vds_instance_infra_service
 
     get_remove_keys_from_vds_instance_infra_service()(server_id=server, keys_ids=keys_id)
+
+
+@shared_task
+def sync_keys_to_vds_task(instance_id: int) -> None:
+    from apps.vds.services import get_sync_keys_to_vds_infra_service
+
+    get_sync_keys_to_vds_infra_service()(instance_id=instance_id)

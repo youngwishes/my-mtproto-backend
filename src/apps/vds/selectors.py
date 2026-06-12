@@ -88,6 +88,15 @@ def get_keys_by_ids(*, ids: list[int]) -> QuerySet[MTPRotoKey]:
     return MTPRotoKey.objects.filter(pk__in=ids).select_related("user")
 
 
+def get_all_active_valid_keys() -> QuerySet[MTPRotoKey]:
+    """Все активные, не удалённые и не истёкшие ключи."""
+    return MTPRotoKey.objects.filter(
+        is_active=True,
+        was_deleted=False,
+        expired_date__gt=timezone.now(),
+    ).select_related("user")
+
+
 def get_active_broadcast_keys(*, testing: bool = False) -> QuerySet[MTPRotoKey]:
     """Ключи для рассылки.
 
