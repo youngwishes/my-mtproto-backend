@@ -47,6 +47,73 @@ class TestAddUserService(TestCase):
         self.assertEqual(infra.call_count, 0)
         self.assertEqual(add_to_other_servers.delay.call_count, 1)
 
+    @responses.activate
+    @mock.patch("apps.vds.services.add_new_key_infra_service.add_key_to_another_vds_instances_task")
+    def test_falls_back_to_patch_when_post_returns_409(self, add_to_other_servers, infra, mock_send) -> None:
+        responses.add(
+            method=responses.POST,
+            url=f"{self.vds.internal_url}/api/users",
+            status=409,
+            json={"detail": "User already exists"},
+        )
+        responses.add(
+            method=responses.PATCH,
+            url=f"{self.vds.internal_url}/api/users",
+            json={"key": "healed_key", "tls_domain": "healed.domain"},
+        )
+
+        result = get_add_new_key_service_factory()(username="John", server=self.vds)
+
+        self.assertEqual(len(responses.calls), 2)
+        self.assertEqual(responses.calls[0].request.method, "POST")
+        self.assertEqual(responses.calls[1].request.method, "PATCH")
+        self.assertEqual(result.key, "healed_key")
+        self.assertEqual(result.tls_domain, "healed.domain")
+
+    @responses.activate
+    @mock.patch("apps.vds.services.add_new_key_infra_service.add_key_to_another_vds_instances_task")
+    def test_patch_fallback_uses_same_secret_as_post(self, add_to_other_servers, infra, mock_send) -> None:
+        responses.add(
+            method=responses.POST,
+            url=f"{self.vds.internal_url}/api/users",
+            status=409,
+            json={"detail": "User already exists"},
+        )
+        responses.add(
+            method=responses.PATCH,
+            url=f"{self.vds.internal_url}/api/users",
+            json={"key": "healed_key", "tls_domain": "healed.domain"},
+        )
+
+        get_add_new_key_service_factory()(username="John", server=self.vds)
+
+        post_secret = json.loads(responses.calls[0].request.body)["secret"]
+        patch_secret = json.loads(responses.calls[1].request.body)["secret"]
+        self.assertEqual(post_secret, patch_secret)
+
+    @responses.activate
+    @mock.patch("apps.vds.services.add_new_key_infra_service.add_key_to_another_vds_instances_task")
+    def test_dispatches_replication_task_on_409_fallback(self, add_to_other_servers, infra, mock_send) -> None:
+        responses.add(
+            method=responses.POST,
+            url=f"{self.vds.internal_url}/api/users",
+            status=409,
+            json={"detail": "User already exists"},
+        )
+        responses.add(
+            method=responses.PATCH,
+            url=f"{self.vds.internal_url}/api/users",
+            json={"key": "healed_key", "tls_domain": "healed.domain"},
+        )
+
+        get_add_new_key_service_factory()(username="John", server=self.vds)
+
+        add_to_other_servers.delay.assert_called_once_with(
+            exclude=self.vds.pk,
+            username="John",
+            secret=mock.ANY,
+        )
+
     def test_add_key_service_limit(self, infra, mock_send) -> None:
         self._add_request()
         for _ in range(31):

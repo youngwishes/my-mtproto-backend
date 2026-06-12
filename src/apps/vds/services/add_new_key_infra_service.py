@@ -28,6 +28,12 @@ class AddNewKeyInfraService:
                 json={"username": username, "secret": secret},
                 timeout=settings.VDS_REQUEST_TIMEOUT,
             )
+            if response.status_code == 409:
+                response = requests.patch(
+                    url=f"{server.internal_url}/api/users",
+                    json={"username": username, "secret": secret},
+                    timeout=settings.VDS_REQUEST_TIMEOUT,
+                )
             response.raise_for_status()
             get_keys_by_username(username=username).delete()
             add_key_to_another_vds_instances_task.delay(

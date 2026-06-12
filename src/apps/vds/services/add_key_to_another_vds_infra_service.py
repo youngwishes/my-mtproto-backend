@@ -29,6 +29,8 @@ class AddKeyToAnotherVdsInfraService:
                 json={"username": username, "secret": secret},
                 timeout=settings.VDS_REQUEST_TIMEOUT,
             )
+            if response.status_code == 409:
+                return
             response.raise_for_status()
         except Exception as exc:
             self._notify_admin(server=server, username=username, exc=exc)

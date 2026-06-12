@@ -59,6 +59,30 @@ class TestAddKeyToAnotherVdsInfraService(TestCase):
             self.assertEqual(body["secret"], "test_secret")
 
     @responses.activate
+    def test_silently_skips_409_without_admin_notification(self) -> None:
+        responses.add(
+            method=responses.POST,
+            url=f"{self.target_1.internal_url}/api/users",
+            status=409,
+            json={"detail": "User already exists"},
+        )
+        responses.add(
+            method=responses.POST,
+            url=f"{self.target_2.internal_url}/api/users",
+            json={"status": "ok"},
+        )
+
+        with patch("apps.vds.services.add_key_to_another_vds_infra_service.send_telegram_message") as mock_send:
+            get_add_key_to_another_vds_instances_service()(
+                exclude=self.excluded.pk,
+                username="John",
+                secret="test_secret",
+            )
+
+        mock_send.assert_not_called()
+        self.assertEqual(len(responses.calls), 2)
+
+    @responses.activate
     def test_continues_on_http_error_and_notifies_admin(self) -> None:
         responses.add(
             method=responses.POST,

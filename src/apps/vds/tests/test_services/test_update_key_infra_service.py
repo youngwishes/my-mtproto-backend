@@ -60,6 +60,82 @@ class TestUpdateKeyInfraService(TestCase):
 
     @responses.activate
     @mock.patch("apps.vds.services.update_key_infra_service.update_key_on_another_vds_instances_task")
+    def test_self_heals_with_post_when_patch_returns_404(self, mock_task, mock_log, mock_send) -> None:
+        responses.add(
+            method=responses.PATCH,
+            url=f"{self.server.internal_url}/api/users",
+            status=404,
+            json={"detail": "User not found"},
+        )
+        responses.add(
+            method=responses.POST,
+            url=f"{self.server.internal_url}/api/users",
+            json={"key": "healed_token", "tls_domain": "healed.domain"},
+        )
+
+        result = get_update_key_infra_service()(
+            server=self.server,
+            username=str(self.key.user.username),
+        )
+
+        self.assertEqual(len(responses.calls), 2)
+        self.assertEqual(responses.calls[0].request.method, "PATCH")
+        self.assertEqual(responses.calls[1].request.method, "POST")
+        self.assertEqual(result.key, "healed_token")
+        self.assertEqual(result.tls_domain, "healed.domain")
+
+    @responses.activate
+    @mock.patch("apps.vds.services.update_key_infra_service.update_key_on_another_vds_instances_task")
+    def test_self_heal_post_uses_same_secret_as_patch(self, mock_task, mock_log, mock_send) -> None:
+        responses.add(
+            method=responses.PATCH,
+            url=f"{self.server.internal_url}/api/users",
+            status=404,
+            json={"detail": "User not found"},
+        )
+        responses.add(
+            method=responses.POST,
+            url=f"{self.server.internal_url}/api/users",
+            json={"key": "healed_token", "tls_domain": "healed.domain"},
+        )
+
+        get_update_key_infra_service()(
+            server=self.server,
+            username=str(self.key.user.username),
+        )
+
+        patch_secret = json.loads(responses.calls[0].request.body)["secret"]
+        post_secret = json.loads(responses.calls[1].request.body)["secret"]
+        self.assertEqual(patch_secret, post_secret)
+
+    @responses.activate
+    @mock.patch("apps.vds.services.update_key_infra_service.update_key_on_another_vds_instances_task")
+    def test_dispatches_replication_task_on_self_heal(self, mock_task, mock_log, mock_send) -> None:
+        responses.add(
+            method=responses.PATCH,
+            url=f"{self.server.internal_url}/api/users",
+            status=404,
+            json={"detail": "User not found"},
+        )
+        responses.add(
+            method=responses.POST,
+            url=f"{self.server.internal_url}/api/users",
+            json={"key": "healed_token", "tls_domain": "healed.domain"},
+        )
+
+        get_update_key_infra_service()(
+            server=self.server,
+            username=str(self.key.user.username),
+        )
+
+        mock_task.delay.assert_called_once_with(
+            exclude=self.server.pk,
+            username=str(self.key.user.username),
+            secret=mock.ANY,
+        )
+
+    @responses.activate
+    @mock.patch("apps.vds.services.update_key_infra_service.update_key_on_another_vds_instances_task")
     def test_can_target_server_different_from_key_vds(self, mock_task, mock_log, mock_send) -> None:
         new_server = VDSInstanceFactory()
         responses.add(

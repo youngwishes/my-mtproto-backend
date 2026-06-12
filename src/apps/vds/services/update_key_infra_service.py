@@ -28,6 +28,12 @@ class UpdateKeyInfraService:
                 json={"username": username, "secret": secret},
                 timeout=settings.VDS_REQUEST_TIMEOUT,
             )
+            if response.status_code == 404:
+                response = requests.post(
+                    url=f"{server.internal_url}/api/users",
+                    json={"username": username, "secret": secret},
+                    timeout=settings.VDS_REQUEST_TIMEOUT,
+                )
             response.raise_for_status()
             update_key_on_another_vds_instances_task.delay(
                 exclude=server.pk, username=username, secret=secret

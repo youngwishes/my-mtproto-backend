@@ -29,6 +29,12 @@ class UpdateKeyOnAnotherVdsInfraService:
                 json={"username": username, "secret": secret},
                 timeout=settings.VDS_REQUEST_TIMEOUT,
             )
+            if response.status_code == 404:
+                response = requests.post(
+                    url=f"{server.internal_url}/api/users",
+                    json={"username": username, "secret": secret},
+                    timeout=settings.VDS_REQUEST_TIMEOUT,
+                )
             response.raise_for_status()
         except Exception as exc:
             self._notify_admin(server=server, username=username, exc=exc)

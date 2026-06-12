@@ -74,6 +74,69 @@ class TestUpdateKeyOnAnotherVdsInfraService(TestCase):
             self.assertEqual(body["secret"], "test_secret")
 
     @responses.activate
+    def test_self_heals_with_post_when_patch_returns_404(self) -> None:
+        responses.add(
+            method=responses.PATCH,
+            url=f"{self.target_1.internal_url}/api/users",
+            status=404,
+            json={"detail": "User not found"},
+        )
+        responses.add(
+            method=responses.POST,
+            url=f"{self.target_1.internal_url}/api/users",
+            json={"key": "healed_token", "tls_domain": "healed.domain"},
+        )
+        responses.add(
+            method=responses.PATCH,
+            url=f"{self.target_2.internal_url}/api/users",
+            json={"status": "ok"},
+        )
+
+        with patch(
+            "apps.vds.services.update_key_on_another_vds_infra_service.send_telegram_message"
+        ) as mock_send:
+            get_update_key_on_another_vds_instances_service()(
+                exclude=self.excluded.pk,
+                username="John",
+                secret="test_secret",
+            )
+
+        mock_send.assert_not_called()
+        self.assertEqual(len(responses.calls), 3)
+        self.assertEqual(responses.calls[0].request.method, "PATCH")
+        self.assertEqual(responses.calls[1].request.method, "POST")
+        self.assertEqual(responses.calls[2].request.method, "PATCH")
+
+    @responses.activate
+    def test_self_heal_post_sends_same_secret(self) -> None:
+        responses.add(
+            method=responses.PATCH,
+            url=f"{self.target_1.internal_url}/api/users",
+            status=404,
+            json={"detail": "User not found"},
+        )
+        responses.add(
+            method=responses.POST,
+            url=f"{self.target_1.internal_url}/api/users",
+            json={"key": "healed_token", "tls_domain": "healed.domain"},
+        )
+        responses.add(
+            method=responses.PATCH,
+            url=f"{self.target_2.internal_url}/api/users",
+            json={"status": "ok"},
+        )
+
+        get_update_key_on_another_vds_instances_service()(
+            exclude=self.excluded.pk,
+            username="John",
+            secret="test_secret",
+        )
+
+        post_body = json.loads(responses.calls[1].request.body)
+        self.assertEqual(post_body["secret"], "test_secret")
+        self.assertEqual(post_body["username"], "John")
+
+    @responses.activate
     def test_continues_on_http_error_and_notifies_admin(self) -> None:
         responses.add(
             method=responses.PATCH,
