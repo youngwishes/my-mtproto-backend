@@ -43,6 +43,7 @@
 | `port` | SmallInt | Порт FastAPI (default: 8000) |
 | `user_limit` | SmallInt | Максимум активных ключей (default: 200) |
 | `is_keys_available` | bool | Разрешён ли выпуск ключей на сервере (default: True) |
+| `is_healthy` | bool | Сервер доступен и здоров (default: True). Сбрасывается при исчерпании ретраев репликации; восстанавливается health-check тасками. |
 | `location` | str | Географический регион сервера (default: "") |
 
 **Менеджер:**

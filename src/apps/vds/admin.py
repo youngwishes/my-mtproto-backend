@@ -51,7 +51,7 @@ class VDSInstanceAdmin(admin.ModelAdmin):
         return obj.keys.filter(is_active=False, was_deleted=True).count()
 
     @admin.display(description="Количество ключей которые истекут завтра")
-    def not_active_keys_count(self, obj):
+    def expiring_tomorrow_count(self, obj):
         return obj.keys.filter(
             expired_date__date=(timezone.now() + timedelta(days=1)).date()
         ).count()
