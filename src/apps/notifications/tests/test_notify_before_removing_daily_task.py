@@ -17,7 +17,7 @@ class TestNotifyBeforeRemovingDailyTask(TestCase):
     def setUp(self):
         self.server = VDSInstanceFactory()
         self.user = SystemUserFactory(username="123456789")
-        self.key = MTPRotoKeyFactory(user=self.user, vds=self.server)
+        self.key = MTPRotoKeyFactory(user=self.user)
 
     @mock.patch(f"{_SERVICE_MODULE}.get_template")
     @mock.patch(f"{_SERVICE_MODULE}.send_telegram_message")

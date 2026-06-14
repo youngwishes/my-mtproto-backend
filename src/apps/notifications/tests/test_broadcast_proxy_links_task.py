@@ -18,7 +18,6 @@ class TestBroadcastProxyLinksTask(TestCase):
         self.expired_date = timezone.now() + timedelta(days=10)
         self.key = MTPRotoKeyFactory(
             user=self.user,
-            vds=self.server,
             expired_date=self.expired_date,
         )
 
@@ -43,7 +42,6 @@ class TestBroadcastProxyLinksTask(TestCase):
         user_no_free = SystemUserFactory(first_month_free_used=False, username="987654321")
         MTPRotoKeyFactory(
             user=user_no_free,
-            vds=self.server,
             expired_date=timezone.now() + timedelta(days=10),
         )
 
@@ -104,7 +102,6 @@ class TestBroadcastProxyLinksTask(TestCase):
         user2 = SystemUserFactory(first_month_free_used=True, username="555555555")
         key2 = MTPRotoKeyFactory(
             user=user2,
-            vds=self.server,
             expired_date=timezone.now() + timedelta(days=5),
         )
 
@@ -130,7 +127,6 @@ class TestBroadcastProxyLinksTask(TestCase):
         key2_expired = timezone.now() + timedelta(days=5)
         key2 = MTPRotoKeyFactory(
             user=user2,
-            vds=self.server,
             expired_date=key2_expired,
         )
 

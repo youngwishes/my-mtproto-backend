@@ -65,7 +65,6 @@ class TestGetReferralLink(TestCase):
             headers={"Bot-Auth-Token": settings.BOT_AUTH_TOKEN},
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIsNone(MTPRotoKey.objects.first().vds_id)
         mock_push.assert_called_once_with(key_id=MTPRotoKey.objects.first().pk)
         self.assertEqual(
             response.json(),

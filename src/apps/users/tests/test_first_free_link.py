@@ -31,7 +31,6 @@ class TestFirstFreeLink(APITestCase):
         self.assertTrue(self.user.first_month_free_used)
         self.assertFalse(self.user.referral_activated)
         # выдача — чистая запись в БД, сервер не выбирается
-        self.assertIsNone(MTPRotoKey.objects.first().vds_id)
         self.assertEqual(
             MTPRotoKey.objects.first().expired_date.date(),
             (timezone.now() + timedelta(days=30)).date(),
@@ -64,7 +63,6 @@ class TestFirstFreeLink(APITestCase):
         self.user.refresh_from_db()
         self.assertTrue(self.user.first_month_free_used)
         self.assertFalse(self.user.referral_activated)
-        self.assertIsNone(MTPRotoKey.objects.first().vds_id)
         self.assertEqual(
             MTPRotoKey.objects.first().expired_date.date(),
             (timezone.now() + timedelta(days=7)).date(),
@@ -111,7 +109,6 @@ class TestFirstFreeLink(APITestCase):
         self.user.refresh_from_db()
         self.assertTrue(self.user.first_month_free_used)
         self.assertTrue(self.user.referral_activated)
-        self.assertIsNone(MTPRotoKey.objects.first().vds_id)
         self.assertEqual(
             MTPRotoKey.objects.first().expired_date.date(),
             (timezone.now() + timedelta(days=14)).date(),

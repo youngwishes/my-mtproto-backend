@@ -23,11 +23,6 @@ def get_active_key(*, user: SystemUser) -> MTPRotoKey | None:
     ).first()
 
 
-def get_least_populated_vds() -> VDSInstance | None:
-    """Наименее загруженный VDS-сервер."""
-    return VDSInstance.objects.get_least_populated()
-
-
 def get_keys_by_username(*, username: str) -> QuerySet[MTPRotoKey]:
     """Все ключи пользователя по username."""
     return MTPRotoKey.objects.filter(user__username=username)

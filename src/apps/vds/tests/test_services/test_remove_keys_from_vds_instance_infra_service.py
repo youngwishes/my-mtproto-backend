@@ -13,8 +13,8 @@ from apps.vds.tests.factories import MTPRotoKeyFactory, VDSInstanceFactory
 class TestRemoveKeysFromVdsInstanceInfraService(TestCase):
     def setUp(self) -> None:
         self.server = VDSInstanceFactory()
-        self.key_1 = MTPRotoKeyFactory(vds=self.server)
-        self.key_2 = MTPRotoKeyFactory(vds=self.server)
+        self.key_1 = MTPRotoKeyFactory()
+        self.key_2 = MTPRotoKeyFactory()
 
     @responses.activate
     def test_sends_delete_request_to_correct_server(self) -> None:

@@ -45,7 +45,6 @@ class TestCreatePaymentService(TestCase):
         key = MTPRotoKey.objects.first()
         self.assertEqual(key.user, self.user)
         # выдача — чистая запись в БД, сервер не выбирается, доставка асинхронна
-        self.assertIsNone(key.vds_id)
         mock_push.assert_called_once_with(key_id=key.pk)
         self.assertAlmostEqual(
             key.expired_date,
@@ -65,7 +64,6 @@ class TestCreatePaymentService(TestCase):
     def test_extends_existing_active_key(self, mock_send: mock.Mock) -> None:
         existing_key = MTPRotoKeyFactory(
             user=self.user,
-            vds=self.vds,
             expired_date=timezone.now() + timedelta(days=15),
             was_deleted=False,
         )
@@ -93,7 +91,6 @@ class TestCreatePaymentService(TestCase):
     def test_creates_new_key_when_existing_key_is_expired(self, mock_send: mock.Mock, mock_push: mock.Mock) -> None:
         MTPRotoKeyFactory(
             user=self.user,
-            vds=self.vds,
             expired_date=timezone.now() - timedelta(days=1),
             was_deleted=False,
         )
@@ -115,7 +112,6 @@ class TestCreatePaymentService(TestCase):
     def test_creates_new_key_when_existing_key_was_deleted(self, mock_send: mock.Mock, mock_push: mock.Mock) -> None:
         MTPRotoKeyFactory(
             user=self.user,
-            vds=self.vds,
             expired_date=timezone.now() + timedelta(days=10),
             was_deleted=True,
         )
@@ -146,7 +142,6 @@ class TestCreatePaymentService(TestCase):
     def test_stars_payment_extends_existing_key(self, mock_send: mock.Mock) -> None:
         existing_key = MTPRotoKeyFactory(
             user=self.user,
-            vds=self.vds,
             expired_date=timezone.now() + timedelta(days=15),
             was_deleted=False,
         )

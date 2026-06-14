@@ -17,7 +17,7 @@ class TestNotifyBeforeRemovingDailyService(TestCase):
     def setUp(self):
         self.server = VDSInstanceFactory()
         self.user = SystemUserFactory(username="123456789")
-        self.key = MTPRotoKeyFactory(user=self.user, vds=self.server)
+        self.key = MTPRotoKeyFactory(user=self.user)
 
     @mock.patch(f"{_SERVICE_MODULE}.get_template")
     @mock.patch(f"{_SERVICE_MODULE}.send_telegram_message")
@@ -52,7 +52,6 @@ class TestNotifyBeforeRemovingDailyService(TestCase):
         second_user = SystemUserFactory(username="987654321")
         second_key = MTPRotoKeyFactory(
             user=second_user,
-            vds=self.server,
             expired_date=timezone.now() + timedelta(days=1),
         )
         self.key.expired_date = timezone.now() + timedelta(days=1)

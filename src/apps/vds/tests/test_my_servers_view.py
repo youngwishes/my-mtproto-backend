@@ -28,9 +28,7 @@ class TestMyServersView(APITestCase):
         )
         self.key = MTPRotoKeyFactory(
             user=self.user,
-            vds=self.vds1,
             token="viewtoken",
-            tls_domain="petrovich.ru",
             expired_date=timezone.now() + timedelta(days=30),
             is_active=True,
             was_deleted=False,

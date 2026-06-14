@@ -9,7 +9,6 @@ class VDSInstanceFactory(factory.django.DjangoModelFactory):
     number = factory.Sequence(lambda n: n + 2)
     ip_address = factory.Sequence(lambda n: f"192.168.1.{n + 1}")
     internal_ip_address = factory.Sequence(lambda n: f"192.168.2.{n + 1}")
-    user_limit = 30
     is_keys_available = True
     port = 8000
     location = factory.Sequence(lambda n: f"🌍 Server {n}")
@@ -21,10 +20,8 @@ class VDSInstanceFactory(factory.django.DjangoModelFactory):
 
 class MTPRotoKeyFactory(factory.django.DjangoModelFactory):
     token = factory.LazyFunction(function=uuid4)
-    vds = factory.SubFactory(VDSInstanceFactory)
     user = factory.SubFactory(SystemUserFactory)
     expired_date = factory.LazyFunction(timezone.now)
-    tls_domain = "petrovich.ru"
     is_active = True
     was_deleted = False
 

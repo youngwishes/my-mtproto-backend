@@ -45,7 +45,6 @@ class TestCreatePaymentView(APITestCase):
         payment = Payment.objects.first()
 
         self.assertEqual(payment.key, key)
-        self.assertIsNone(key.vds_id)
         mock_push.assert_called_once_with(key_id=key.pk)
         self.assertEqual(payment.user, self.user)
         self.assertEqual(payment.charge_id, "yukassa_charge_001")

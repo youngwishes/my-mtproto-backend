@@ -1,7 +1,4 @@
-from datetime import timedelta
-
 from django.contrib import admin
-from django.utils import timezone
 from django.utils.html import format_html
 
 from apps.vds.models import MTPRotoKey, VDSInstance
@@ -33,35 +30,18 @@ class VDSInstanceAdmin(admin.ModelAdmin):
         "name",
         "internal_ip_address",
         "number",
-        "active_keys_count",
-        "not_active_keys_count",
-        "user_limit",
         "is_active",
         "is_healthy",
     ]
     list_editable = ["is_active", "is_healthy"]
     actions = (migrate_vds_keys, remove_dead_keys, sync_keys_to_vds)
 
-    @admin.display(description="Количество активных ключей")
-    def active_keys_count(self, obj):
-        return obj.keys.filter(is_active=True, was_deleted=False).count()
-
-    @admin.display(description="Количество истекших ключей")
-    def not_active_keys_count(self, obj):
-        return obj.keys.filter(is_active=False, was_deleted=True).count()
-
-    @admin.display(description="Количество ключей которые истекут завтра")
-    def expiring_tomorrow_count(self, obj):
-        return obj.keys.filter(
-            expired_date__date=(timezone.now() + timedelta(days=1)).date()
-        ).count()
-
 
 @admin.register(MTPRotoKey)
 class MTPRotoKeyAdmin(admin.ModelAdmin):
-    list_select_related = ["user", "vds"]
-    list_display = ["pk", "__str__", "telegram_username_link", "vds", "expired_date"]
-    list_filter = ["vds", "was_deleted", "is_active", "user_notified"]
+    list_select_related = ["user"]
+    list_display = ["pk", "__str__", "telegram_username_link", "expired_date"]
+    list_filter = ["was_deleted", "is_active", "user_notified"]
 
     search_fields = ("user__telegram_username", "user__username")
 

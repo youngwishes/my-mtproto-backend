@@ -17,7 +17,6 @@ from apps.vds.selectors import (
     get_keys_by_username,
     get_keys_expired_up_to_date,
     get_keys_expiring_on_date,
-    get_least_populated_vds,
     get_other_active_vds_instances,
     get_unhealthy_vds_instances,
     get_unnotified_keys_expiring_on_date,
@@ -34,7 +33,6 @@ class TestGetActiveKey(TestCase):
     def test_returns_active_key(self) -> None:
         key = MTPRotoKeyFactory(
             user=self.user,
-            vds=self.vds,
             expired_date=timezone.now() + timedelta(days=10),
             was_deleted=False,
         )
@@ -48,7 +46,6 @@ class TestGetActiveKey(TestCase):
     def test_returns_none_when_key_expired(self) -> None:
         MTPRotoKeyFactory(
             user=self.user,
-            vds=self.vds,
             expired_date=timezone.now() - timedelta(days=1),
             was_deleted=False,
         )
@@ -58,7 +55,6 @@ class TestGetActiveKey(TestCase):
     def test_returns_none_when_key_deleted(self) -> None:
         MTPRotoKeyFactory(
             user=self.user,
-            vds=self.vds,
             expired_date=timezone.now() + timedelta(days=10),
             was_deleted=True,
         )
@@ -68,32 +64,11 @@ class TestGetActiveKey(TestCase):
     def test_returns_none_when_key_inactive(self) -> None:
         MTPRotoKeyFactory(
             user=self.user,
-            vds=self.vds,
             expired_date=timezone.now() + timedelta(days=10),
             was_deleted=False,
             is_active=False,
         )
         result = get_active_key(user=self.user)
-        self.assertIsNone(result)
-
-
-class TestGetLeastPopulatedVds(TestCase):
-    def test_returns_vds_with_fewest_active_keys(self) -> None:
-        vds_busy = VDSInstanceFactory()
-        vds_free = VDSInstanceFactory()
-
-        user1 = SystemUserFactory()
-        user2 = SystemUserFactory()
-
-        MTPRotoKeyFactory(vds=vds_busy, user=user1)
-        MTPRotoKeyFactory(vds=vds_busy, user=user2)
-        MTPRotoKeyFactory(vds=vds_free, user=SystemUserFactory())
-
-        result = get_least_populated_vds()
-        self.assertEqual(result, vds_free)
-
-    def test_returns_none_when_no_vds(self) -> None:
-        result = get_least_populated_vds()
         self.assertIsNone(result)
 
 
@@ -113,12 +88,12 @@ class TestGetKeysByUsername(TestCase):
     def test_returns_keys_for_given_username(self) -> None:
         user = SystemUserFactory(username="target_user")
         vds = VDSInstanceFactory()
-        key1 = MTPRotoKeyFactory(user=user, vds=vds)
-        key2 = MTPRotoKeyFactory(user=user, vds=vds)
+        key1 = MTPRotoKeyFactory(user=user)
+        key2 = MTPRotoKeyFactory(user=user)
 
         # Another user's key should not appear
         other_user = SystemUserFactory(username="other_user")
-        MTPRotoKeyFactory(user=other_user, vds=vds)
+        MTPRotoKeyFactory(user=other_user)
 
         result = get_keys_by_username(username="target_user")
         self.assertEqual(set(result), {key1, key2})
@@ -137,7 +112,6 @@ class TestGetKeysExpiringOnDate(TestCase):
     def test_returns_keys_expiring_on_given_date(self) -> None:
         key = MTPRotoKeyFactory(
             user=self.user,
-            vds=self.vds,
             expired_date=timezone.make_aware(
                 timezone.datetime(2026, 7, 1, 12, 0, 0),
             ),
@@ -150,7 +124,6 @@ class TestGetKeysExpiringOnDate(TestCase):
     def test_excludes_deleted_keys(self) -> None:
         MTPRotoKeyFactory(
             user=self.user,
-            vds=self.vds,
             expired_date=timezone.make_aware(
                 timezone.datetime(2026, 7, 1, 12, 0, 0),
             ),
@@ -163,7 +136,6 @@ class TestGetKeysExpiringOnDate(TestCase):
     def test_excludes_inactive_keys(self) -> None:
         MTPRotoKeyFactory(
             user=self.user,
-            vds=self.vds,
             expired_date=timezone.make_aware(
                 timezone.datetime(2026, 7, 1, 12, 0, 0),
             ),
@@ -176,7 +148,6 @@ class TestGetKeysExpiringOnDate(TestCase):
     def test_excludes_keys_expiring_on_other_dates(self) -> None:
         MTPRotoKeyFactory(
             user=self.user,
-            vds=self.vds,
             expired_date=timezone.make_aware(
                 timezone.datetime(2026, 7, 2, 12, 0, 0),
             ),
@@ -196,7 +167,6 @@ class TestGetKeysExpiredUpToDate(TestCase):
     def test_includes_keys_expired_on_date(self) -> None:
         key = MTPRotoKeyFactory(
             user=self.user,
-            vds=self.vds,
             expired_date=timezone.make_aware(
                 timezone.datetime(2026, 7, 1, 12, 0, 0),
             ),
@@ -209,7 +179,6 @@ class TestGetKeysExpiredUpToDate(TestCase):
     def test_includes_keys_expired_before_date(self) -> None:
         key = MTPRotoKeyFactory(
             user=self.user,
-            vds=self.vds,
             expired_date=timezone.make_aware(
                 timezone.datetime(2026, 6, 30, 12, 0, 0),
             ),
@@ -222,7 +191,6 @@ class TestGetKeysExpiredUpToDate(TestCase):
     def test_excludes_keys_expiring_after_date(self) -> None:
         MTPRotoKeyFactory(
             user=self.user,
-            vds=self.vds,
             expired_date=timezone.make_aware(
                 timezone.datetime(2026, 7, 2, 12, 0, 0),
             ),
@@ -242,7 +210,6 @@ class TestGetUnnotifiedKeysExpiringOnDate(TestCase):
     def test_returns_unnotified_keys(self) -> None:
         key = MTPRotoKeyFactory(
             user=self.user,
-            vds=self.vds,
             expired_date=timezone.make_aware(
                 timezone.datetime(2026, 7, 1, 12, 0, 0),
             ),
@@ -256,7 +223,6 @@ class TestGetUnnotifiedKeysExpiringOnDate(TestCase):
     def test_excludes_already_notified_keys(self) -> None:
         MTPRotoKeyFactory(
             user=self.user,
-            vds=self.vds,
             expired_date=timezone.make_aware(
                 timezone.datetime(2026, 7, 1, 12, 0, 0),
             ),
@@ -309,7 +275,6 @@ class TestGetActiveBroadcastKeys(TestCase):
         user = SystemUserFactory(first_month_free_used=True)
         key = MTPRotoKeyFactory(
             user=user,
-            vds=self.vds,
             is_active=True,
             was_deleted=False,
             expired_date=timezone.now() + timedelta(days=10),
@@ -323,7 +288,6 @@ class TestGetActiveBroadcastKeys(TestCase):
         # expired
         MTPRotoKeyFactory(
             user=user,
-            vds=self.vds,
             is_active=True,
             was_deleted=False,
             expired_date=timezone.now() - timedelta(days=1),
@@ -331,7 +295,6 @@ class TestGetActiveBroadcastKeys(TestCase):
         # deleted
         MTPRotoKeyFactory(
             user=user,
-            vds=self.vds,
             is_active=True,
             was_deleted=True,
             expired_date=timezone.now() + timedelta(days=10),
@@ -339,7 +302,6 @@ class TestGetActiveBroadcastKeys(TestCase):
         # inactive
         MTPRotoKeyFactory(
             user=user,
-            vds=self.vds,
             is_active=False,
             was_deleted=False,
             expired_date=timezone.now() + timedelta(days=10),
@@ -354,13 +316,11 @@ class TestGetActiveBroadcastKeys(TestCase):
 
         key = MTPRotoKeyFactory(
             user=test_user,
-            vds=self.vds,
             is_active=True,
             was_deleted=False,
         )
         MTPRotoKeyFactory(
             user=other_user,
-            vds=self.vds,
             is_active=True,
             was_deleted=False,
         )
@@ -375,7 +335,6 @@ class TestGetAllActiveValidKeys(TestCase):
 
     def test_returns_active_non_deleted_non_expired_key(self) -> None:
         key = MTPRotoKeyFactory(
-            vds=self.vds,
             is_active=True,
             was_deleted=False,
             expired_date=timezone.now() + timedelta(days=30),
@@ -385,7 +344,6 @@ class TestGetAllActiveValidKeys(TestCase):
 
     def test_excludes_expired_keys(self) -> None:
         MTPRotoKeyFactory(
-            vds=self.vds,
             is_active=True,
             was_deleted=False,
             expired_date=timezone.now() - timedelta(days=1),
@@ -395,7 +353,6 @@ class TestGetAllActiveValidKeys(TestCase):
 
     def test_excludes_deleted_keys(self) -> None:
         MTPRotoKeyFactory(
-            vds=self.vds,
             is_active=True,
             was_deleted=True,
             expired_date=timezone.now() + timedelta(days=30),
@@ -405,7 +362,6 @@ class TestGetAllActiveValidKeys(TestCase):
 
     def test_excludes_inactive_keys(self) -> None:
         MTPRotoKeyFactory(
-            vds=self.vds,
             is_active=False,
             was_deleted=False,
             expired_date=timezone.now() + timedelta(days=30),
@@ -415,7 +371,6 @@ class TestGetAllActiveValidKeys(TestCase):
 
     def test_select_related_user_no_extra_queries(self) -> None:
         MTPRotoKeyFactory(
-            vds=self.vds,
             is_active=True,
             was_deleted=False,
             expired_date=timezone.now() + timedelta(days=30),
@@ -458,7 +413,7 @@ class TestGetHealthyVdsInstances(TestCase):
 
 class TestGetKeyById(TestCase):
     def test_returns_key_with_prefetched_user(self) -> None:
-        key = MTPRotoKeyFactory(vds=VDSInstanceFactory())
+        key = MTPRotoKeyFactory()
         result = get_key_by_id(pk=key.pk)
         self.assertEqual(result, key)
         with self.assertNumQueries(0):
@@ -474,7 +429,6 @@ class TestCountActiveValidKeys(TestCase):
 
     def _key(self, **kwargs):
         defaults = dict(
-            vds=self.vds,
             is_active=True,
             was_deleted=False,
             expired_date=timezone.now() + timedelta(days=30),

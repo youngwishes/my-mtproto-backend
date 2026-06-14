@@ -16,7 +16,7 @@ class TestRemoveExpiredKeysDailyService(TestCase):
     def setUp(self):
         self.server = VDSInstanceFactory()
         self.user = SystemUserFactory(username="123456789")
-        self.key = MTPRotoKeyFactory(user=self.user, vds=self.server, expired_date=None)
+        self.key = MTPRotoKeyFactory(user=self.user, expired_date=None)
 
     def _add_vds_response(self):
         responses.add(

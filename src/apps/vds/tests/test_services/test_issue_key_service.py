@@ -27,7 +27,6 @@ class TestIssueKeyService(TestCase):
 
         self.assertEqual(MTPRotoKey.objects.count(), 1)
         self.assertEqual(key.user, self.user)
-        self.assertIsNone(key.vds_id)
         self.assertTrue(key.token)
         self.assertEqual(key.expired_date, self.expired_date)
 
@@ -66,7 +65,6 @@ class TestIssueKeyService(TestCase):
     @mock.patch("apps.vds.tasks.push_key_to_servers_task.delay")
     def test_raises_when_global_limit_reached(self, mock_delay) -> None:
         MTPRotoKeyFactory(
-            vds=VDSInstanceFactory(),
             is_active=True,
             was_deleted=False,
             expired_date=timezone.now() + timedelta(days=30),

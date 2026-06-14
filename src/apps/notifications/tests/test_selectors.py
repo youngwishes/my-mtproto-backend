@@ -51,12 +51,12 @@ class TestGetUsersByFilter(TestCase):
         user_expiring = SystemUserFactory()
         user_safe = SystemUserFactory()
         MTPRotoKeyFactory(
-            user=user_expiring, vds=vds,
+            user=user_expiring,
             expired_date=timezone.now() + timedelta(hours=12),
             was_deleted=False,
         )
         MTPRotoKeyFactory(
-            user=user_safe, vds=vds,
+            user=user_safe,
             expired_date=timezone.now() + timedelta(days=10),
             was_deleted=False,
         )

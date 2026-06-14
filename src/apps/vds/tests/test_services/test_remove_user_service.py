@@ -5,17 +5,18 @@ from django.test import TestCase
 
 from apps.vds.models import MTPRotoKey
 from apps.vds.services import get_remove_user_key_infra_service
-from apps.vds.tests.factories import MTPRotoKeyFactory
+from apps.vds.tests.factories import MTPRotoKeyFactory, VDSInstanceFactory
 
 
 class TestRemoveUserService(TestCase):
     def setUp(self) -> None:
+        self.server = VDSInstanceFactory()
         self.mtproto_key = MTPRotoKeyFactory()
 
     def _add_response(self):
         responses.add(
             method=responses.DELETE,
-            url=self.mtproto_key.vds.internal_url + "/api/users",
+            url=self.server.internal_url + "/api/users",
         )
 
     @responses.activate
@@ -25,12 +26,12 @@ class TestRemoveUserService(TestCase):
         self.assertFalse(self.mtproto_key.was_deleted)
         self._add_response()
 
-        get_remove_user_key_infra_service()(server=self.mtproto_key.vds, keys=MTPRotoKey.objects.all())
+        get_remove_user_key_infra_service()(server=self.server, keys=MTPRotoKey.objects.all())
 
         self.assertEqual(len(responses.calls), 1)
         self.assertEqual(
             responses.calls[0].request.url,
-            self.mtproto_key.vds.internal_url + "/api/users",
+            self.server.internal_url + "/api/users",
         )
         self.assertEqual(responses.calls[0].request.method, "DELETE")
         request_body = json.loads(responses.calls[0].request.body)

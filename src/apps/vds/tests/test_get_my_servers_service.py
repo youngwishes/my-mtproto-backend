@@ -24,9 +24,7 @@ class TestGetMyServersService(TestCase):
         vds2 = VDSInstanceFactory(name="de1", location="🇩🇪 Германия", is_active=True)
         key = MTPRotoKeyFactory(
             user=user,
-            vds=vds1,
             token="testtoken",
-            tls_domain="petrovich.ru",
             expired_date=timezone.now() + timedelta(days=30),
             is_active=True,
             was_deleted=False,
@@ -51,7 +49,6 @@ class TestGetMyServersService(TestCase):
         VDSInstanceFactory(name="de1", location="🇩🇪 Германия", is_active=False)
         MTPRotoKeyFactory(
             user=user,
-            vds=vds1,
             expired_date=timezone.now() + timedelta(days=30),
             is_active=True,
             was_deleted=False,
@@ -78,7 +75,6 @@ class TestGetMyServersService(TestCase):
         vds = VDSInstanceFactory(is_active=True)
         MTPRotoKeyFactory(
             user=user,
-            vds=vds,
             expired_date=timezone.now() - timedelta(days=1),
             is_active=True,
             was_deleted=False,

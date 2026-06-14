@@ -19,7 +19,7 @@ class TestRemoveUserKeysTask(TestCase):
     def test_delegates_to_service(self, _send, mock_get_template, _time) -> None:
         server = VDSInstanceFactory()
         user = SystemUserFactory(username="123456789")
-        MTPRotoKeyFactory(user=user, vds=server, expired_date=timezone.now())
+        MTPRotoKeyFactory(user=user, expired_date=timezone.now())
         responses.add(method=responses.DELETE, url=server.internal_url + "/api/users")
         mock_get_template.return_value.render.return_value = mock.Mock(text="deactivated", markup=None)
 

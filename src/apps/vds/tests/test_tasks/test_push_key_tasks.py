@@ -14,10 +14,9 @@ from apps.vds.tests.factories import MTPRotoKeyFactory, VDSInstanceFactory
 class TestPushKeyToServersTask(TestCase):
     def setUp(self) -> None:
         self.user = SystemUserFactory(username="john")
-        # vds=unhealthy: исключаем авто-сервер из SubFactory фабрики (FK уйдёт на Шаге 7).
+        # Ключ не привязан к серверу — валиден на всём флоте.
         self.key = MTPRotoKeyFactory(
             user=self.user,
-            vds=VDSInstanceFactory(is_healthy=False),
             token="secret-token",
             is_active=True,
             was_deleted=False,

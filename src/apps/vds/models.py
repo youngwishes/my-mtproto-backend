@@ -2,22 +2,8 @@ from __future__ import annotations
 
 from django.conf import settings
 from django.db import models
-from django.db.models import Count
 from django.db.models.enums import IntegerChoices
 from apps.core import BaseDjangoModel, ActiveQuerySet
-
-
-class VDSQuerySet(ActiveQuerySet):
-    def order_by_population(self):
-        return (
-            self.active()
-            .filter(is_keys_available=True)
-            .annotate(keys_count_annotation=Count("keys"))
-            .order_by("keys_count_annotation")
-        )
-
-    def get_least_populated(self):
-        return self.order_by_population().first()
 
 
 class VDSInstance(BaseDjangoModel):
@@ -26,15 +12,11 @@ class VDSInstance(BaseDjangoModel):
     ip_address = models.CharField("IP-адрес", unique=True)
     internal_ip_address = models.CharField("внутренний IP-адрес", blank=True)
     port = models.SmallIntegerField("порт", default=8000)
-    user_limit = models.PositiveSmallIntegerField("лимит пользователей", default=200)
     is_keys_available = models.BooleanField("выпуск ключей доступен", default=True)
     is_healthy = models.BooleanField("сервер здоров", default=True)
     location = models.CharField("геолокация", default="", blank=True)
 
-    objects = VDSQuerySet.as_manager()
-
-    def is_available(self) -> bool:
-        return self.keys.filter(is_active=True, was_deleted=False).count() < self.user_limit
+    objects = ActiveQuerySet.as_manager()
 
     @property
     def internal_url(self) -> str:
@@ -69,14 +51,6 @@ class MTPRotoKey(BaseDjangoModel):
         MONTH = 3
 
     token = models.CharField("токен", unique=True)
-    vds = models.ForeignKey(
-        to=VDSInstance,
-        on_delete=models.CASCADE,
-        verbose_name="VDS сервер",
-        related_name="keys",
-        null=True,
-        blank=True,
-    )
     user = models.ForeignKey(
         to="users.SystemUser",
         on_delete=models.CASCADE,
@@ -84,8 +58,6 @@ class MTPRotoKey(BaseDjangoModel):
         related_name="keys",
     )
     was_deleted = models.BooleanField("удален", default=False)
-    tls_domain = models.CharField("домен ключа в telemt")
-    node_number = models.CharField("номер ноды", blank=True)
     user_notified = models.BooleanField("уведомлен об истечении", default=False)
     expired_date = models.DateTimeField("истекает", blank=True, null=True)
     last_update = models.DateTimeField("последнее обновление", blank=True, null=True)

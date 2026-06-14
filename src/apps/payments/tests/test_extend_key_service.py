@@ -22,7 +22,6 @@ class TestExtendKeyService(TestCase):
     def test_extends_key_by_subscription_period(self) -> None:
         key = MTPRotoKeyFactory(
             user=self.user,
-            vds=self.vds,
             expired_date=timezone.now() + timedelta(days=10),
             was_deleted=False,
         )
@@ -40,7 +39,6 @@ class TestExtendKeyService(TestCase):
     def test_detaches_old_payments_from_key(self) -> None:
         key = MTPRotoKeyFactory(
             user=self.user,
-            vds=self.vds,
             expired_date=timezone.now() + timedelta(days=10),
             was_deleted=False,
         )

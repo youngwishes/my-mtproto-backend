@@ -18,7 +18,6 @@ class TestBroadcastProxyLinksService(TestCase):
         self.user = SystemUserFactory(username="123456789")
         self.key = MTPRotoKeyFactory(
             user=self.user,
-            vds=self.server,
             is_active=True,
             was_deleted=False,
             expired_date=timezone.now() + timedelta(days=10),
@@ -68,7 +67,6 @@ class TestBroadcastProxyLinksService(TestCase):
         second_user.save()
         MTPRotoKeyFactory(
             user=second_user,
-            vds=self.server,
             is_active=True,
             was_deleted=False,
             expired_date=timezone.now() + timedelta(days=10),

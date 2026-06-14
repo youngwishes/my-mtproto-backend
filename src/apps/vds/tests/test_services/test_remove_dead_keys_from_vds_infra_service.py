@@ -26,7 +26,7 @@ class TestRemoveDeadKeysFromVdsInfraService(TestCase):
 
     @mock.patch("apps.vds.services.remove_key_infra_service.RemoveUserKeyInfraService.__call__")
     def test_no_dead_keys_exits_early(self, infra_service) -> None:
-        MTPRotoKeyFactory(vds=self.server_a, is_active=True, was_deleted=False)
+        MTPRotoKeyFactory(is_active=True, was_deleted=False)
         get_remove_dead_keys_from_vds_infra_service()(instance_id=self.server_a.pk)
         self.assertEqual(infra_service.call_count, 0)
 
@@ -34,7 +34,6 @@ class TestRemoveDeadKeysFromVdsInfraService(TestCase):
     def test_sends_delete_only_to_selected_server(self) -> None:
         self._add_delete_response(self.server_a)
         MTPRotoKeyFactory(
-            vds=self.server_b,
             is_active=False,
             was_deleted=True,
             expired_date=timezone.now() - timedelta(days=1),
@@ -50,7 +49,6 @@ class TestRemoveDeadKeysFromVdsInfraService(TestCase):
         self._add_delete_response(self.server_a)
         self._add_delete_response(self.server_b)
         MTPRotoKeyFactory(
-            vds=self.server_a,
             is_active=False,
             was_deleted=True,
             expired_date=timezone.now() - timedelta(days=1),
@@ -64,14 +62,13 @@ class TestRemoveDeadKeysFromVdsInfraService(TestCase):
 
     @mock.patch("apps.vds.services.remove_key_infra_service.RemoveUserKeyInfraService.__call__")
     def test_does_not_touch_active_keys(self, infra_service) -> None:
-        MTPRotoKeyFactory(vds=self.server_a, is_active=True, was_deleted=False)
+        MTPRotoKeyFactory(is_active=True, was_deleted=False)
         get_remove_dead_keys_from_vds_infra_service()(instance_id=self.server_a.pk)
         self.assertEqual(infra_service.call_count, 0)
 
     @mock.patch("apps.vds.services.remove_key_infra_service.RemoveUserKeyInfraService.__call__")
     def test_excludes_dead_keys_with_future_expiry(self, infra_service) -> None:
         MTPRotoKeyFactory(
-            vds=self.server_a,
             is_active=False,
             was_deleted=True,
             expired_date=timezone.now() + timedelta(days=1),
@@ -83,7 +80,6 @@ class TestRemoveDeadKeysFromVdsInfraService(TestCase):
     def test_does_not_update_db_state(self, infra_service) -> None:
         infra_service.return_value = None
         key = MTPRotoKeyFactory(
-            vds=self.server_a,
             is_active=False,
             was_deleted=True,
             expired_date=timezone.now() - timedelta(days=1),

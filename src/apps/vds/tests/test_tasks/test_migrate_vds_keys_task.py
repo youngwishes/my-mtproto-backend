@@ -16,7 +16,7 @@ class TestMigrateVdsKeysTask(TestCase):
         source = VDSInstanceFactory()
         target = VDSInstanceFactory()
         MTPRotoKeyFactory(
-            vds=None, token="abc123", expired_date=timezone.now() + timedelta(days=10)
+            token="abc123", expired_date=timezone.now() + timedelta(days=10)
         )
         responses.add(
             method=responses.POST,
