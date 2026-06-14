@@ -50,7 +50,7 @@ src/
 │   │   ├── base.py              # Основные настройки Django
 │   │   ├── bot.py               # BOT_TOKEN, BOT_AUTH_TOKEN, BOT_LINK
 │   │   ├── celery.py            # Broker, Beat Schedule
-│   │   ├── vds.py               # VDS_REQUEST_TIMEOUT
+│   │   ├── vds.py               # VDS_REQUEST_TIMEOUT, TLS_DOMAIN, GLOBAL_KEYS_LIMIT
 │   │   ├── referrals.py         # INVITE_MUST_COUNT, REFERRAL_LINKS_LIMIT
 │   │   ├── rest_framework_settings.py
 │   │   └── logging_conf.py

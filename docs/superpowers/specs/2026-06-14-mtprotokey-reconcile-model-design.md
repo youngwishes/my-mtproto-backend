@@ -227,7 +227,7 @@ def __call__(self, *, user, expired_date):
 
 ## Прогресс реализации (контекст для следующего агента)
 
-**Состояние на 2026-06-14: Шаги 1–7 ВЫПОЛНЕНЫ, тесты зелёные (backend 218 шт., bot 45 шт.). Осталось: Шаг 8 (документация).**
+**Состояние на 2026-06-14: ВСЕ Шаги 1–8 ВЫПОЛНЕНЫ. Рефакторинг завершён. Тесты зелёные (backend 218 шт., bot 45 шт.).**
 
 Работаем в `main`, без коммитов (по явной отмашке владельца). `make test` падает из-за `python` без venv — гонять тесты через `.venv/bin/python manage.py test --settings=config.test_settings`.
 
@@ -255,5 +255,5 @@ def __call__(self, *, user, expired_date):
 - `AddNewKeyInfraService`, `ReplicateKeyAddToServerInfraService`, `ReplicateKeyUpdateToServerInfraService` + их таски — удалены.
 - `UpdateKeyInfraService` и `NoVDSAvailable` (стали мёртвыми после Шага 4) — удалены (владелец подтвердил «го»).
 
-### Где смотреть незакрытые хвосты для Шага 8
-- **Шаг 8:** `docs/MODELS.md`, `ARCHITECTURE.md`, `CONTRACTS.md`, `BUSINESS.md`, `CLAUDE.md` — отразить reconcile-модель: нет «домашнего сервера»/`vds`/`node_number`/`tls_domain` per-key/`user_limit`; глобальный лимит `GLOBAL_KEYS_LIMIT`; `TLS_DOMAIN` в settings; выдача = запись в БД + асинхронный пуш; DTO без `link`; доставка ссылок через «Мои серверы».
+### Шаг 8 (документация) — ВЫПОЛНЕН
+Обновлены под reconcile-модель: `docs/MODELS.md`, `ARCHITECTURE.md`, `CONTRACTS.md`, `BUSINESS.md`, `CLAUDE.md`, плюс живые app-доки `docs/apps/VDS.md` и `docs/apps/NOTIFICATIONS.md`. Исторические планы в `docs/superpowers/plans/*` намеренно НЕ трогали (point-in-time записи). Отражено: нет «домашнего сервера»/`vds`/`node_number`/per-key `tls_domain`/`user_limit`; `GLOBAL_KEYS_LIMIT` + `TLS_DOMAIN` в settings; выдача = запись в БД + асинхронный пуш; DTO без `link`; доставка ссылок через «Мои серверы»; `ContextResolverType` только `NONE`.

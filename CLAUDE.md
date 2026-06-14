@@ -66,9 +66,11 @@ class AlreadyUsedFree(BaseServiceError):
 
 API endpoints authenticate via `Bot-Auth-Token` header (checked against `settings.BOT_AUTH_TOKEN`). This header must be included in test HTTP calls.
 
-### VDS Infrastructure
+### VDS Infrastructure (reconcile model)
 
-`VDSInstance` objects represent proxy servers. `VDSInstance.objects.get_least_populated()` picks the server with fewest active keys. `AddNewKeyInfraService` calls the VDS REST API to create a key, then fires a Celery task to replicate it to other VDS nodes.
+`VDSInstance` objects represent proxy servers — all equal mirrors; there is **no "home server"** and no `get_least_populated`. The DB is the single source of truth; a key's presence on servers is a derived cache.
+
+Issuing/reissuing a key is a pure DB write (`IssueKeyService` / `UpdateKeyService`) — no synchronous HTTP, no server selection. A Celery task `push_key_to_servers_task(key_id)` then fans the secret out to **all healthy** VDS via idempotent POST (`409` → skip). A global cap `settings.GLOBAL_KEYS_LIMIT` is enforced in `IssueKeyService` (`KeysLimitReached`). Recovery of a downed server is handled by `check_vds_health_task → sync_keys_to_vds_task` (backfill of all active keys).
 
 ### Celery Tasks
 
@@ -89,8 +91,9 @@ Scheduled via Celery Beat (defined in `config/settings/celery.py`):
 
 - First free key: 30 days by default, 14 days if referred, 7 days if free quota (`FIRST_MONTH_LIMIT`) is exhausted
 - Referral reward: after 5 referrals activate their free period, the referrer gets a free key (`GetFreeLinkViaReferralsService`)
-- Key token is replicated to **all** active VDS instances on creation/reissue — one `MTPRotoKey` record covers every server
-- `GetMyServersService` generates proxy links on-the-fly for each active `VDSInstance` using the stored `token` + `VDSInstance.name`
+- One `MTPRotoKey` is a single secret valid across the whole fleet (no per-key `vds`/`node_number`/`tls_domain`). It is delivered to **all healthy** VDS via the async `push_key_to_servers_task`. The FakeTLS masking domain lives in `settings.TLS_DOMAIN` (same on every VDS), baked into the secret by `get_secret_token()`.
+- Issue/reissue services return only `expired_date` (DTOs have no `link`) — the bot shows a «📡 Мои серверы» button (`callback_data="my_servers"`) instead of a single link
+- `GetMyServersService` generates proxy links on-the-fly for each active `VDSInstance` using the stored `token` + `VDSInstance.name` (the server's subdomain in `{name}.beatvault.ru`)
 - `VDSInstance.location` holds the display label (e.g. `"🇳🇱 Нидерланды"`) shown as a button in the bot
 
 ### Models

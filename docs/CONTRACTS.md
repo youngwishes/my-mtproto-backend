@@ -28,10 +28,11 @@
 
 ```json
 {
-  "expired_date": "2026-07-06T09:00:00Z",
-  "link": "tg://proxy?server=space.beatvault.ru&port=443&secret=ee..."
+  "expired_date": "06.07.26"
 }
 ```
+
+Ссылка не возвращается: ключ валиден на всём флоте, бот показывает кнопку «📡 Мои серверы». Доставка секрета на серверы — асинхронная (Celery).
 
 **Ошибки:** `AlreadyUsedFree` — пользователь уже использовал бесплатный период.
 
@@ -110,8 +111,7 @@
 
 ```json
 {
-  "expired_date": "2026-06-20T09:00:00Z",
-  "link": "tg://proxy?server=space.beatvault.ru&port=443&secret=ee..."
+  "expired_date": "20.06.26"
 }
 ```
 
@@ -121,7 +121,7 @@
 
 ### POST /users/update-link/
 
-Перевыпуск ключа. Старый ключ перестаёт работать. Кулдаун — 5 минут.
+Перевыпуск ключа: генерируется новый секрет, старый перестаёт работать. Запись обновляется в БД, новый секрет асинхронно доставляется на все здоровые VDS. Кулдаун — 5 минут.
 
 **Запрос:**
 
@@ -135,12 +135,13 @@
 
 ```json
 {
-  "link": "tg://proxy?server=space.beatvault.ru&port=443&secret=ee...",
-  "expired_date": "2026-07-06T09:00:00Z"
+  "expired_date": "06.07.26"
 }
 ```
 
-**Ошибки:** `KeyDoesNotExist`, `TooManyRequests` (чаще 1 раза в 5 минут), `NoVDSAvailable` (нет доступных серверов).
+Ссылка не возвращается — бот показывает кнопку «📡 Мои серверы».
+
+**Ошибки:** `KeyDoesNotExist`, `TooManyRequests` (чаще 1 раза в 5 минут).
 
 ---
 
@@ -227,12 +228,11 @@
 
 ## Исходящие запросы к VDS
 
-Бэкенд общается с FastAPI-сервисами на VDS через HTTP:
+Бэкенд общается с FastAPI-сервисами на VDS через HTTP. Выдача/перевыпуск ключа — это запись в БД + Celery-таск `push_key_to_servers_task`, который фан-аутит секрет на **все здоровые** VDS. Секрет — случайный hex, поэтому POST идемпотентен: `409` (уже есть) проглатывается.
 
 | Действие | Метод | URL | Тело |
 |----------|-------|-----|------|
-| Создать ключ | POST | `{vds.internal_url}/api/users` | `{username, secret}` |
-| Перевыпустить | PATCH | `{vds.internal_url}/api/users` | `{username, secret}` |
-| Удалить | DELETE | `{vds.internal_url}/api/users` | `{usernames: [...]}` |
+| Доставить ключ (идемпотентно, `409`→skip) | POST | `{server.internal_url}/api/users` | `{username, secret}` |
+| Удалить | DELETE | `{server.internal_url}/api/users` | `{usernames: [...]}` |
 
-Таймаут: `VDS_REQUEST_TIMEOUT` секунд.
+Таймаут: `VDS_REQUEST_TIMEOUT` секунд. При исчерпании ретраев сервер помечается `is_healthy=False`; восстановление и бэкфилл ключей — через health-check + `sync_keys_to_vds_task`.

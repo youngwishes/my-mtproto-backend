@@ -36,22 +36,18 @@
 
 | Поле | Тип | Описание |
 |------|-----|----------|
-| `name` | str (unique) | Имя сервера (используется как `node_number` в ключах) |
+| `name` | str (unique) | DNS-субдомен сервера в хосте proxy-URL (`{name}.beatvault.ru`), напр. `kz`, `nl` |
 | `number` | SmallInt (unique) | Порядковый номер |
 | `ip_address` | str (unique) | Внешний IP |
 | `internal_ip_address` | str | IP в Docker-сети |
 | `port` | SmallInt | Порт FastAPI (default: 8000) |
-| `user_limit` | SmallInt | Максимум активных ключей (default: 200) |
 | `is_keys_available` | bool | Разрешён ли выпуск ключей на сервере (default: True) |
-| `is_healthy` | bool | Сервер доступен и здоров (default: True). Сбрасывается при исчерпании ретраев репликации; восстанавливается health-check тасками. |
+| `is_healthy` | bool | Сервер доступен и здоров (default: True). Сбрасывается при исчерпании ретраев доставки ключа; восстанавливается health-check тасками. |
 | `location` | str | Географический регион сервера (default: "") |
 
-**Менеджер:**
-- `order_by_population()` — сортировка по количеству ключей среди серверов с `is_keys_available=True` (ascending)
-- `get_least_populated()` — наименее нагруженный доступный сервер
+**Менеджер:** `ActiveQuerySet.as_manager()` — метод `.active()`. Серверы равноправны (каждый ключ присутствует на всех), поэтому понятий «наименее нагруженный»/«домашний сервер» больше нет.
 
 **Методы:**
-- `is_available()` — `True`, если количество активных ключей < `user_limit`
 - `internal_url` — `http://{internal_ip_address}:{port}`
 - `external_url` — `http://{ip_address}:{port}`
 
@@ -59,16 +55,13 @@
 
 ## MTPRotoKey (apps/vds)
 
-Прокси-ключ пользователя.
+Прокси-ключ пользователя. **Один секрет, валидный на всём флоте** — без привязки к «домашнему» серверу. БД — источник правды; присутствие секрета на серверах — производный кэш (доставляется асинхронным пушем).
 
 | Поле | Тип | Описание |
 |------|-----|----------|
 | `token` | str (unique) | Секрет для подключения (32 hex) |
-| `vds` | FK → VDSInstance | На каком сервере живёт ключ |
 | `user` | FK → SystemUser | Владелец |
 | `was_deleted` | bool | Удалён ли с VDS |
-| `tls_domain` | str | Домен TLS-маскировки |
-| `node_number` | str | Имя сервера (для формирования ссылки) |
 | `user_notified` | bool | Уведомлён ли об истечении |
 | `expired_date` | DateTimeField? | Дата истечения |
 | `last_update` | DateTimeField? | Последнее обновление (для throttle перевыпуска) |
@@ -78,9 +71,8 @@
 **Менеджер:** `expired_today()` — ключи, которые истекли на сегодня.
 
 **Методы:**
-- `get_proxy_link()` — формирует `tg://proxy?server={node}.beatvault.ru&port=443&secret={secret}`
-- `get_proxy_link_for_server(server_name: str)` — формирует прокси-ссылку для конкретного сервера вместо первичной ноды
-- `get_secret_token()` — `ee{token}{hex(tls_domain)}`
+- `get_proxy_link(*, server_name)` — единственный генератор ссылки: `tg://proxy?server={server_name}.beatvault.ru&port=443&secret={secret}`. Хост зависит от имени конкретного сервера, секрет одинаков на всём флоте.
+- `get_secret_token()` — `ee{token}{hex(settings.TLS_DOMAIN)}`. Домен маскировки FakeTLS берётся из `settings.TLS_DOMAIN` (одинаков на всех VDS), а не из поля модели.
 
 ---
 
@@ -142,7 +134,7 @@
 | `filter_type` | IntEnum | ALL_ACTIVE / EXPIRING_SOON / NOT_SUBSCRIBED |
 | `filter_params` | JSONField | Параметры фильтра (напр. `days_until_expiry`) |
 | `context` | JSONField | Статический контекст для шаблона |
-| `context_resolver` | IntEnum | NONE / ACTIVE_KEY_LINK |
+| `context_resolver` | IntEnum | NONE (персональных резолверов сейчас нет; каркас оставлен на будущее) |
 | `status` | IntEnum | DRAFT / SENDING / COMPLETED / FAILED / PARTIALLY_COMPLETED |
 | `sent_at` | DateTimeField? | Время завершения рассылки |
 | `sent_count` | PositiveInt | Успешно отправлено |
