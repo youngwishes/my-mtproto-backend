@@ -1,4 +1,4 @@
-from enums import FreeAvailable
+from src.enums import FreeAvailable
 
 WELCOME_TEXT_MONTH = """
 🚀 <b>Привет! Я помогу ускорить твой Telegram</b>
@@ -114,4 +114,13 @@ REFERRAL_CABINET = """
 🔗 Как только количество активированных инвайтов станет равно <b>5</b>, ты сможешь получить бесплатную ссылку <b>сроком действия 2 недели!</b>
 
 👇 <b>Поделиться ссылкой</b>
+"""
+
+PAYMENT_METHODS_TEXT = """💰 <b>Выберите способ оплаты</b>
+
+• 💳 <b>ЮKassa</b> — 99 ₽/месяц
+  Банковская карта, SberPay, ЮMoney
+
+• ⭐ <b>Telegram Stars</b> — 80 ★/месяц
+  Оплата прямо в Telegram
 """
