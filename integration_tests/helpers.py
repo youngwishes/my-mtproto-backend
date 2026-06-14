@@ -106,6 +106,31 @@ async def vds_get(verify_url: str, username: str) -> httpx.Response:
         return await client.get(f"{verify_url}/api/users/{username}")
 
 
+async def vds_post(verify_url: str, username: str, secret: str) -> httpx.Response:
+    """Положить секрет на VDS напрямую (arrange для сценариев удаления)."""
+    async with httpx.AsyncClient(timeout=config.HTTP_TIMEOUT) as client:
+        return await client.post(
+            f"{verify_url}/api/users", json={"username": username, "secret": secret}
+        )
+
+
+async def run_daily_removal() -> None:
+    """Синхронно запустить RemoveExpiredKeysDailyService в django-контейнере.
+
+    Контейнер дотягивается до VDS по internal_url (host.docker.internal), поэтому
+    DELETE реально доходит до локального telemt-api. Триггерится вручную (как в плане).
+    """
+    import asyncio
+    import subprocess
+
+    cmd = [
+        "docker", "exec", "django", "python", "manage.py", "shell", "-c",
+        "from apps.vds.services.remove_expired_keys_daily_service import "
+        "get_remove_expired_keys_daily_service as g; g()()",
+    ]
+    await asyncio.to_thread(subprocess.run, cmd, check=True, capture_output=True)
+
+
 async def vds_has(verify_url: str, username: str) -> bool:
     """200 → секрет есть; 404 → нет."""
     resp = await vds_get(verify_url, username)

@@ -198,6 +198,10 @@ def key_secret_token(username: str) -> str | None:
 def get_keys(username: str) -> list[MTPRotoKey]:
     return list(MTPRotoKey.objects.filter(user__username=username))
 
+def get_key_by_pk(pk: int) -> MTPRotoKey | None:
+    return MTPRotoKey.objects.filter(pk=pk).first()
+
+
 def get_active_key(username: str) -> MTPRotoKey | None:
     return MTPRotoKey.objects.filter(
         user__username=username, is_active=True, was_deleted=False
