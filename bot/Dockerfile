@@ -13,4 +13,4 @@ ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 
-CMD ["python", "src/bot.py"]
+CMD ["python", "-m", "src.bot"]
