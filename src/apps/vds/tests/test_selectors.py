@@ -22,7 +22,6 @@ from apps.vds.selectors import (
     get_unhealthy_vds_instances,
     get_unnotified_keys_expiring_on_date,
     get_vds_instance_by_id,
-    get_vds_instance_keys,
 )
 from apps.vds.tests.factories import MTPRotoKeyFactory, VDSInstanceFactory
 
@@ -300,29 +299,6 @@ class TestGetOtherActiveVdsInstances(TestCase):
         vds = VDSInstanceFactory(is_active=True)
         result = get_other_active_vds_instances(exclude_pk=vds.pk)
         self.assertFalse(result.exists())
-
-
-class TestGetVdsInstanceKeys(TestCase):
-    def test_returns_keys_for_instance(self) -> None:
-        vds = VDSInstanceFactory()
-        other_vds = VDSInstanceFactory()
-        key = MTPRotoKeyFactory(vds=vds)
-        MTPRotoKeyFactory(vds=other_vds)
-        result = get_vds_instance_keys(instance=vds)
-        self.assertEqual(list(result), [key])
-
-    def test_returns_empty_for_instance_without_keys(self) -> None:
-        vds = VDSInstanceFactory()
-        result = get_vds_instance_keys(instance=vds)
-        self.assertFalse(result.exists())
-
-    def test_select_related_user(self) -> None:
-        vds = VDSInstanceFactory()
-        MTPRotoKeyFactory(vds=vds)
-        keys = list(get_vds_instance_keys(instance=vds))
-        with self.assertNumQueries(0):
-            for key in keys:
-                _ = key.user.username
 
 
 class TestGetActiveBroadcastKeys(TestCase):

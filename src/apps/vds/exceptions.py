@@ -19,9 +19,5 @@ class TooManyRequests(BaseServiceError):
     """🔒 Пожалуйста, подождите 5 минут с последнего обновления."""
 
 
-class NoVDSAvailable(BaseServiceError):
-    """⚠️ Выпуск ключей временно недоступен. Пожалуйста, попробуйте позже или свяжитесь с нами через @mtproto_keys."""
-
-
 class KeysLimitReached(BaseServiceError):
     """⚠️ Выпуск ключей временно приостановлен из-за высокой нагрузки. Пожалуйста, попробуйте позже или свяжитесь с нами через @mtproto_keys."""

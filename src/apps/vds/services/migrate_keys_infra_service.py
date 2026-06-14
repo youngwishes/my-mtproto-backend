@@ -9,22 +9,18 @@ from django.utils import html
 
 from apps.core.telegram.transport import send_telegram_message
 from apps.vds.models import VDSInstance
-from apps.vds.selectors import get_other_active_vds_instances, get_vds_instance_by_id, get_vds_instance_keys
+from apps.vds.selectors import get_all_active_valid_keys, get_other_active_vds_instances
 
 
 @final
 @dataclass(kw_only=True, slots=True, frozen=True)
 class MigrateVdsKeysInfraService:
     def __call__(self, *, from_instance_id: int) -> None:
-        source = get_vds_instance_by_id(pk=from_instance_id)
-        keys = get_vds_instance_keys(instance=source)
+        keys = get_all_active_valid_keys()
         target_servers = get_other_active_vds_instances(exclude_pk=from_instance_id)
 
         for key in keys:
             if not getattr(key.user, "username", None) or not key.token:
-                continue
-
-            if key.was_deleted or (not key.is_active):
                 continue
 
             for target in target_servers:

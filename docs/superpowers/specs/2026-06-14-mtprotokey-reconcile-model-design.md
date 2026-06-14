@@ -227,7 +227,7 @@ def __call__(self, *, user, expired_date):
 
 ## Прогресс реализации (контекст для следующего агента)
 
-**Состояние на 2026-06-14: Шаги 1–5 ВЫПОЛНЕНЫ, тесты зелёные (backend 252 шт., bot 45 шт.). Осталось: Шаги 6–8.**
+**Состояние на 2026-06-14: Шаги 1–6 ВЫПОЛНЕНЫ, тесты зелёные (backend 223 шт., bot 45 шт.). Осталось: Шаги 7–8.**
 
 Работаем в `main`, без коммитов (по явной отмашке владельца). `make test` падает из-за `python` без venv — гонять тесты через `.venv/bin/python manage.py test --settings=config.test_settings`.
 
@@ -241,6 +241,7 @@ def __call__(self, *, user, expired_date):
 - **Шаг 3.** Селекторы `count_active_valid_keys()`, `get_healthy_vds_instances()`. Новый инфра-сервис `push_key_to_server_infra_service.py` (идемпотентный POST, 409→skip). Таски `push_key_to_servers_task(key_id)` + `push_key_to_server_task(server_id, username, secret)` в `apps/vds/tasks.py` (ретраи + `_handle_replication_failure`).
 - **Шаг 4.** `IssueKeyService` — чистая запись в БД + `push_key_to_servers_task.delay`, проверка `GLOBAL_KEYS_LIMIT` → `KeysLimitReached`, без выбора сервера. `UpdateKeyService` — локальная регенерация `token` + пинок, без HTTP/выбора сервера. Исключение `KeysLimitReached` добавлено.
 - **Шаг 5 (контракты/бот).** `IssuedKeyOut`/`UpdateKeyOut` — поле `link` удалено (DTO теперь только `expired_date`). `first_free_link_service`/`get_free_link_via_referrals`/`update_key_service` больше не зовут `get_proxy_link()` и не передают `link`. `broadcast_proxy_links_service` → кнопка `📡 Мои серверы` (`callback_data="my_servers"`). Резолвер `_resolve_active_key_link` удалён, `resolve_context` для не-NONE возвращает `{}` (generic skip-ветка `continue` в `SendMailingService` оставлена для будущих резолверов). Enum `ContextResolverType.ACTIVE_KEY_LINK` удалён; в историческом `0001_initial` ссылка на удалённый член заменена на литерал `1` (choices в миграциях косметические), `0008_alter_mailing_context_resolver` пересобирает choices. **Доп. вне таблицы плана (решение владельца «Перевести на Мои серверы»):** `send_free_link_to_user_task` (admin-экшен) больше не передаёт `link`; шаблон `proxy_link_with_message` переведён на `my_servers`-кнопку дата-миграцией `0009_update_proxy_link_with_message_template` (по прецеденту `0007` для `proxy_purchased`); та же миграция сбрасывает осиротевшие `Mailing.context_resolver=1 → 0`. **Бот (`bot/`, тот же репо):** хендлеры уже использовали только `expired_date`; убрано теперь-неиспользуемое поле `link` из dataclass'ов `FreeTrialKey`/`ReissuedKey`/`ReferralRewardKey` + обновлены бот-тесты (`test_handlers.py`, `domains/*/test_client.py`). Бот-тесты гонять через `bot/.venv/bin/pytest` из каталога `bot/`.
+- **Шаг 6 (удаление мёртвого).** Удалены сервисы `AddNewKeyInfraService`, `ReplicateKeyAddToServerInfraService`, `ReplicateKeyUpdateToServerInfraService` + их таски (`add_key_to_another…`, `replicate_key_add…`, `update_key_on_another…`, `replicate_key_update…`) и тесты (`test_add_user_service.py`, `test_add_user_task.py`, `test_replicate_key_*infra_service.py`, `test_replicate_key_tasks.py`). Удалён селектор `get_vds_instance_keys` (+ его блок в `test_selectors.py`). `MigrateVdsKeysInfraService` переключён на `get_all_active_valid_keys()` (больше не привязан к «домашнему» серверу; перестал мигрировать истёкшие ключи — добавлен тест `test_skips_expired_key`); тесты migrate переписаны на `vds=None` + future `expired_date`. **Доп. (подтверждено «го»):** удалены ставшие мёртвыми после Шага 4 `UpdateKeyInfraService` (+ `update_key_infra_service.py`, его тест, реэкспорт) и исключение `NoVDSAvailable`. `services/__init__.py` почищен от удалённых реэкспортов. `_handle_replication_failure`, `get_other_active_vds_instances`, `get_vds_instance_by_id` оставлены — ещё используются (push-таск / migrate / прочие инфра-сервисы). `get_least_populated_vds` НЕ трогал — это Шаг 7.
 
 ### Принятые решения по реализации (важно для Шагов 5–8)
 - **`vds` сделан nullable на Шаге 4** (миграция `apps/vds/migrations/0018_alter_mtprotokey_vds.py`, `AlterField null=True`), чтобы выдача стала чистой записью без NOT NULL-блокера. `RemoveField` для `vds`/`node_number`/`tls_domain` + `VDSInstance.user_limit` — на **Шаге 7** (как в плане). `node_number`/`tls_domain` при `create()` дают `""` — ограничение БД не нарушают.
@@ -249,11 +250,10 @@ def __call__(self, *, user, expired_date):
 - **`get_healthy_vds_instances()`** = `active().filter(is_healthy=True)` — добавлен сверх явного списка Шага 3 (нужен для фан-аута пуша).
 - **`remove_key_from_servers_task` НЕ делался** — в нумерованных шагах 1–8 его нет; отзыв ключа = существующий дневной `RemoveExpiredKeysDailyService` (без изменений). Если нужен мгновенный remove-пинок — отдельная задача.
 
-### Образовавшийся мёртвый код (удаляется на Шаге 6 — ПРОВЕРИТЬ список плана)
-- `AddNewKeyInfraService`, `ReplicateKeyAddToServerInfraService`, `ReplicateKeyUpdateToServerInfraService` + таски `add_key_to_another…`, `replicate_key_add…`, `update_key_on_another…`, `replicate_key_update…` — по плану Шага 6.
-- **Не в списке плана, но стало мёртвым после Шага 4:** `UpdateKeyInfraService` (`update_key_infra_service.py`, его тест, реэкспорт в `services/__init__.py`) — больше никем не вызывается; `NoVDSAvailable` — больше не используется сервисами. Решить на Шаге 6, удалять ли заодно (рекомендуется — уточнить у владельца).
+### Образовавшийся мёртвый код — УДАЛЁН на Шаге 6
+- `AddNewKeyInfraService`, `ReplicateKeyAddToServerInfraService`, `ReplicateKeyUpdateToServerInfraService` + их таски — удалены.
+- `UpdateKeyInfraService` и `NoVDSAvailable` (стали мёртвыми после Шага 4) — удалены (владелец подтвердил «го»).
 
-### Где смотреть незакрытые хвосты для Шагов 6–8
-- **Шаг 6:** удалить мёртвые сервисы/таски/тесты (см. выше); селектор `get_vds_instance_keys` (+ его тест `TestGetVdsInstanceKeys`); `MigrateVdsKeysInfraService` → `get_all_active_valid_keys`.
+### Где смотреть незакрытые хвосты для Шагов 7–8
 - **Шаг 7:** `RemoveField` `vds`/`node_number`/`tls_domain`/`user_limit`; убрать `VDSQuerySet.order_by_population`/`get_least_populated`, `VDSInstance.is_available`, селектор `get_least_populated_vds` (+ тесты `TestVDSQuerySet`, `TestGetLeastPopulatedVds`); убрать `vds=`/`node_number`/`tls_domain` из `apps/vds/tests/factories.py` и из всех тестов, что их ещё передают. До дропа `tls_domain` сверить, что прод-значение == `beatvault.ru`.
 - **Шаг 8:** `docs/MODELS.md`, `ARCHITECTURE.md`, `CONTRACTS.md`, `BUSINESS.md`, `CLAUDE.md`.

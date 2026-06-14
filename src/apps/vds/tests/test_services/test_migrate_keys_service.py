@@ -1,16 +1,25 @@
 from __future__ import annotations
 
 import json
+from datetime import timedelta
 from unittest.mock import patch
 
 import responses
 from django.test import TestCase
+from django.utils import timezone
 
 from apps.vds.services import get_migrate_vds_keys_service
 from apps.vds.tests.factories import MTPRotoKeyFactory, VDSInstanceFactory
 
+_FUTURE = timezone.now() + timedelta(days=10)
+
 
 class TestMigrateVdsKeysService(TestCase):
+    """Под reconcile-моделью ключ не привязан к «домашнему» серверу:
+
+    мигрируются все активные валидные ключи на все остальные активные инстансы.
+    """
+
     def setUp(self) -> None:
         self.source = VDSInstanceFactory()
         self.target_1 = VDSInstanceFactory()
@@ -26,7 +35,7 @@ class TestMigrateVdsKeysService(TestCase):
 
     @responses.activate
     def test_migrates_keys_to_all_other_instances(self) -> None:
-        key = MTPRotoKeyFactory(vds=self.source, token="abc123")
+        key = MTPRotoKeyFactory(vds=None, token="abc123", expired_date=_FUTURE)
         self._mock_target_endpoints()
 
         get_migrate_vds_keys_service()(from_instance_id=self.source.pk)
@@ -39,7 +48,7 @@ class TestMigrateVdsKeysService(TestCase):
 
     @responses.activate
     def test_does_not_post_to_source_instance(self) -> None:
-        MTPRotoKeyFactory(vds=self.source, token="abc123")
+        MTPRotoKeyFactory(vds=None, token="abc123", expired_date=_FUTURE)
         responses.add(
             method=responses.POST,
             url=f"{self.source.internal_url}/api/users",
@@ -54,7 +63,7 @@ class TestMigrateVdsKeysService(TestCase):
 
     @responses.activate
     def test_skips_key_without_token(self) -> None:
-        MTPRotoKeyFactory(vds=self.source, token="")
+        MTPRotoKeyFactory(vds=None, token="", expired_date=_FUTURE)
         self._mock_target_endpoints()
 
         get_migrate_vds_keys_service()(from_instance_id=self.source.pk)
@@ -63,7 +72,20 @@ class TestMigrateVdsKeysService(TestCase):
 
     @responses.activate
     def test_skips_key_without_username(self) -> None:
-        MTPRotoKeyFactory(vds=self.source, token="abc123", user__username="")
+        MTPRotoKeyFactory(
+            vds=None, token="abc123", expired_date=_FUTURE, user__username=""
+        )
+        self._mock_target_endpoints()
+
+        get_migrate_vds_keys_service()(from_instance_id=self.source.pk)
+
+        self.assertEqual(len(responses.calls), 0)
+
+    @responses.activate
+    def test_skips_expired_key(self) -> None:
+        MTPRotoKeyFactory(
+            vds=None, token="abc123", expired_date=timezone.now() - timedelta(days=1)
+        )
         self._mock_target_endpoints()
 
         get_migrate_vds_keys_service()(from_instance_id=self.source.pk)
@@ -72,8 +94,8 @@ class TestMigrateVdsKeysService(TestCase):
 
     @responses.activate
     def test_multiple_keys_migrated(self) -> None:
-        MTPRotoKeyFactory(vds=self.source, token="key1")
-        MTPRotoKeyFactory(vds=self.source, token="key2")
+        MTPRotoKeyFactory(vds=None, token="key1", expired_date=_FUTURE)
+        MTPRotoKeyFactory(vds=None, token="key2", expired_date=_FUTURE)
         self._mock_target_endpoints()
         self._mock_target_endpoints()
 
@@ -83,7 +105,7 @@ class TestMigrateVdsKeysService(TestCase):
 
     @responses.activate
     def test_continues_on_http_error_and_notifies_admin(self) -> None:
-        MTPRotoKeyFactory(vds=self.source, token="key1")
+        MTPRotoKeyFactory(vds=None, token="key1", expired_date=_FUTURE)
         responses.add(
             method=responses.POST,
             url=f"{self.target_1.internal_url}/api/users",

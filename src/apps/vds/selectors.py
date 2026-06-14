@@ -78,11 +78,6 @@ def get_other_active_vds_instances(*, exclude_pk: int) -> QuerySet[VDSInstance]:
     return VDSInstance.objects.active().exclude(pk=exclude_pk)
 
 
-def get_vds_instance_keys(*, instance: VDSInstance) -> QuerySet[MTPRotoKey]:
-    """Все ключи конкретного VDS-инстанса с подгруженными пользователями."""
-    return instance.keys.all().select_related("user")
-
-
 def get_keys_by_ids(*, ids: list[int]) -> QuerySet[MTPRotoKey]:
     """Ключи по списку первичных ключей."""
     return MTPRotoKey.objects.filter(pk__in=ids).select_related("user")
