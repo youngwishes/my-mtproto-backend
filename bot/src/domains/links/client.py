@@ -28,7 +28,6 @@ class MyServers:
 @dataclass(kw_only=True, slots=True, frozen=True)
 class ReissuedKey:
     expired_date: str
-    link: str
 
 
 @final

@@ -107,6 +107,36 @@ def replicate_key_update_to_server_task(self, server_id: int, username: str, sec
 
 
 @shared_task
+def push_key_to_servers_task(key_id: int) -> None:
+    """Мгновенный пинок: доставить один ключ на все здоровые VDS."""
+    from apps.vds.selectors import get_healthy_vds_instances, get_key_by_id
+
+    key = get_key_by_id(pk=key_id)
+    if key is None or not getattr(key.user, "username", None) or not key.token:
+        return
+
+    for server in get_healthy_vds_instances():
+        push_key_to_server_task.delay(server.pk, key.user.username, key.token)
+
+
+@shared_task(bind=True, max_retries=3)
+def push_key_to_server_task(self, server_id: int, username: str, secret: str) -> None:
+    from apps.vds.services.push_key_to_server_infra_service import (
+        get_push_key_to_server_infra_service,
+    )
+
+    try:
+        get_push_key_to_server_infra_service()(
+            server_id=server_id, username=username, secret=secret
+        )
+    except Exception as exc:
+        try:
+            raise self.retry(exc=exc, countdown=60 * (4 ** self.request.retries))
+        except MaxRetriesExceededError:
+            _handle_replication_failure(server_id=server_id, username=username, exc=exc)
+
+
+@shared_task
 def remove_key_from_another_vds_instances_task(server: int, keys_id: list[int]) -> None:
     from apps.vds.services import get_remove_keys_from_vds_instance_infra_service
 

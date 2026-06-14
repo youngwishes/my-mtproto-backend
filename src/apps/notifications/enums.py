@@ -37,11 +37,9 @@ class FilterType(enum.IntEnum):
 
 class ContextResolverType(enum.IntEnum):
     NONE = 0
-    ACTIVE_KEY_LINK = 1
 
     @classmethod
     def choices(cls) -> list[tuple[int, str]]:
         return [
             (cls.NONE, "Без персонального контекста"),
-            (cls.ACTIVE_KEY_LINK, "Ссылка на активный ключ"),
         ]

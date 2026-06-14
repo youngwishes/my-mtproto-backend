@@ -1,8 +1,6 @@
-import json
 from datetime import timedelta
 from unittest import mock
 
-import responses
 from django.conf import settings
 from django.urls import reverse
 from rest_framework import status
@@ -10,7 +8,6 @@ from rest_framework.test import APITestCase
 from django.utils import timezone
 from apps.users.tests.factories import SystemUserFactory
 from apps.vds.models import MTPRotoKey
-from apps.vds.tests.factories import VDSInstanceFactory
 
 
 class TestFirstFreeLink(APITestCase):
@@ -18,22 +15,9 @@ class TestFirstFreeLink(APITestCase):
 
     def setUp(self) -> None:
         self.user = SystemUserFactory()
-        self.vds = VDSInstanceFactory()
 
-    def _mock_vds_request(self) -> None:
-        responses.add(
-            method=responses.POST,
-            url=self.vds.internal_url + "/api/users",
-            json={
-                "tls_domain": "petrovich.ru",
-                "key": "test",
-            },
-        )
-
-    @responses.activate
-    @mock.patch("apps.vds.tasks.add_key_to_another_vds_instances_task.delay")
-    def test_first_free_link_30days(self, _task) -> None:
-        self._mock_vds_request()
+    @mock.patch("apps.vds.tasks.push_key_to_servers_task.delay")
+    def test_first_free_link_30days(self, mock_push) -> None:
         self.assertFalse(self.user.first_month_free_used)
         self.assertEqual(MTPRotoKey.objects.count(), 0)
         response = self.client.post(
@@ -46,36 +30,28 @@ class TestFirstFreeLink(APITestCase):
         self.user.refresh_from_db()
         self.assertTrue(self.user.first_month_free_used)
         self.assertFalse(self.user.referral_activated)
-        self.assertEqual(MTPRotoKey.objects.first().vds, self.vds)
+        # выдача — чистая запись в БД, сервер не выбирается
+        self.assertIsNone(MTPRotoKey.objects.first().vds_id)
         self.assertEqual(
             MTPRotoKey.objects.first().expired_date.date(),
             (timezone.now() + timedelta(days=30)).date(),
         )
 
-        self.assertEqual(len(responses.calls), 1)
-        self.assertEqual(
-            responses.calls[0].request.url,
-            self.vds.internal_url + "/api/users",
-        )
-        self.assertEqual(responses.calls[0].request.method, "POST")
-        request_body = json.loads(responses.calls[0].request.body)
-        self.assertEqual(request_body.get("username"), self.user.username)
+        # доставка — асинхронный пинок, синхронных HTTP нет
+        mock_push.assert_called_once_with(key_id=MTPRotoKey.objects.first().pk)
         self.assertEqual(
             response.json(),
             {
-                "link": MTPRotoKey.objects.first().get_proxy_link(),
                 "expired_date": (timezone.now() + timedelta(days=30))
                 .date()
                 .strftime("%d.%m.%y"),
             },
         )
 
-    @responses.activate
-    @mock.patch("apps.vds.tasks.add_key_to_another_vds_instances_task.delay")
-    def test_first_free_link_7days(self, _task) -> None:
+    @mock.patch("apps.vds.tasks.push_key_to_servers_task.delay")
+    def test_first_free_link_7days(self, mock_push) -> None:
         for _ in range(50):
             SystemUserFactory(first_month_free_used=True)
-        self._mock_vds_request()
         self.assertFalse(self.user.first_month_free_used)
         self.assertEqual(MTPRotoKey.objects.count(), 0)
         response = self.client.post(
@@ -88,23 +64,15 @@ class TestFirstFreeLink(APITestCase):
         self.user.refresh_from_db()
         self.assertTrue(self.user.first_month_free_used)
         self.assertFalse(self.user.referral_activated)
-        self.assertEqual(MTPRotoKey.objects.first().vds, self.vds)
+        self.assertIsNone(MTPRotoKey.objects.first().vds_id)
         self.assertEqual(
             MTPRotoKey.objects.first().expired_date.date(),
             (timezone.now() + timedelta(days=7)).date(),
         )
-        self.assertEqual(len(responses.calls), 1)
-        self.assertEqual(
-            responses.calls[0].request.url,
-            self.vds.internal_url + "/api/users",
-        )
-        self.assertEqual(responses.calls[0].request.method, "POST")
-        request_body = json.loads(responses.calls[0].request.body)
-        self.assertEqual(request_body.get("username"), self.user.username)
+        mock_push.assert_called_once_with(key_id=MTPRotoKey.objects.first().pk)
         self.assertEqual(
             response.json(),
             {
-                "link": MTPRotoKey.objects.first().get_proxy_link(),
                 "expired_date": (timezone.now() + timedelta(days=7))
                 .date()
                 .strftime("%d.%m.%y"),
@@ -126,13 +94,10 @@ class TestFirstFreeLink(APITestCase):
         self.assertEqual(MTPRotoKey.objects.count(), 0)
         self.user.refresh_from_db()
         self.assertTrue(self.user.first_month_free_used)
-        self.assertEqual(len(responses.calls), 0)
         self.assertEqual(service.call_count, 1)
 
-    @responses.activate
-    @mock.patch("apps.vds.tasks.add_key_to_another_vds_instances_task.delay")
-    def test_first_free_link_with_referral_14days(self, _task) -> None:
-        self._mock_vds_request()
+    @mock.patch("apps.vds.tasks.push_key_to_servers_task.delay")
+    def test_first_free_link_with_referral_14days(self, mock_push) -> None:
         self.assertEqual(MTPRotoKey.objects.count(), 0)
         self.user.invited_from_username = "test"
         self.user.save()
@@ -146,24 +111,16 @@ class TestFirstFreeLink(APITestCase):
         self.user.refresh_from_db()
         self.assertTrue(self.user.first_month_free_used)
         self.assertTrue(self.user.referral_activated)
-        self.assertEqual(MTPRotoKey.objects.first().vds, self.vds)
+        self.assertIsNone(MTPRotoKey.objects.first().vds_id)
         self.assertEqual(
             MTPRotoKey.objects.first().expired_date.date(),
             (timezone.now() + timedelta(days=14)).date(),
         )
 
-        self.assertEqual(len(responses.calls), 1)
-        self.assertEqual(
-            responses.calls[0].request.url,
-            self.vds.internal_url + "/api/users",
-        )
-        self.assertEqual(responses.calls[0].request.method, "POST")
-        request_body = json.loads(responses.calls[0].request.body)
-        self.assertEqual(request_body.get("username"), self.user.username)
+        mock_push.assert_called_once_with(key_id=MTPRotoKey.objects.first().pk)
         self.assertEqual(
             response.json(),
             {
-                "link": MTPRotoKey.objects.first().get_proxy_link(),
                 "expired_date": (timezone.now() + timedelta(days=14))
                 .date()
                 .strftime("%d.%m.%y"),

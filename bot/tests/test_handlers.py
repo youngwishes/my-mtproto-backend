@@ -29,7 +29,7 @@ from tests.fakes import FakeBot, FakeCallback, FakeMessage, make_deps
 class FakeFreeTrial:
     def __init__(self, *, check="MONTH", key=None) -> None:
         self._check = check
-        self._key = key or FreeTrialKey(expired_date="2026-07-14", link="tg://k")
+        self._key = key or FreeTrialKey(expired_date="2026-07-14")
         self.checked: list[tuple] = []
         self.claimed: list[str] = []
 
@@ -47,7 +47,7 @@ class FakeFreeTrial:
 class FakeLinks:
     def __init__(self, *, servers, reissue=None) -> None:
         self._servers = servers
-        self._reissue = reissue or ReissuedKey(expired_date="2026-07-14", link="tg://n")
+        self._reissue = reissue or ReissuedKey(expired_date="2026-07-14")
         self.get_calls: list[str] = []
         self.reissue_calls: list[str] = []
 
@@ -64,7 +64,7 @@ class FakeReferrals:
     def __init__(self, *, cabinet, reward=None) -> None:
         self._cabinet = cabinet
         self._reward = reward or ReferralRewardKey(
-            expired_date="2026-06-28", link="tg://r"
+            expired_date="2026-06-28"
         )
         self.cabinet_calls: list[str] = []
         self.reward_calls: list[str] = []
@@ -148,7 +148,7 @@ async def test_cmd_start_ignores_self_referral():
 
 
 async def test_boost_free_claims_key_and_shows_expiry():
-    fake = FakeFreeTrial(key=FreeTrialKey(expired_date="2026-08-01", link="tg://k"))
+    fake = FakeFreeTrial(key=FreeTrialKey(expired_date="2026-08-01"))
     callback = FakeCallback(chat_id=42)
 
     await process_boost_free(callback, make_deps(free_trial=fake))
@@ -222,7 +222,7 @@ async def test_referral_hides_reward_button_below_threshold():
 async def test_referral_link_claims_reward():
     fake = FakeReferrals(
         cabinet=_cabinet(active=5),
-        reward=ReferralRewardKey(expired_date="2026-06-30", link="tg://r"),
+        reward=ReferralRewardKey(expired_date="2026-06-30"),
     )
     callback = FakeCallback(chat_id=42)
 

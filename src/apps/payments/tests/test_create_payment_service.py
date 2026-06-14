@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import timedelta
 from unittest import mock
 
-import responses
 from django.conf import settings
 from django.test import TestCase
 from django.utils import timezone
@@ -37,28 +36,17 @@ class TestCreatePaymentService(TestCase):
             provider=provider,
         )
 
-    def _mock_vds_request(self) -> None:
-        responses.add(
-            method=responses.POST,
-            url=self.vds.internal_url + "/api/users",
-            json={
-                "tls_domain": "petrovich.ru",
-                "key": "testtoken123",
-            },
-        )
-
-    @responses.activate
-    @mock.patch("apps.vds.tasks.add_key_to_another_vds_instances_task.delay")
+    @mock.patch("apps.vds.tasks.push_key_to_servers_task.delay")
     @mock.patch("apps.notifications.services.send_notification_service.send_telegram_message")
-    def test_creates_new_key_when_no_active_key(self, mock_send: mock.Mock, _task: mock.Mock) -> None:
-        self._mock_vds_request()
-
+    def test_creates_new_key_when_no_active_key(self, mock_send: mock.Mock, mock_push: mock.Mock) -> None:
         self.service(payment=self._make_payment(charge_id="charge_new"))
 
         self.assertEqual(MTPRotoKey.objects.count(), 1)
         key = MTPRotoKey.objects.first()
         self.assertEqual(key.user, self.user)
-        self.assertEqual(key.tls_domain, "petrovich.ru")
+        # выдача — чистая запись в БД, сервер не выбирается, доставка асинхронна
+        self.assertIsNone(key.vds_id)
+        mock_push.assert_called_once_with(key_id=key.pk)
         self.assertAlmostEqual(
             key.expired_date,
             timezone.now() + timedelta(days=settings.SUBSCRIPTION_PERIOD_DAYS),
@@ -100,20 +88,19 @@ class TestCreatePaymentService(TestCase):
 
         mock_send.assert_called_once()
 
-    @responses.activate
-    @mock.patch("apps.vds.tasks.add_key_to_another_vds_instances_task.delay")
+    @mock.patch("apps.vds.tasks.push_key_to_servers_task.delay")
     @mock.patch("apps.notifications.services.send_notification_service.send_telegram_message")
-    def test_creates_new_key_when_existing_key_is_expired(self, mock_send: mock.Mock, _task: mock.Mock) -> None:
+    def test_creates_new_key_when_existing_key_is_expired(self, mock_send: mock.Mock, mock_push: mock.Mock) -> None:
         MTPRotoKeyFactory(
             user=self.user,
             vds=self.vds,
             expired_date=timezone.now() - timedelta(days=1),
             was_deleted=False,
         )
-        self._mock_vds_request()
 
         self.service(payment=self._make_payment(charge_id="charge_expired"))
 
+        # выдача сносит прежний протухший ключ юзера (одна строка на юзера)
         self.assertEqual(MTPRotoKey.objects.count(), 1)
         new_key = MTPRotoKey.objects.first()
         self.assertAlmostEqual(
@@ -123,31 +110,27 @@ class TestCreatePaymentService(TestCase):
         )
         self.assertEqual(Payment.objects.first().key, new_key)
 
-    @responses.activate
-    @mock.patch("apps.vds.tasks.add_key_to_another_vds_instances_task.delay")
+    @mock.patch("apps.vds.tasks.push_key_to_servers_task.delay")
     @mock.patch("apps.notifications.services.send_notification_service.send_telegram_message")
-    def test_creates_new_key_when_existing_key_was_deleted(self, mock_send: mock.Mock, _task: mock.Mock) -> None:
+    def test_creates_new_key_when_existing_key_was_deleted(self, mock_send: mock.Mock, mock_push: mock.Mock) -> None:
         MTPRotoKeyFactory(
             user=self.user,
             vds=self.vds,
             expired_date=timezone.now() + timedelta(days=10),
             was_deleted=True,
         )
-        self._mock_vds_request()
 
         self.service(payment=self._make_payment(charge_id="charge_deleted"))
 
+        # выдача сносит прежний удалённый ключ юзера (одна строка на юзера)
         self.assertEqual(MTPRotoKey.objects.count(), 1)
         new_key = MTPRotoKey.objects.first()
         self.assertFalse(new_key.was_deleted)
         self.assertEqual(Payment.objects.first().key, new_key)
 
-    @responses.activate
-    @mock.patch("apps.vds.tasks.add_key_to_another_vds_instances_task.delay")
+    @mock.patch("apps.vds.tasks.push_key_to_servers_task.delay")
     @mock.patch("apps.notifications.services.send_notification_service.send_telegram_message")
-    def test_stars_payment_issues_new_key(self, mock_send: mock.Mock, _task: mock.Mock) -> None:
-        self._mock_vds_request()
-
+    def test_stars_payment_issues_new_key(self, mock_send: mock.Mock, mock_push: mock.Mock) -> None:
         self.service(payment=self._make_payment(
             charge_id="stars_tx_123",
             provider=PaymentProviderEnum.STARS,
@@ -185,21 +168,15 @@ class TestCreatePaymentService(TestCase):
         self.assertEqual(payment.charge_id, "stars_tx_456")
         self.assertEqual(payment.provider, PaymentProviderEnum.STARS)
 
-    @responses.activate
-    @mock.patch("apps.vds.tasks.add_key_to_another_vds_instances_task.delay")
+    @mock.patch("apps.vds.tasks.push_key_to_servers_task.delay")
     @mock.patch("apps.notifications.services.send_notification_service.send_telegram_message")
     def test_notification_context_contains_expired_date_not_link(
-        self, mock_send: mock.Mock, _task: mock.Mock
+        self, mock_send: mock.Mock, mock_push: mock.Mock
     ) -> None:
-        self._mock_vds_request()
-
         self.service(payment=self._make_payment(charge_id="charge_ctx"))
 
         mock_send.assert_called_once()
         call_kwargs = mock_send.call_args
-        # send_telegram_message is called with text=rendered_text, so check the template context
-        # by inspecting that the rendered message text does NOT contain a tg:// link
-        # (link is no longer in the context)
         rendered_text = call_kwargs[1].get("text") or call_kwargs[0][1]
         self.assertNotIn("tg://proxy", rendered_text)
 

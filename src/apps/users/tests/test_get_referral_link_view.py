@@ -1,6 +1,5 @@
 from unittest import mock
 
-import responses
 from django.conf import settings
 from django.test import TestCase
 from django.urls import reverse
@@ -9,7 +8,6 @@ from django.utils import timezone
 from datetime import timedelta
 from apps.users.tests.factories import SystemUserFactory
 from apps.vds.models import MTPRotoKey
-from apps.vds.tests.factories import VDSInstanceFactory
 
 
 class TestGetReferralLink(TestCase):
@@ -17,17 +15,6 @@ class TestGetReferralLink(TestCase):
 
     def setUp(self) -> None:
         self.user = SystemUserFactory()
-        self.vds = VDSInstanceFactory()
-
-    def _mock_vds_request(self) -> None:
-        responses.add(
-            method=responses.POST,
-            url=self.vds.internal_url + "/api/users",
-            json={
-                "tls_domain": "petrovich.ru",
-                "key": "test",
-            },
-        )
 
     @mock.patch("apps.core.decorators._log_service_error")
     def test_get_link_without_referrals(self, log) -> None:
@@ -65,10 +52,8 @@ class TestGetReferralLink(TestCase):
             },
         )
 
-    @responses.activate
-    @mock.patch("apps.vds.tasks.add_key_to_another_vds_instances_task.delay")
-    def test_get_link_with_activated_referrals(self, _task) -> None:
-        self._mock_vds_request()
+    @mock.patch("apps.vds.tasks.push_key_to_servers_task.delay")
+    def test_get_link_with_activated_referrals(self, mock_push) -> None:
         for _ in range(5):
             SystemUserFactory(
                 invited_from_username=self.user.username,
@@ -80,10 +65,11 @@ class TestGetReferralLink(TestCase):
             headers={"Bot-Auth-Token": settings.BOT_AUTH_TOKEN},
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIsNone(MTPRotoKey.objects.first().vds_id)
+        mock_push.assert_called_once_with(key_id=MTPRotoKey.objects.first().pk)
         self.assertEqual(
             response.json(),
             {
-                "link": MTPRotoKey.objects.first().get_proxy_link(),
                 "expired_date": (timezone.now() + timedelta(days=14)).date().strftime("%d.%m.%y")
             },
         )

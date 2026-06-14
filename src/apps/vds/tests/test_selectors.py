@@ -7,10 +7,13 @@ from django.utils import timezone
 
 from apps.users.tests.factories import SystemUserFactory
 from apps.vds.selectors import (
+    count_active_valid_keys,
     get_active_broadcast_keys,
     get_active_key,
     get_all_active_valid_keys,
     get_all_active_vds_instances,
+    get_healthy_vds_instances,
+    get_key_by_id,
     get_keys_by_username,
     get_keys_expired_up_to_date,
     get_keys_expiring_on_date,
@@ -458,3 +461,59 @@ class TestGetUnhealthyVdsInstances(TestCase):
         self.assertNotIn(healthy, result)
         self.assertIn(unhealthy, result)
         self.assertNotIn(inactive_unhealthy, result)
+
+
+class TestGetHealthyVdsInstances(TestCase):
+    def test_returns_only_active_healthy_instances(self) -> None:
+        healthy = VDSInstanceFactory(is_healthy=True)
+        unhealthy = VDSInstanceFactory(is_healthy=False)
+        inactive_healthy = VDSInstanceFactory(is_active=False, is_healthy=True)
+
+        result = list(get_healthy_vds_instances())
+
+        self.assertIn(healthy, result)
+        self.assertNotIn(unhealthy, result)
+        self.assertNotIn(inactive_healthy, result)
+
+    def test_returns_empty_when_no_healthy_instances(self) -> None:
+        VDSInstanceFactory(is_healthy=False)
+        self.assertFalse(get_healthy_vds_instances().exists())
+
+
+class TestGetKeyById(TestCase):
+    def test_returns_key_with_prefetched_user(self) -> None:
+        key = MTPRotoKeyFactory(vds=VDSInstanceFactory())
+        result = get_key_by_id(pk=key.pk)
+        self.assertEqual(result, key)
+        with self.assertNumQueries(0):
+            _ = result.user.username
+
+    def test_returns_none_for_missing_key(self) -> None:
+        self.assertIsNone(get_key_by_id(pk=999999))
+
+
+class TestCountActiveValidKeys(TestCase):
+    def setUp(self) -> None:
+        self.vds = VDSInstanceFactory()
+
+    def _key(self, **kwargs):
+        defaults = dict(
+            vds=self.vds,
+            is_active=True,
+            was_deleted=False,
+            expired_date=timezone.now() + timedelta(days=30),
+        )
+        defaults.update(kwargs)
+        return MTPRotoKeyFactory(**defaults)
+
+    def test_counts_only_active_valid_keys(self) -> None:
+        self._key()
+        self._key()
+        self._key(expired_date=timezone.now() - timedelta(days=1))  # expired
+        self._key(was_deleted=True)  # deleted
+        self._key(is_active=False)  # inactive
+
+        self.assertEqual(count_active_valid_keys(), 2)
+
+    def test_returns_zero_when_no_keys(self) -> None:
+        self.assertEqual(count_active_valid_keys(), 0)

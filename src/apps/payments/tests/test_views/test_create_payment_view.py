@@ -1,7 +1,6 @@
 from datetime import timedelta
 from unittest import mock
 
-import responses
 from django.conf import settings
 from django.urls import reverse
 from django.utils import timezone
@@ -13,7 +12,6 @@ from apps.payments.models import Payment
 from apps.payments.tests.factories import ProductFactory
 from apps.users.tests.factories import SystemUserFactory
 from apps.vds.models import MTPRotoKey
-from apps.vds.tests.factories import VDSInstanceFactory
 
 
 class TestCreatePaymentView(APITestCase):
@@ -21,18 +19,7 @@ class TestCreatePaymentView(APITestCase):
 
     def setUp(self) -> None:
         self.product = ProductFactory()
-        self.vds = VDSInstanceFactory()
         self.user = SystemUserFactory(username="99887766")
-
-    def _mock_vds_request(self) -> None:
-        responses.add(
-            method=responses.POST,
-            url=self.vds.internal_url + "/api/users",
-            json={
-                "tls_domain": "petrovich.ru",
-                "key": "test",
-            },
-        )
 
     def _post(self, data: dict) -> object:
         return self.client.post(
@@ -42,10 +29,8 @@ class TestCreatePaymentView(APITestCase):
         )
 
     @mock.patch("apps.notifications.services.send_notification_service.send_telegram_message")
-    @mock.patch("apps.vds.tasks.add_key_to_another_vds_instances_task.delay")
-    @responses.activate
-    def test_create_yukassa_payment(self, _task, telegram) -> None:
-        self._mock_vds_request()
+    @mock.patch("apps.vds.tasks.push_key_to_servers_task.delay")
+    def test_create_yukassa_payment(self, mock_push, telegram) -> None:
         response = self._post({
             "username": self.user.username,
             "charge_id": "yukassa_charge_001",
@@ -60,7 +45,8 @@ class TestCreatePaymentView(APITestCase):
         payment = Payment.objects.first()
 
         self.assertEqual(payment.key, key)
-        self.assertEqual(key.vds, self.vds)
+        self.assertIsNone(key.vds_id)
+        mock_push.assert_called_once_with(key_id=key.pk)
         self.assertEqual(payment.user, self.user)
         self.assertEqual(payment.charge_id, "yukassa_charge_001")
         self.assertEqual(payment.provider, PaymentProviderEnum.YUKASSA)
@@ -69,10 +55,8 @@ class TestCreatePaymentView(APITestCase):
         )
 
     @mock.patch("apps.notifications.services.send_notification_service.send_telegram_message")
-    @mock.patch("apps.vds.tasks.add_key_to_another_vds_instances_task.delay")
-    @responses.activate
-    def test_create_stars_payment(self, _task, telegram) -> None:
-        self._mock_vds_request()
+    @mock.patch("apps.vds.tasks.push_key_to_servers_task.delay")
+    def test_create_stars_payment(self, mock_push, telegram) -> None:
         response = self._post({
             "username": self.user.username,
             "charge_id": "stars_tx_789",
@@ -86,10 +70,8 @@ class TestCreatePaymentView(APITestCase):
         self.assertEqual(payment.provider, PaymentProviderEnum.STARS)
 
     @mock.patch("apps.notifications.services.send_notification_service.send_telegram_message")
-    @mock.patch("apps.vds.tasks.add_key_to_another_vds_instances_task.delay")
-    @responses.activate
-    def test_create_payment_twice_extends_key(self, _task, telegram) -> None:
-        self._mock_vds_request()
+    @mock.patch("apps.vds.tasks.push_key_to_servers_task.delay")
+    def test_create_payment_twice_extends_key(self, mock_push, telegram) -> None:
         self._post({
             "username": self.user.username,
             "charge_id": "charge_first",

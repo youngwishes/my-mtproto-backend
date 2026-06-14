@@ -41,14 +41,13 @@ class FirstFreeLinkService:
         expired_date = self._resolve_expired_date(user=user)
 
         with transaction.atomic():
-            mtproto_key = self.issue_key_service(user=user, expired_date=expired_date)
+            self.issue_key_service(user=user, expired_date=expired_date)
             user.first_month_free_used = True
             if user.invited_from_username:
                 user.referral_activated = True
             user.save(update_fields=["first_month_free_used", "referral_activated"])
 
         return IssuedKeyOut(
-            link=mtproto_key.get_proxy_link(),
             expired_date=expired_date.date().strftime("%d.%m.%y"),
         )
 

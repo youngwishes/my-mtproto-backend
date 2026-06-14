@@ -7,7 +7,10 @@ from apps.core.dtos import BaseServiceDTO
 
 @dataclass(kw_only=True, frozen=True, slots=True)
 class UpdateKeyOut(BaseServiceDTO):
-    """Результат обновления ключа: ссылка и дата окончания."""
+    """Результат обновления ключа: дата окончания.
 
-    link: str
+    Ссылки на серверы не возвращаются — ключ валиден на всём флоте,
+    бот показывает кнопку «📡 Мои серверы».
+    """
+
     expired_date: str

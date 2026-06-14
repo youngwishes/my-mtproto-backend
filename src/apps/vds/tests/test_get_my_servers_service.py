@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import timedelta
 from unittest import mock
 
+from django.conf import settings
 from django.test import TestCase
 from django.utils import timezone
 
@@ -41,7 +42,7 @@ class TestGetMyServersService(TestCase):
         for server in result.servers:
             self.assertIn("tg://proxy?server=", server.proxy_link)
             self.assertIn(".beatvault.ru", server.proxy_link)
-            domain_hex = "petrovich.ru".encode("utf-8").hex()
+            domain_hex = settings.TLS_DOMAIN.encode("utf-8").hex()
             self.assertIn(f"eetesttoken{domain_hex}", server.proxy_link)
 
     def test_excludes_inactive_vds(self, mock_log) -> None:

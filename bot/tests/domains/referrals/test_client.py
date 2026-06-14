@@ -45,12 +45,12 @@ async def test_get_cabinet_maps_fields(client: ReferralsClient):
 async def test_claim_reward_returns_key(client: ReferralsClient):
     respx.post(REWARD_URL).mock(
         return_value=httpx.Response(
-            200, json={"expired_date": "2026-06-28", "link": "tg://proxy?ref=1"}
+            200, json={"expired_date": "2026-06-28"}
         )
     )
 
     result = await client.claim_reward(telegram_id="42")
 
     assert result == ReferralRewardKey(
-        expired_date="2026-06-28", link="tg://proxy?ref=1"
+        expired_date="2026-06-28"
     )

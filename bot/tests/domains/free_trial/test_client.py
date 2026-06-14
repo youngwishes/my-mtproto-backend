@@ -59,10 +59,10 @@ async def test_check_availability_omits_referrer_when_absent(client: FreeTrialCl
 async def test_claim_returns_key(client: FreeTrialClient):
     respx.post(CLAIM_URL).mock(
         return_value=httpx.Response(
-            200, json={"expired_date": "2026-07-14", "link": "tg://proxy?x=1"}
+            200, json={"expired_date": "2026-07-14"}
         )
     )
 
     key = await client.claim(telegram_id="42")
 
-    assert key == FreeTrialKey(expired_date="2026-07-14", link="tg://proxy?x=1")
+    assert key == FreeTrialKey(expired_date="2026-07-14")

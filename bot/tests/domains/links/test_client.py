@@ -47,10 +47,10 @@ async def test_get_my_servers_maps_servers(client: LinksClient):
 async def test_reissue_returns_key(client: LinksClient):
     respx.post(UPDATE_URL).mock(
         return_value=httpx.Response(
-            200, json={"expired_date": "2026-07-14", "link": "tg://proxy?new=1"}
+            200, json={"expired_date": "2026-07-14"}
         )
     )
 
     result = await client.reissue(telegram_id="42")
 
-    assert result == ReissuedKey(expired_date="2026-07-14", link="tg://proxy?new=1")
+    assert result == ReissuedKey(expired_date="2026-07-14")

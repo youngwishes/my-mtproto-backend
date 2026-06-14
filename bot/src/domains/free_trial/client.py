@@ -14,7 +14,6 @@ _CLAIM_PATH = "/api/v1/users/first-free-link/"
 @dataclass(kw_only=True, slots=True, frozen=True)
 class FreeTrialKey:
     expired_date: str
-    link: str
 
 
 @final

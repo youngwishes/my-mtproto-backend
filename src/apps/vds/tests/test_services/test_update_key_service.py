@@ -7,88 +7,68 @@ import responses
 from django.test import TestCase
 from django.utils import timezone
 
+from apps.users.tests.factories import SystemUserFactory
+from apps.vds.exceptions import KeyDoesNotExist, TooManyRequests
+from apps.vds.models import MTPRotoKey
 from apps.vds.services import get_update_key_service
 from apps.vds.tests.factories import MTPRotoKeyFactory, VDSInstanceFactory
 
 
-@mock.patch("apps.notifications.services.send_notification_service.send_telegram_message")
 @mock.patch("apps.core.decorators._log_service_error")
-@mock.patch("apps.core.decorators._log_infra_error")
-class TestUpdateKeyServiceVDSSelection(TestCase):
+@mock.patch("apps.vds.tasks.push_key_to_servers_task.delay")
+class TestUpdateKeyService(TestCase):
     def setUp(self) -> None:
         self.future = timezone.now() + timedelta(days=30)
 
-    @responses.activate
-    @mock.patch("apps.vds.services.update_key_infra_service.update_key_on_another_vds_instances_task")
-    def test_stays_on_same_vds_when_available(
-        self, mock_task, mock_log_infra, mock_log_service, mock_send
-    ) -> None:
-        vds = VDSInstanceFactory(is_keys_available=True)
-        key = MTPRotoKeyFactory(vds=vds, expired_date=self.future)
-        responses.add(
-            method=responses.PATCH,
-            url=f"{vds.internal_url}/api/users",
-            json={"key": "new_token", "tls_domain": "new.domain"},
-        )
+    def test_generates_new_token_and_keeps_active_record(self, mock_delay, mock_log) -> None:
+        key = MTPRotoKeyFactory(token="old-token", expired_date=self.future)
 
         get_update_key_service()(username=str(key.user.username))
 
         key.refresh_from_db()
-        self.assertEqual(key.vds_id, vds.pk)
-        self.assertEqual(key.node_number, vds.name)
-        self.assertEqual(key.token, "new_token")
+        self.assertNotEqual(key.token, "old-token")
+        self.assertEqual(len(key.token), 32)  # 16 random bytes → 32 hex chars
+        self.assertTrue(key.is_active)
+        self.assertFalse(key.was_deleted)
+        self.assertIsNotNone(key.last_update)
 
-    @responses.activate
-    @mock.patch("apps.vds.services.update_key_infra_service.update_key_on_another_vds_instances_task")
-    def test_migrates_to_new_vds_when_current_has_keys_unavailable(
-        self, mock_task, mock_log_infra, mock_log_service, mock_send
-    ) -> None:
-        old_vds = VDSInstanceFactory(is_keys_available=False)
-        new_vds = VDSInstanceFactory(is_keys_available=True)
-        key = MTPRotoKeyFactory(vds=old_vds, expired_date=self.future)
-        responses.add(
-            method=responses.PATCH,
-            url=f"{new_vds.internal_url}/api/users",
-            json={"key": "migrated_token", "tls_domain": "migrated.domain"},
-        )
+    def test_schedules_push_to_servers_task(self, mock_delay, mock_log) -> None:
+        key = MTPRotoKeyFactory(expired_date=self.future)
 
         get_update_key_service()(username=str(key.user.username))
 
         key.refresh_from_db()
-        self.assertEqual(key.vds_id, new_vds.pk)
-        self.assertEqual(key.node_number, new_vds.name)
-        self.assertEqual(key.token, "migrated_token")
-        self.assertEqual(key.tls_domain, "migrated.domain")
+        mock_delay.assert_called_once_with(key_id=key.pk)
+
+    def test_deletes_other_keys_of_user(self, mock_delay, mock_log) -> None:
+        user = SystemUserFactory()
+        MTPRotoKeyFactory(user=user, expired_date=self.future)
+        MTPRotoKeyFactory(user=user, expired_date=self.future)
+
+        get_update_key_service()(username=str(user.username))
+
+        self.assertEqual(MTPRotoKey.objects.filter(user=user).count(), 1)
 
     @responses.activate
-    @mock.patch("apps.vds.services.update_key_infra_service.update_key_on_another_vds_instances_task")
-    def test_patch_is_sent_to_selected_vds_not_old_vds(
-        self, mock_task, mock_log_infra, mock_log_service, mock_send
-    ) -> None:
-        old_vds = VDSInstanceFactory(is_keys_available=False)
-        new_vds = VDSInstanceFactory(is_keys_available=True)
-        key = MTPRotoKeyFactory(vds=old_vds, expired_date=self.future)
-        responses.add(
-            method=responses.PATCH,
-            url=f"{new_vds.internal_url}/api/users",
-            json={"key": "migrated_token", "tls_domain": "migrated.domain"},
-        )
+    def test_makes_no_synchronous_http_calls(self, mock_delay, mock_log) -> None:
+        # Никаких responses не зарегистрировано — любой реальный HTTP упал бы.
+        key = MTPRotoKeyFactory(expired_date=self.future)
 
         get_update_key_service()(username=str(key.user.username))
 
-        self.assertEqual(len(responses.calls), 1)
-        self.assertEqual(
-            responses.calls[0].request.url,
-            f"{new_vds.internal_url}/api/users",
+        self.assertEqual(len(responses.calls), 0)
+
+    def test_raises_when_no_active_key(self, mock_delay, mock_log) -> None:
+        user = SystemUserFactory()
+
+        with self.assertRaises(KeyDoesNotExist):
+            get_update_key_service()(username=str(user.username))
+
+    def test_raises_too_many_requests_within_cooldown(self, mock_delay, mock_log) -> None:
+        key = MTPRotoKeyFactory(
+            expired_date=self.future,
+            last_update=timezone.now(),
         )
 
-    def test_raises_when_no_vds_available(
-        self, mock_log_infra, mock_log_service, mock_send
-    ) -> None:
-        # All VDS have is_keys_available=False → get_least_populated_vds() returns None
-        vds = VDSInstanceFactory(is_keys_available=False)
-        key = MTPRotoKeyFactory(vds=vds, expired_date=self.future)
-
-        from apps.vds.exceptions import NoVDSAvailable
-        with self.assertRaises(NoVDSAvailable):
+        with self.assertRaises(TooManyRequests):
             get_update_key_service()(username=str(key.user.username))

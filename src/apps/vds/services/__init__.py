@@ -52,6 +52,10 @@ from apps.vds.services.replicate_key_update_to_server_infra_service import (
     ReplicateKeyUpdateToServerInfraService,
     get_replicate_key_update_to_server_infra_service,
 )
+from apps.vds.services.push_key_to_server_infra_service import (
+    PushKeyToServerInfraService,
+    get_push_key_to_server_infra_service,
+)
 from apps.vds.services.vds_health_check_infra_service import (
     VDSHealthCheckInfraService,
     get_vds_health_check_infra_service,
@@ -86,4 +90,6 @@ __all__ = [
     "get_replicate_key_update_to_server_infra_service",
     "VDSHealthCheckInfraService",
     "get_vds_health_check_infra_service",
+    "PushKeyToServerInfraService",
+    "get_push_key_to_server_infra_service",
 ]

@@ -49,14 +49,14 @@ def send_free_link_to_user_task(telegram_ids: list[str]) -> None:
 
                 text = (
                     "✨ <b>Привет!</b>\n\n"
-                    "🔥 Мы сгенерировали для тебя ссылку сроком действия до <b>{expired_date}</b> \n\n"
-                    "⚡️ Попробуй — с ней мессенджер работает быстрее!\n\n"
+                    "🔥 Мы сгенерировали для тебя ключ сроком действия до <b>{expired_date}</b> \n\n"
+                    "⚡️ Попробуй — с ним мессенджер работает быстрее!\n\n"
                     "👀 Пожалуйста, подпишись на канал @mtproto_keys — там вся информация по развитию проекта\n\n"
-                    "👇 <b>Твоя ссылка:</b>"
+                    "👇 Нажми «📡 Мои серверы» чтобы подключиться ко всем серверам"
                 ).format(expired_date=response.expired_date)
 
                 message = template.render(
-                    context={"text": text, "link": response.link},
+                    context={"text": text},
                 )
                 send_telegram_message(
                     chat_id=int(telegram_id),

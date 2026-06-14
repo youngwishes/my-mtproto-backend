@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from django.conf import settings
 from django.db import models
 from django.db.models import Count
 from django.db.models.enums import IntegerChoices
@@ -73,6 +74,8 @@ class MTPRotoKey(BaseDjangoModel):
         on_delete=models.CASCADE,
         verbose_name="VDS сервер",
         related_name="keys",
+        null=True,
+        blank=True,
     )
     user = models.ForeignKey(
         to="users.SystemUser",
@@ -89,18 +92,15 @@ class MTPRotoKey(BaseDjangoModel):
     objects = MTPRotoKeyQuerySet.as_manager()
 
     def __str__(self) -> str:
-        return self.get_proxy_link()
-
-    def get_proxy_link(self) -> str:
-        secret = self.get_secret_token()
-        return f"tg://proxy?server={self.node_number}.beatvault.ru&port=443&secret={secret}"
+        return f"MTPRotoKey #{self.pk} — {self.user_id}"
 
     def get_secret_token(self) -> str:
-        domain_hex = self.tls_domain.encode("utf-8").hex()
+        domain_hex = settings.TLS_DOMAIN.encode("utf-8").hex()
         return f"ee{self.token}{domain_hex}"
 
-    def get_proxy_link_for_server(self, server_name: str) -> str:
-        """Generate a proxy link using a specific server name instead of the primary node."""
+    def get_proxy_link(self, *, server_name: str) -> str:
+        """Единственный генератор proxy-ссылки: секрет валиден на всём флоте,
+        хост определяется именем конкретного сервера ({server_name}.beatvault.ru)."""
         secret = self.get_secret_token()
         return f"tg://proxy?server={server_name}.beatvault.ru&port=443&secret={secret}"
 

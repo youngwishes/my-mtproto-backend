@@ -88,6 +88,11 @@ def get_keys_by_ids(*, ids: list[int]) -> QuerySet[MTPRotoKey]:
     return MTPRotoKey.objects.filter(pk__in=ids).select_related("user")
 
 
+def get_key_by_id(*, pk: int) -> MTPRotoKey | None:
+    """Один ключ по первичному ключу с подгруженным пользователем, или None."""
+    return MTPRotoKey.objects.filter(pk=pk).select_related("user").first()
+
+
 def get_all_active_valid_keys() -> QuerySet[MTPRotoKey]:
     """Все активные, не удалённые и не истёкшие ключи."""
     return MTPRotoKey.objects.filter(
@@ -100,6 +105,16 @@ def get_all_active_valid_keys() -> QuerySet[MTPRotoKey]:
 def get_unhealthy_vds_instances() -> QuerySet[VDSInstance]:
     """Активные VDS-серверы, помеченные как нездоровые."""
     return VDSInstance.objects.active().filter(is_healthy=False)
+
+
+def get_healthy_vds_instances() -> QuerySet[VDSInstance]:
+    """Активные здоровые VDS-серверы — цель доставки ключей."""
+    return VDSInstance.objects.active().filter(is_healthy=True)
+
+
+def count_active_valid_keys() -> int:
+    """Количество активных валидных ключей — для глобального лимита."""
+    return get_all_active_valid_keys().count()
 
 
 def get_active_broadcast_keys(*, testing: bool = False) -> QuerySet[MTPRotoKey]:

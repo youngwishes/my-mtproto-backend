@@ -37,8 +37,8 @@ class BroadcastProxyLinksService:
                         keyboard=[
                             [
                                 InlineKeyboardButton(
-                                    text="🇳🇱 Подключиться",
-                                    url=key.get_proxy_link(),
+                                    text="📡 Мои серверы",
+                                    callback_data="my_servers",
                                 )
                             ]
                         ]

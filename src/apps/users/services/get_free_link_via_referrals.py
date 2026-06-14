@@ -42,12 +42,11 @@ class GetReferralVDSLinkService:
         expired_date = timezone.now() + timedelta(days=14)
 
         with transaction.atomic():
-            mtproto_key = self.issue_key_service(user=user, expired_date=expired_date)
+            self.issue_key_service(user=user, expired_date=expired_date)
             user.referral_link_activated_count += 1
             user.save(update_fields=["referral_link_activated_count"])
 
         return IssuedKeyOut(
-            link=mtproto_key.get_proxy_link(),
             expired_date=expired_date.date().strftime("%d.%m.%y"),
         )
 
