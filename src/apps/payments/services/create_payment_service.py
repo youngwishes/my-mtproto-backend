@@ -60,10 +60,15 @@ class CreatePaymentService:
                 provider=payment.provider,
             )
 
-        SendNotificationService(
-            slug="proxy_purchased",
-            context={"expired_date": key.expired_date.date().strftime("%d.%m.%y")},
-        )(chat_id=int(user.username))
+        # Уведомление — best-effort: платёж уже проведён и закоммичен, сбой
+        # доставки в Telegram не должен превращать успешный платёж в 500.
+        try:
+            SendNotificationService(
+                slug="proxy_purchased",
+                context={"expired_date": key.expired_date.date().strftime("%d.%m.%y")},
+            )(chat_id=int(user.username))
+        except Exception:
+            pass
 
 
 def get_create_payment_service() -> CreatePaymentService:

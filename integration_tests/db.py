@@ -138,6 +138,57 @@ def create_referrals(inviter: str, *, total: int, active: int, prefix: str) -> l
     return created
 
 
+def bulk_create_keys(owner_username: str, n: int, *, prefix: str = "itlim") -> str:
+    """Создать ``n`` активных валидных ключей на одном юзере (для GLOBAL_KEYS_LIMIT)."""
+    import os
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    user, _ = SystemUser.objects.update_or_create(username=owner_username)
+    exp = timezone.now() + timedelta(days=30)
+    MTPRotoKey.objects.bulk_create(
+        [
+            MTPRotoKey(
+                user=user,
+                token=f"{prefix}{os.urandom(8).hex()}{i:06d}",
+                expired_date=exp,
+                is_active=True,
+                was_deleted=False,
+            )
+            for i in range(n)
+        ]
+    )
+    return owner_username
+
+
+def create_expired_key(username: str) -> MTPRotoKey:
+    """Создать пользователя с ИСТЁКШИМ ключом (нет активного ключа)."""
+    import os
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    user, _ = SystemUser.objects.update_or_create(username=username)
+    return MTPRotoKey.objects.create(
+        user=user,
+        token=os.urandom(16).hex(),
+        expired_date=timezone.now() - timedelta(days=1),
+    )
+
+
+def count_active_valid_keys() -> int:
+    from apps.vds.selectors import count_active_valid_keys as _c
+
+    return _c()
+
+
+def count_payments(username: str) -> int:
+    from apps.payments.models import Payment
+
+    return Payment.objects.filter(user__username=username).count()
+
+
 def key_secret_token(username: str) -> str | None:
     """get_secret_token() активного ключа (для сверки proxy_link в «Мои серверы»)."""
     key = get_active_key(username)

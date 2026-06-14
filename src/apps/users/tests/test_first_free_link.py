@@ -95,7 +95,9 @@ class TestFirstFreeLink(APITestCase):
         self.assertEqual(service.call_count, 1)
 
     @mock.patch("apps.vds.tasks.push_key_to_servers_task.delay")
-    def test_first_free_link_with_referral_14days(self, mock_push) -> None:
+    def test_first_free_link_referral_before_limit_30days(self, mock_push) -> None:
+        # Пока лимит бесплатных НЕ исчерпан — 30 дней всем, включая рефералов
+        # (инвайт даёт бонус 14 дней только ПОСЛЕ исчерпания лимита, как в check).
         self.assertEqual(MTPRotoKey.objects.count(), 0)
         self.user.invited_from_username = "test"
         self.user.save()
@@ -111,9 +113,31 @@ class TestFirstFreeLink(APITestCase):
         self.assertTrue(self.user.referral_activated)
         self.assertEqual(
             MTPRotoKey.objects.first().expired_date.date(),
+            (timezone.now() + timedelta(days=30)).date(),
+        )
+        mock_push.assert_called_once_with(key_id=MTPRotoKey.objects.first().pk)
+
+    @mock.patch("apps.vds.tasks.push_key_to_servers_task.delay")
+    def test_first_free_link_referral_after_limit_14days(self, mock_push) -> None:
+        # Лимит исчерпан + пришёл по рефералке → 14 дней.
+        for _ in range(50):
+            SystemUserFactory(first_month_free_used=True)
+        self.assertEqual(MTPRotoKey.objects.count(), 0)
+        self.user.invited_from_username = "test"
+        self.user.save()
+        response = self.client.post(
+            path=self.url,
+            data={"username": self.user.username},
+            headers={"Bot-Auth-Token": settings.BOT_AUTH_TOKEN},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(MTPRotoKey.objects.count(), 1)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.referral_activated)
+        self.assertEqual(
+            MTPRotoKey.objects.first().expired_date.date(),
             (timezone.now() + timedelta(days=14)).date(),
         )
-
         mock_push.assert_called_once_with(key_id=MTPRotoKey.objects.first().pk)
         self.assertEqual(
             response.json(),

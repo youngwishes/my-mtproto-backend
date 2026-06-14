@@ -88,6 +88,19 @@ class TestCreatePaymentService(TestCase):
 
     @mock.patch("apps.vds.tasks.push_key_to_servers_task.delay")
     @mock.patch("apps.notifications.services.send_notification_service.send_telegram_message")
+    def test_payment_succeeds_when_notification_send_fails(
+        self, mock_send: mock.Mock, mock_push: mock.Mock
+    ) -> None:
+        # Сбой доставки уведомления не должен рушить успешный платёж (best-effort).
+        mock_send.side_effect = Exception("telegram down")
+
+        self.service(payment=self._make_payment(charge_id="charge_notify_fail"))
+
+        self.assertEqual(Payment.objects.count(), 1)
+        self.assertEqual(MTPRotoKey.objects.count(), 1)
+
+    @mock.patch("apps.vds.tasks.push_key_to_servers_task.delay")
+    @mock.patch("apps.notifications.services.send_notification_service.send_telegram_message")
     def test_creates_new_key_when_existing_key_is_expired(self, mock_send: mock.Mock, mock_push: mock.Mock) -> None:
         MTPRotoKeyFactory(
             user=self.user,

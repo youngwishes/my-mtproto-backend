@@ -39,18 +39,31 @@ async def test_new_user_claim_issues_30day_key_without_link(username):
     assert secret is not None and token in secret
 
 
-async def test_referred_user_gets_14day_key(username):
+async def test_referred_user_before_limit_gets_30day_key(username):
     clients = helpers.make_clients()
-    # arrange: пользователь пришёл по реферальной ссылке
+    # реферал, лимит НЕ исчерпан → 30 дней (инвайт-бонус только после лимита)
     await db.aw(db.create_user)(username, invited_from_username="999inviter")
 
     result = await clients.free_trial.claim(telegram_id=username)
 
-    assert result.expired_date == _expected_expired(14)
-    # реферал отмечен активированным (для награды пригласившему)
+    assert result.expired_date == _expected_expired(30)
     user = await db.aw(db.get_user)(username)
     assert user.referral_activated is True
     await helpers.assert_present_on_all_vds(username, present=True)
+
+
+async def test_referred_user_after_limit_gets_14day_key(username):
+    clients = helpers.make_clients()
+    await db.aw(db.create_user)(username, invited_from_username="999inviter")
+    created = await db.aw(db.ensure_free_used_at_least)(
+        settings.FIRST_MONTH_LIMIT, prefix="99953"
+    )
+    try:
+        result = await clients.free_trial.claim(telegram_id=username)
+        assert result.expired_date == _expected_expired(14)
+        await helpers.assert_present_on_all_vds(username, present=True)
+    finally:
+        await db.aw(db.cleanup_users)(created)
 
 
 async def test_exhausted_first_month_limit_gives_7day_key(username):

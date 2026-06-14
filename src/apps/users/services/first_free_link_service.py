@@ -52,15 +52,15 @@ class FirstFreeLinkService:
         )
 
     def _resolve_expired_date(self, *, user: SystemUser) -> timezone.datetime:
-        expired_date = timezone.now() + timedelta(days=30)
-
+        # Пока лимит бесплатных не исчерпан — 30 дней всем. После исчерпания —
+        # реферал 14 дней, обычный пользователь 7. (Зеркалит CheckFirstFreeLinkService;
+        # инвайт даёт бонус только ПОСЛЕ исчерпания лимита, не раньше.)
         if get_free_used_count() >= settings.FIRST_MONTH_LIMIT:
-            expired_date = timezone.now() + timedelta(days=7)
+            days = 14 if user.invited_from_username else 7
+        else:
+            days = 30
 
-        if user.invited_from_username:
-            expired_date = timezone.now() + timedelta(days=14)
-
-        return expired_date
+        return timezone.now() + timedelta(days=days)
 
 
 def get_first_free_link_service() -> FirstFreeLinkService:

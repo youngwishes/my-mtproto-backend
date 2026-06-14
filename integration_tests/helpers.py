@@ -60,6 +60,25 @@ def make_test_id() -> str:
     return f"{config.TEST_ID_PREFIX}{random.randint(0, 999_999):06d}"
 
 
+def assert_status(exc: object, code: str) -> None:
+    """Проверить HTTP-статус внутри APIError бота (context['error'] = str(httpx exc)).
+
+    Важно для error-path: APIError поднимается на ЛЮБОЙ не-2xx, поэтому без этой
+    проверки 500 прошёл бы как «ожидаемая ошибка». Гард Telegram должен давать 400.
+    """
+    err = str(getattr(exc, "context", {}).get("error", ""))
+    assert code in err, f"ожидался HTTP {code}, получено: {err!r}"
+
+
+def expected_expired(days: int) -> str:
+    """Ожидаемый expired_date (формат бэкенда %d.%m.%y) = сегодня (UTC) + days."""
+    import datetime
+
+    return (
+        datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=days)
+    ).date().strftime("%d.%m.%y")
+
+
 # --------------------------------------------------------------------------- #
 # Поллинг async-доставки                                                       #
 # --------------------------------------------------------------------------- #

@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import pytest
+
+from src.exceptions import APIError
+
 from . import db, helpers
 
 
@@ -37,3 +41,11 @@ async def test_my_servers_excludes_inactive_vds(username):
         assert all("it-inactive" not in s.proxy_link for s in result.servers)
     finally:
         await db.aw(db.delete_vds_by_name)("it-inactive")
+
+
+async def test_my_servers_no_active_key(username):
+    clients = helpers.make_clients()
+    await db.aw(db.create_expired_key)(username)
+    with pytest.raises(APIError) as ei:
+        await clients.links.get_my_servers(telegram_id=username)
+    helpers.assert_status(ei.value, "400")
