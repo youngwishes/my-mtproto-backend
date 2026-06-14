@@ -13,6 +13,7 @@ from apps.users.exceptions import AlreadyUsedProgram, NotEnoughReferrals
 from apps.users.models import SystemUser
 from apps.users.selectors import get_active_referrals_count, get_user_by_username
 from apps.users.services.dtos import IssuedKeyOut
+from apps.vds.selectors import get_active_key
 
 if TYPE_CHECKING:
     from apps.vds.services.issue_key_service import IssueKeyService
@@ -39,10 +40,19 @@ class GetReferralVDSLinkService:
         if get_active_referrals_count(username=username) < settings.INVITE_MUST_COUNT:
             raise NotEnoughReferrals(telegram_id=username)
 
-        expired_date = timezone.now() + timedelta(days=14)
-
         with transaction.atomic():
-            self.issue_key_service(user=user, expired_date=expired_date)
+            active_key = get_active_key(user=user)
+            if active_key is not None:
+                # Награда — бонус +14 дней к текущей подписке (продлеваем существующий
+                # ключ, не пересоздаём): иначе активный ключ был бы затёрт 14 днями.
+                active_key.expired_date += timedelta(days=14)
+                active_key.save(update_fields=["expired_date"])
+                expired_date = active_key.expired_date
+            else:
+                key = self.issue_key_service(
+                    user=user, expired_date=timezone.now() + timedelta(days=14)
+                )
+                expired_date = key.expired_date
             user.referral_link_activated_count += 1
             user.save(update_fields=["referral_link_activated_count"])
 

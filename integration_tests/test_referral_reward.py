@@ -28,6 +28,24 @@ async def test_reward_with_enough_referrals_gives_14day_key(username):
         await db.aw(db.cleanup_users)(refs)
 
 
+async def test_reward_extends_active_key_by_14_days(username):
+    clients = helpers.make_clients()
+    key = await db.aw(db.create_active_key)(username, days=20)
+    token1, exp1 = key.token, key.expired_date
+    refs = await db.aw(db.create_referrals)(
+        username, total=settings.INVITE_MUST_COUNT, active=settings.INVITE_MUST_COUNT,
+        prefix=f"{username}r",
+    )
+    try:
+        await clients.referrals.claim_reward(telegram_id=username)
+        key2 = await db.aw(db.get_active_key)(username)
+        assert key2.token == token1                       # ключ не пересоздан
+        assert (key2.expired_date - exp1).days == 14      # +14 к прежнему сроку
+        assert len(await db.aw(db.get_keys)(username)) == 1
+    finally:
+        await db.aw(db.cleanup_users)(refs)
+
+
 async def test_reward_not_enough_referrals(username):
     clients = helpers.make_clients()
     await db.aw(db.create_user)(username)

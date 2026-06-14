@@ -177,6 +177,21 @@ def create_expired_key(username: str) -> MTPRotoKey:
     )
 
 
+def create_active_key(username: str, *, days: int = 20) -> MTPRotoKey:
+    """Создать пользователя с активным ключом (срок = now + days)."""
+    import os
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    user, _ = SystemUser.objects.update_or_create(username=username)
+    return MTPRotoKey.objects.create(
+        user=user,
+        token=os.urandom(16).hex(),
+        expired_date=timezone.now() + timedelta(days=days),
+    )
+
+
 def count_active_valid_keys() -> int:
     from apps.vds.selectors import count_active_valid_keys as _c
 
