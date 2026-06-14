@@ -17,7 +17,7 @@
 
 - **IssueKeyService** — выдача ключа: чистая запись в БД + пинок `push_key_to_servers_task` (без выбора сервера и синхронного HTTP). Глобальный лимит `settings.GLOBAL_KEYS_LIMIT` → `KeysLimitReached`.
 - **UpdateKeyService** — перевыпуск ключа (новый token, тот же срок): запись в БД + пинок доставки.
-- **PushKeyToServerInfraService** — идемпотентно доставляет один секрет на один здоровый VDS (POST `/api/users`, `409` → skip).
+- **PushKeyToServerInfraService** — идемпотентно доставляет один секрет на один здоровый VDS: POST `/api/users`; если пользователь уже есть (`409`) — ротация секрета через PATCH `/api/users` (важно при перевыпуске: новый токен обязан заместить старый; PATCH тем же секретом — безопасный no-op).
 - **SyncKeysToVdsInfraService** — синхронизирует все активные валидные ключи БД на конкретный сервер (бэкфилл при восстановлении).
 - **MigrateVdsKeysInfraService** — досылает все активные валидные ключи на остальные активные серверы.
 - **GetMyServersService** — генерирует `tg://proxy` ссылки на лету для каждого активного VDS.
@@ -31,7 +31,7 @@
 - **notify_before_removing_daily** — уведомление за 1 день до истечения (15:00 UTC)
 - **notify_before_removing_daily_hour_before** — уведомление за 1 час (8:00 UTC)
 - **push_key_to_servers_task(key_id)** — мгновенный пинок: фан-аут секрета одного ключа на все здоровые VDS (по `push_key_to_server_task` на каждый)
-- **push_key_to_server_task** — идемпотентный POST на один сервер; при ошибке: retry с экспоненциальной задержкой (60s → 240s → 960s), при исчерпании ретраев — `_handle_replication_failure`
+- **push_key_to_server_task** — идемпотентная доставка на один сервер (POST, на `409` → PATCH-ротация); при ошибке: retry с экспоненциальной задержкой (60s → 240s → 960s), при исчерпании ретраев — `_handle_replication_failure`
 - **migrate_vds_keys_task** — досылка всех активных ключей на остальные серверы (админ-экшен)
 - **sync_keys_to_vds_task** — синхронизирует все активные ключи БД на конкретный сервер
 - **remove_dead_keys_from_vds_task** / **remove_key_from_another_vds_instances_task** — удаление ключей с серверов

@@ -89,7 +89,7 @@ Scheduled via Celery Beat (defined in `config/settings/celery.py`):
 
 ### Key Business Rules
 
-- First free key: 30 days by default, 14 days if referred, 7 days if free quota (`FIRST_MONTH_LIMIT`) is exhausted
+- First free key: 30 days for everyone (incl. referrals) while the free quota (`FIRST_MONTH_LIMIT`) is not exhausted; once exhausted — 14 days if referred, 7 days otherwise. `FirstFreeLinkService` (claim) and `CheckFirstFreeLinkService` follow the same logic — the referral bonus applies only after the quota is exhausted
 - Referral reward: after 5 referrals activate their free period, the referrer gets a free key (`GetFreeLinkViaReferralsService`)
 - One `MTPRotoKey` is a single secret valid across the whole fleet (no per-key `vds`/`node_number`/`tls_domain`). It is delivered to **all healthy** VDS via the async `push_key_to_servers_task`. The FakeTLS masking domain lives in `settings.TLS_DOMAIN` (same on every VDS), baked into the secret by `get_secret_token()`.
 - Issue/reissue services return only `expired_date` (DTOs have no `link`) — the bot shows a «📡 Мои серверы» button (`callback_data="my_servers"`) instead of a single link
