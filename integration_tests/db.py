@@ -1,0 +1,109 @@
+"""ORM-хелперы харнесса (вариант A): arrange/assert состояния бэкенда напрямую.
+
+Все функции — синхронные (Django ORM). Из async-тестов звать через
+``asgiref.sync.sync_to_async`` (см. ``aw`` ниже) или ``asyncio.to_thread``.
+Импортировать только после ``django.setup()`` (делает conftest).
+"""
+
+from __future__ import annotations
+
+from typing import Any, Awaitable, Callable, TypeVar
+
+from asgiref.sync import sync_to_async
+
+from apps.users.models import SystemUser
+from apps.vds.models import MTPRotoKey, VDSInstance
+
+from . import config
+
+_T = TypeVar("_T")
+
+
+def aw(fn: Callable[..., _T]) -> Callable[..., Awaitable[_T]]:
+    """Обернуть синхронную ORM-функцию в async (threadpool)."""
+    return sync_to_async(fn, thread_sensitive=True)
+
+
+# --------------------------------------------------------------------------- #
+# VDS-инстансы                                                                 #
+# --------------------------------------------------------------------------- #
+def ensure_local_vds(name: str = "it-local", location: str = "🧪 Local") -> VDSInstance:
+    """Гарантировать здоровый VDSInstance, указывающий на локальный VDS-контейнер.
+
+    ``internal_ip_address``/``port`` берутся из конфига так, чтобы celery-контейнер
+    дотянулся до локального telemt-api (по умолчанию ``host.docker.internal:8080``).
+    """
+    vds, _ = VDSInstance.objects.update_or_create(
+        name=name,
+        defaults={
+            "internal_ip_address": config.VDS_INTERNAL_IP,
+            "port": config.VDS_PORT,
+            "is_healthy": True,
+            "is_active": True,
+            "location": location,
+        },
+    )
+    return vds
+
+
+def count_healthy_vds() -> int:
+    return VDSInstance.objects.active().filter(is_healthy=True).count()
+
+
+# --------------------------------------------------------------------------- #
+# Пользователи / ключи                                                         #
+# --------------------------------------------------------------------------- #
+def get_user(username: str) -> SystemUser | None:
+    return SystemUser.objects.filter(username=username).first()
+
+
+def create_user(username: str, **fields: Any) -> SystemUser:
+    """Создать/обновить тестового пользователя с произвольными полями (arrange)."""
+    user, _ = SystemUser.objects.update_or_create(username=username, defaults=fields)
+    return user
+
+
+def free_used_count() -> int:
+    """Глобальный счётчик исчерпавших бесплатный период (для FIRST_MONTH_LIMIT)."""
+    return SystemUser.objects.filter(first_month_free_used=True).count()
+
+
+def ensure_free_used_at_least(target: int, *, prefix: str) -> list[str]:
+    """Догнать глобальный free_used_count до >= target синтетическими юзерами.
+
+    Возвращает список созданных username (для очистки). Все — в безопасном
+    префиксе (вне реального диапазона).
+    """
+    created: list[str] = []
+    i = 0
+    while free_used_count() < target:
+        uname = f"{prefix}{i:05d}"
+        SystemUser.objects.update_or_create(
+            username=uname, defaults={"first_month_free_used": True}
+        )
+        created.append(uname)
+        i += 1
+    return created
+
+
+def cleanup_users(usernames: list[str]) -> None:
+    MTPRotoKey.objects.filter(user__username__in=usernames).delete()
+    SystemUser.objects.filter(username__in=usernames).delete()
+
+
+def get_keys(username: str) -> list[MTPRotoKey]:
+    return list(MTPRotoKey.objects.filter(user__username=username))
+
+def get_active_key(username: str) -> MTPRotoKey | None:
+    return MTPRotoKey.objects.filter(
+        user__username=username, is_active=True, was_deleted=False
+    ).first()
+
+
+# --------------------------------------------------------------------------- #
+# Teardown                                                                     #
+# --------------------------------------------------------------------------- #
+def cleanup_user(username: str) -> None:
+    """Удалить тестового пользователя и его ключи из БД (VDS чистится отдельно)."""
+    MTPRotoKey.objects.filter(user__username=username).delete()
+    SystemUser.objects.filter(username=username).delete()
