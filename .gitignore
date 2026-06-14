@@ -211,3 +211,4 @@ marimo/_lsp/
 __marimo__/
 .idea
 static/
+.DS_Store
