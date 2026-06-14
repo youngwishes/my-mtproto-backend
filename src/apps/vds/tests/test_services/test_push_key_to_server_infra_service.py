@@ -36,17 +36,51 @@ class TestPushKeyToServerInfraService(TestCase):
         self.assertEqual(responses.calls[0].request.method, "POST")
 
     @responses.activate
-    def test_idempotent_returns_silently_on_409(self) -> None:
+    def test_rotates_via_patch_on_409(self) -> None:
+        # Пользователь уже есть (POST→409) → ротация секрета через PATCH,
+        # иначе перевыпущенный (новый) токен не доедет до VDS.
         responses.add(
             method=responses.POST,
             url=f"{self.server.internal_url}/api/users",
             status=409,
             json={"detail": "already exists"},
         )
+        responses.add(
+            method=responses.PATCH,
+            url=f"{self.server.internal_url}/api/users",
+            json={"status": "ok"},
+        )
 
-        # Секрет уже есть на сервере — идемпотентно проглатываем.
-        self._get_service()(server_id=self.server.pk, username="john", secret="abc123")
-        self.assertEqual(len(responses.calls), 1)
+        self._get_service()(
+            server_id=self.server.pk, username="john", secret="new_secret"
+        )
+
+        self.assertEqual(len(responses.calls), 2)
+        self.assertEqual(responses.calls[0].request.method, "POST")
+        self.assertEqual(responses.calls[1].request.method, "PATCH")
+        patch_body = json.loads(responses.calls[1].request.body)
+        self.assertEqual(patch_body["username"], "john")
+        self.assertEqual(patch_body["secret"], "new_secret")
+
+    @responses.activate
+    def test_raises_on_patch_error_after_409(self) -> None:
+        responses.add(
+            method=responses.POST,
+            url=f"{self.server.internal_url}/api/users",
+            status=409,
+            json={"detail": "already exists"},
+        )
+        responses.add(
+            method=responses.PATCH,
+            url=f"{self.server.internal_url}/api/users",
+            status=500,
+            json={"error": "rotate failed"},
+        )
+
+        with self.assertRaises(Exception):
+            self._get_service()(
+                server_id=self.server.pk, username="john", secret="new_secret"
+            )
 
     @responses.activate
     def test_raises_on_server_error(self) -> None:

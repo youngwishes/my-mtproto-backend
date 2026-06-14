@@ -20,8 +20,23 @@ _T = TypeVar("_T")
 
 
 def aw(fn: Callable[..., _T]) -> Callable[..., Awaitable[_T]]:
-    """Обернуть синхронную ORM-функцию в async (threadpool)."""
-    return sync_to_async(fn, thread_sensitive=True)
+    """Обернуть синхронную ORM-функцию в async (threadpool).
+
+    После каждой операции закрываем соединение харнесса: вариант A делит один
+    sqlite-файл с django/celery-контейнерами через bind-mount, и удержание
+    открытого хэндла на хосте провоцирует у контейнера ``unable to open database
+    file``. Закрытие освобождает файл между обращениями.
+    """
+
+    def _wrapped(*args: Any, **kwargs: Any) -> _T:
+        from django.db import connection
+
+        try:
+            return fn(*args, **kwargs)
+        finally:
+            connection.close()
+
+    return sync_to_async(_wrapped, thread_sensitive=True)
 
 
 # --------------------------------------------------------------------------- #
@@ -48,6 +63,19 @@ def ensure_local_vds(name: str = "it-local", location: str = "🧪 Local") -> VD
 
 def count_healthy_vds() -> int:
     return VDSInstance.objects.active().filter(is_healthy=True).count()
+
+
+def count_active_vds() -> int:
+    return VDSInstance.objects.active().count()
+
+
+def create_vds(name: str, **fields: Any) -> VDSInstance:
+    vds, _ = VDSInstance.objects.update_or_create(name=name, defaults=fields)
+    return vds
+
+
+def delete_vds_by_name(name: str) -> None:
+    VDSInstance.objects.filter(name=name).delete()
 
 
 # --------------------------------------------------------------------------- #
@@ -89,6 +117,31 @@ def ensure_free_used_at_least(target: int, *, prefix: str) -> list[str]:
 def cleanup_users(usernames: list[str]) -> None:
     MTPRotoKey.objects.filter(user__username__in=usernames).delete()
     SystemUser.objects.filter(username__in=usernames).delete()
+
+
+def create_referrals(inviter: str, *, total: int, active: int, prefix: str) -> list[str]:
+    """Создать ``total`` рефералов пригласившего, из них ``active`` активированных.
+
+    Возвращает список username рефералов (для очистки).
+    """
+    created: list[str] = []
+    for i in range(total):
+        uname = f"{prefix}{i:04d}"
+        SystemUser.objects.update_or_create(
+            username=uname,
+            defaults={
+                "invited_from_username": inviter,
+                "referral_activated": i < active,
+            },
+        )
+        created.append(uname)
+    return created
+
+
+def key_secret_token(username: str) -> str | None:
+    """get_secret_token() активного ключа (для сверки proxy_link в «Мои серверы»)."""
+    key = get_active_key(username)
+    return key.get_secret_token() if key else None
 
 
 def get_keys(username: str) -> list[MTPRotoKey]:

@@ -14,8 +14,11 @@ from apps.vds.selectors import get_vds_instance_by_id
 class PushKeyToServerInfraService:
     """Идемпотентно доставляет один секрет на один здоровый VDS.
 
-    Секрет — случайный hex, поэтому повторный POST безопасен: 409 (уже есть)
-    проглатывается, прочие ошибки пробрасываются для ретрая на уровне таска.
+    Сначала POST. Если пользователь уже есть (409) — секрет ротируется через
+    PATCH: при перевыпуске токен меняется, и новый секрет обязан заместить
+    старый на сервере (иначе старая ссылка продолжит работать). PATCH тем же
+    секретом — безопасный no-op, поэтому повторная доставка остаётся идемпотентной.
+    Прочие ошибки пробрасываются для ретрая на уровне таска.
     """
 
     def __call__(self, *, server_id: int, username: str, secret: str) -> None:
@@ -26,7 +29,11 @@ class PushKeyToServerInfraService:
             timeout=settings.VDS_REQUEST_TIMEOUT,
         )
         if response.status_code == 409:
-            return
+            response = requests.patch(
+                url=f"{server.internal_url}/api/users",
+                json={"username": username, "secret": secret},
+                timeout=settings.VDS_REQUEST_TIMEOUT,
+            )
         response.raise_for_status()
 
 
