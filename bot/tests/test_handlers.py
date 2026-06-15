@@ -17,7 +17,7 @@ from src.handlers.payments import (
     process_successful_payment,
 )
 from src.handlers.referrals import process_referral, process_referral_link
-from src.handlers.start import cmd_start
+from src.handlers.start import cmd_start, cmd_start_inline, process_info
 from src.messages import PRIVACY_URL, SITE_URL, SUPPORT_URL, TERMS_URL
 from src.domains.free_trial import FreeTrialKey
 from src.domains.links import MyServers, ReissuedKey, ServerItem
@@ -148,6 +148,24 @@ async def test_cmd_start_ignores_self_referral():
     await cmd_start(message, make_deps(free_trial=fake))
 
     assert fake.checked[0][2] is None
+
+
+async def test_show_start_screen_answers_callback():
+    # «🔙 Назад» (show_start_screen) must close the loading spinner in Telegram
+    fake = FakeFreeTrial(check="MONTH")
+    callback = FakeCallback(chat_id=42)
+
+    await cmd_start_inline(callback, make_deps(free_trial=fake))
+
+    assert callback.answers, "callback.answer() was not called — spinner hangs"
+
+
+async def test_info_answers_callback():
+    callback = FakeCallback(chat_id=42)
+
+    await process_info(callback)
+
+    assert callback.answers
 
 
 async def test_boost_free_claims_key_and_shows_expiry():

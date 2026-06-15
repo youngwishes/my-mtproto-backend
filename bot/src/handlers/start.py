@@ -54,6 +54,7 @@ async def cmd_start(message: Message, deps: Dependencies):
 
 @router.callback_query(F.data == "show_start_screen")
 async def cmd_start_inline(callback: CallbackQuery, deps: Dependencies):
+    await callback.answer()
     text, keyboard = await _render_start_screen(
         deps=deps,
         telegram_id=str(callback.message.chat.id),
