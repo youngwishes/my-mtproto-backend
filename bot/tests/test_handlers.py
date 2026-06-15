@@ -8,7 +8,7 @@ from aiogram.types import LabeledPrice
 from src import keyboards
 from src.handlers import payments as payments_module
 from src.handlers.free_trial import process_boost_free
-from src.handlers.links import process_my_servers, update_link
+from src.handlers.links import process_my_servers, update_link, update_link_confirm
 from src.handlers.payments import (
     process_boost_paid,
     process_pay_stars,
@@ -213,15 +213,31 @@ async def test_process_my_servers_renders_server_buttons(servers: MyServers):
     assert markup.inline_keyboard[0][0].url == "tg://proxy?a=1"
 
 
-async def test_update_link_reissues_then_refetches(servers: MyServers):
+async def test_update_link_shows_confirmation_without_reissuing(servers: MyServers):
     fake = FakeLinks(servers=servers)
     callback = FakeCallback(chat_id=42)
 
     await update_link(callback, make_deps(links=fake))
 
+    # tapping «Перевыпустить» only opens the confirmation screen — nothing reissued
+    assert fake.reissue_calls == []
+    assert fake.get_calls == []
+    _, markup = callback.message.edits[0]
+    callbacks = [btn.callback_data for row in markup.inline_keyboard for btn in row]
+    assert "update_link_confirm" in callbacks
+
+
+async def test_confirm_reissue_reissues_and_shows_servers_with_banner(servers: MyServers):
+    fake = FakeLinks(servers=servers)
+    callback = FakeCallback(chat_id=42)
+
+    await update_link_confirm(callback, make_deps(links=fake))
+
     assert fake.reissue_calls == ["42"]
     assert fake.get_calls == ["42"]
-    assert callback.answers  # user got the "✅ Ссылки обновлены!" toast
+    text, markup = callback.message.edits[0]
+    assert "перевыпущен" in text.lower()  # success banner is shown
+    assert markup.inline_keyboard[0][0].text == "🇳🇱 Нидерланды"  # server buttons present
 
 
 # --- referrals --------------------------------------------------------------

@@ -6,7 +6,7 @@ from aiogram import F, Router
 from aiogram.types import CallbackQuery
 
 from src import keyboards
-from src.messages import MY_SERVERS_TEXT
+from src.messages import MY_SERVERS_TEXT, REISSUE_CONFIRM_TEXT, REISSUE_DONE_BANNER
 
 if TYPE_CHECKING:
     from src.dependencies import Dependencies
@@ -14,10 +14,12 @@ if TYPE_CHECKING:
 router = Router()
 
 
-async def _show_servers(callback: CallbackQuery, deps: Dependencies) -> None:
+async def _show_servers(
+    callback: CallbackQuery, deps: Dependencies, *, banner: str = ""
+) -> None:
     servers = await deps.links.get_my_servers(telegram_id=str(callback.message.chat.id))
     await callback.message.edit_text(
-        text=MY_SERVERS_TEXT.format(expired_date=servers.expired_date),
+        text=banner + MY_SERVERS_TEXT.format(expired_date=servers.expired_date),
         reply_markup=keyboards.my_servers(servers.servers),
     )
 
@@ -30,6 +32,17 @@ async def process_my_servers(callback: CallbackQuery, deps: Dependencies):
 
 @router.callback_query(F.data == "update_link")
 async def update_link(callback: CallbackQuery, deps: Dependencies):
+    """Tap on «Перевыпустить» — show the confirmation screen, reissue nothing yet."""
+    await callback.answer()
+    await callback.message.edit_text(
+        text=REISSUE_CONFIRM_TEXT,
+        reply_markup=keyboards.confirm_reissue(),
+    )
+
+
+@router.callback_query(F.data == "update_link_confirm")
+async def update_link_confirm(callback: CallbackQuery, deps: Dependencies):
+    """User confirmed — reissue and land on «Мои серверы» with a success banner."""
+    await callback.answer()
     await deps.links.reissue(telegram_id=str(callback.message.chat.id))
-    await callback.answer("✅ Ссылки обновлены!")
-    await _show_servers(callback, deps)
+    await _show_servers(callback, deps, banner=REISSUE_DONE_BANNER)

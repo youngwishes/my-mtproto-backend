@@ -45,6 +45,15 @@ def my_servers(servers: list[ServerItem]) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
+def confirm_reissue() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="✅ Да, перевыпустить", callback_data="update_link_confirm", style="primary")],
+            [InlineKeyboardButton(text="🔙 Отмена", callback_data="my_servers")],
+        ]
+    )
+
+
 def info() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
