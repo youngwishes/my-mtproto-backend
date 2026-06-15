@@ -1,55 +1,30 @@
 from src.enums import FreeAvailable
 
-WELCOME_TEXT_MONTH = """
-🚀 <b>Привет! Я помогу ускорить твой Telegram</b>
+SITE_URL = "https://mtprotokeys.ru"
+SUPPORT_URL = "https://t.me/mtproto_keys"
+TERMS_URL = "https://mtprotokeys.ru/terms"
+PRIVACY_URL = "https://mtprotokeys.ru/privacy"
 
-С MTPRoto твой Telegram будет летать даже при плохом интернете:
-• 📱 Загрузка медиа за секунды
-• 🎥 Видео без буферизации
-• 🔒 Безопасное соединение
-• ⚡️ Стабильная работа 24/7
+_WELCOME_BODY = """
+<b>⚡️ MTProto Keys Bot</b>
 
-<b>👇 Первый месяц — в подарок!</b>
+- 🌐 Не один сервер, а целая <b>сеть</b>
+- 🔁 Упал один — <b>всегда есть резерв</b>
+- 🌍 Серверы в <b>разных странах</b>
+- 📱 Одна ссылка на <b>3 устройства</b>
+
+👇 Жми «Ускорить» и подключайся!
 """
 
-WELCOME_TEXT_WEEK = """
-🚀 <b>Привет! Я помогу ускорить твой Telegram</b>
+WELCOME_TEXT_MONTH = _WELCOME_BODY + "\nПервый месяц — бесплатно."
 
-С MTPRoto твой Telegram будет летать даже при плохом интернете:
-• 📱 Загрузка медиа за секунды
-• 🎥 Видео без буферизации
-• 🔒 Безопасное соединение
-• ⚡️ Стабильная работа 24/7
+WELCOME_TEXT_WEEK = _WELCOME_BODY + "\nПервая неделя — бесплатно."
 
-<b>👇 Первая неделя — в подарок!</b>
-"""
+WELCOME_TEXT_TWO_WEEK = (
+    _WELCOME_BODY + "\nВы пришли по приглашению — первые две недели бесплатно."
+)
 
-WELCOME_TEXT_TWO_WEEK = """
-🚀 <b>Привет! Я помогу ускорить твой Telegram</b>
-
-С MTPRoto твой Telegram будет летать даже при плохом интернете:
-• 📱 Загрузка медиа за секунды
-• 🎥 Видео без буферизации
-• 🔒 Безопасное соединение
-• ⚡️ Стабильная работа 24/7
-
-👀 Вижу, что ты пришел по ссылке от друга!
-
-<b>👇 Первые 2 недели — в подарок!</b>
-"""
-
-
-WELCOME_TEXT_NOT_FREE = """
-🚀 <b>Привет! Я помогу ускорить твой Telegram</b>
-
-С MTPRoto твой Telegram будет летать даже при плохом интернете:
-• 📱 Загрузка медиа за секунды
-• 🎥 Видео без буферизации
-• 🔒 Безопасное соединение
-• ⚡️ Стабильная работа 24/7
-
-<b>👇 Жми «ускорить»!</b>
-"""
+WELCOME_TEXT_NOT_FREE = _WELCOME_BODY
 
 FREE_AVAILABLE_TEXT_MAPPING = {
     FreeAvailable.MONTH: WELCOME_TEXT_MONTH,
@@ -116,11 +91,14 @@ REFERRAL_CABINET = """
 👇 <b>Поделиться ссылкой</b>
 """
 
-PAYMENT_METHODS_TEXT = """💰 <b>Выберите способ оплаты</b>
+PAYMENT_METHODS_TEXT = f"""💰 <b>Выберите способ оплаты</b>
 
 • 💳 <b>ЮKassa</b> — 99 ₽/месяц
   Банковская карта, SberPay, ЮMoney
 
 • ⭐ <b>Telegram Stars</b> — 80 ★/месяц
   Оплата прямо в Telegram
+
+<i>Оплачивая, вы принимаете <a href="{TERMS_URL}">Условия</a> и \
+<a href="{PRIVACY_URL}">Политику конфиденциальности</a>.</i>
 """

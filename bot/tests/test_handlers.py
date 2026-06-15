@@ -5,10 +5,12 @@ from types import SimpleNamespace
 import pytest
 from aiogram.types import LabeledPrice
 
+from src import keyboards
 from src.handlers import payments as payments_module
 from src.handlers.free_trial import process_boost_free
 from src.handlers.links import process_my_servers, update_link
 from src.handlers.payments import (
+    process_boost_paid,
     process_pay_stars,
     process_pay_yukassa,
     process_pre_checkout_query,
@@ -16,6 +18,7 @@ from src.handlers.payments import (
 )
 from src.handlers.referrals import process_referral, process_referral_link
 from src.handlers.start import cmd_start
+from src.messages import PRIVACY_URL, SITE_URL, SUPPORT_URL, TERMS_URL
 from src.domains.free_trial import FreeTrialKey
 from src.domains.links import MyServers, ReissuedKey, ServerItem
 from src.domains.payments import CardInvoice, StarsInvoice
@@ -156,6 +159,42 @@ async def test_boost_free_claims_key_and_shows_expiry():
     assert fake.claimed == ["42"]
     text, _ = callback.message.edits[0]
     assert "2026-08-01" in text
+
+
+# --- legal documents --------------------------------------------------------
+
+
+async def test_payment_screen_includes_legal_links():
+    callback = FakeCallback(chat_id=42)
+
+    await process_boost_paid(callback)
+
+    text, _ = callback.message.edits[0]
+    assert TERMS_URL in text
+    assert PRIVACY_URL in text
+
+
+def test_main_menu_last_button_links_to_site():
+    markup = keyboards.main_menu("boost_free")
+
+    last_button = markup.inline_keyboard[-1][-1]
+    assert last_button.url == SITE_URL
+
+
+def test_main_menu_has_support_button():
+    markup = keyboards.main_menu("boost_free")
+
+    urls = [btn.url for row in markup.inline_keyboard for btn in row if btn.url]
+    assert SUPPORT_URL in urls
+
+
+def test_info_keyboard_links_to_legal_docs_and_drops_offer():
+    markup = keyboards.info()
+
+    urls = [btn.url for row in markup.inline_keyboard for btn in row if btn.url]
+    assert TERMS_URL in urls
+    assert PRIVACY_URL in urls
+    assert not any("drive.google.com" in url for url in urls)
 
 
 # --- links ------------------------------------------------------------------

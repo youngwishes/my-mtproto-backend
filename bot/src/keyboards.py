@@ -5,12 +5,11 @@ from typing import TYPE_CHECKING
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
+from src.messages import PRIVACY_URL, SITE_URL, SUPPORT_URL, TERMS_URL
+
 if TYPE_CHECKING:
     from src.domains.links import ServerItem
 
-_OFFER_URL = (
-    "https://drive.google.com/file/d/13GI1ZuKBm4nZkNxESOokGM6fTAAxaCs7/view?usp=sharing"
-)
 _BACK = InlineKeyboardButton(text="🔙 Назад", callback_data="show_start_screen")
 _MY_SERVERS = InlineKeyboardButton(
     text="📡 Мои серверы", callback_data="my_servers", style="primary"
@@ -18,15 +17,18 @@ _MY_SERVERS = InlineKeyboardButton(
 
 
 def main_menu(boost_callback_data: str) -> InlineKeyboardMarkup:
-    keyboard = InlineKeyboardBuilder(
-        markup=[
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
             [InlineKeyboardButton(text="⚡️ Ускорить Telegram", callback_data=boost_callback_data, style="success")],
             [_MY_SERVERS],
-            [InlineKeyboardButton(text="📋 Информация", callback_data="info")],
             [InlineKeyboardButton(text="🤝 Реферальный кабинет", callback_data="referral")],
-        ],
+            [InlineKeyboardButton(text="📋 Информация", callback_data="info")],
+            [
+                InlineKeyboardButton(text="💬 Поддержка", url=SUPPORT_URL),
+                InlineKeyboardButton(text="🌐 Наш сайт", url=SITE_URL),
+            ],
+        ]
     )
-    return keyboard.adjust(1).as_markup()
 
 
 def key_generated() -> InlineKeyboardMarkup:
@@ -46,7 +48,8 @@ def my_servers(servers: list[ServerItem]) -> InlineKeyboardMarkup:
 def info() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="👀 Договор-оферта", url=_OFFER_URL)],
+            [InlineKeyboardButton(text="📜 Условия использования", url=TERMS_URL)],
+            [InlineKeyboardButton(text="🔒 Политика конфиденциальности", url=PRIVACY_URL)],
             [_BACK],
         ]
     )
