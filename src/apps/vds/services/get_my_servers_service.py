@@ -31,13 +31,14 @@ class GetMyServersService:
         user = get_user_by_username(username=username)
         key = get_active_key(user=user) if user is not None else None
 
+        already_used_free = user is not None and user.first_month_free_used
+        if key is None and not already_used_free:
+            self.first_free_link_service(username=username)
+            user = get_user_by_username(username=username)
+            key = get_active_key(user=user)
+
         if key is None:
-            if user is None or not user.first_month_free_used:
-                self.first_free_link_service(username=username)
-                user = get_user_by_username(username=username)
-                key = get_active_key(user=user) if user is not None else None
-            if key is None:
-                raise KeyDoesNotExist(telegram_id=username)
+            raise KeyDoesNotExist(telegram_id=username)
 
         servers = [
             MyServerOut(
