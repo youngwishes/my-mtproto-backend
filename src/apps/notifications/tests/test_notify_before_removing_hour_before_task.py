@@ -51,8 +51,8 @@ class TestNotifyBeforeRemovingHourBeforeTask(TestCase):
 
     @mock.patch(f"{_SERVICE_MODULE}.time")
     @mock.patch(f"{_SERVICE_MODULE}.get_template")
-    @mock.patch(f"{_SERVICE_MODULE}.send_telegram_message")
-    def test_notifies_admin_on_error_and_continues(self, mock_send, mock_get_template, _time) -> None:
+    @mock.patch(f"{_SERVICE_MODULE}.log_service_error")
+    def test_notifies_admin_on_error_and_continues(self, mock_notify, mock_get_template, _time) -> None:
         second_user = SystemUserFactory(username="987654321")
         MTPRotoKeyFactory(user=second_user, expired_date=timezone.now())
         self.key.expired_date = timezone.now()
@@ -62,4 +62,4 @@ class TestNotifyBeforeRemovingHourBeforeTask(TestCase):
 
         notify_before_removing_daily_hour_before()
 
-        self.assertEqual(mock_send.call_count, 2)
+        self.assertEqual(mock_notify.call_count, 2)

@@ -4,9 +4,10 @@ import time
 from dataclasses import dataclass
 from typing import final
 
-from django.conf import settings
-from django.utils import html, timezone
+from django.utils import timezone
 
+from apps.core.exceptions import BaseServiceError
+from apps.core.telegram.error_logger import log_service_error
 from apps.core.telegram.transport import send_telegram_message
 from apps.notifications.selectors import get_template
 from apps.vds.selectors import get_all_active_vds_instances, get_keys_expired_up_to_date
@@ -35,18 +36,12 @@ class RemoveExpiredKeysDailyService:
                 send_telegram_message(chat_id=int(username), text=message.text, markup=message.markup)
                 time.sleep(0.5)
             except Exception as exc:
-                escaped_error = html.escape(str(exc))
-                send_telegram_message(
-                    chat_id=int(settings.MY_TELEGRAM_ID),
-                    text=(
-                        "🟡 <b>(BACKEND) Системное оповещение</b>\n\n"
-                        "🛡 <b>Тип ошибки:</b> SERVICE (400)\n"
-                        "📋 <b>Детали:</b>\n"
-                        f"- Не удалось уведомить пользователя об удалении ссылки\n"
-                        f"- Пользователь — {username}\n\n"
-                        f"<code>{escaped_error}</code>\n\n"
-                        "⚙️ <i>Возможно, требуется внимание команды</i>"
-                    ),
+                log_service_error(
+                    BaseServiceError(
+                        telegram_id=username,
+                        message="Не удалось уведомить пользователя об удалении ссылки",
+                        error=str(exc),
+                    )
                 )
 
 

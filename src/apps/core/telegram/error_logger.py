@@ -19,6 +19,9 @@ def _log_error(
     error_type: str,
     attention_text: str,
 ) -> None:
+    if not settings.ERROR_NOTIFICATIONS_ENABLED:
+        return
+
     error_dict = exc.to_dict()
     pretty_error = json.dumps(error_dict, indent=2, ensure_ascii=False)
     escaped_error = html.escape(pretty_error)

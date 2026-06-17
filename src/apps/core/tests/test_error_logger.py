@@ -9,7 +9,9 @@ from apps.core.exceptions import BaseInfraError, BaseServiceError
 
 class TestLogInfraError(TestCase):
     @mock.patch("apps.core.telegram.error_logger.send_telegram_message")
-    @override_settings(MY_TELEGRAM_ID=999, TELEGRAM_TIMEOUT=5)
+    @override_settings(
+        MY_TELEGRAM_ID=999, TELEGRAM_TIMEOUT=5, ERROR_NOTIFICATIONS_ENABLED=True
+    )
     def test_sends_red_error_to_admin(self, mock_send: mock.Mock) -> None:
         from apps.core.telegram.error_logger import log_infra_error
 
@@ -27,7 +29,9 @@ class TestLogInfraError(TestCase):
 
 class TestLogServiceError(TestCase):
     @mock.patch("apps.core.telegram.error_logger.send_telegram_message")
-    @override_settings(MY_TELEGRAM_ID=999, TELEGRAM_TIMEOUT=5)
+    @override_settings(
+        MY_TELEGRAM_ID=999, TELEGRAM_TIMEOUT=5, ERROR_NOTIFICATIONS_ENABLED=True
+    )
     def test_sends_yellow_error_to_admin(self, mock_send: mock.Mock) -> None:
         from apps.core.telegram.error_logger import log_service_error
 
@@ -40,3 +44,25 @@ class TestLogServiceError(TestCase):
         self.assertIn("🟡", call_kwargs.kwargs["text"])
         self.assertIn("SERVICE (400)", call_kwargs.kwargs["text"])
         self.assertIn("Product not found", call_kwargs.kwargs["text"])
+
+
+class TestErrorNotificationsToggle(TestCase):
+    """Флаг ERROR_NOTIFICATIONS_ENABLED глушит админ-оповещения (локально/в e2e)."""
+
+    @mock.patch("apps.core.telegram.error_logger.send_telegram_message")
+    @override_settings(ERROR_NOTIFICATIONS_ENABLED=False, MY_TELEGRAM_ID=999)
+    def test_service_error_not_sent_when_disabled(self, mock_send: mock.Mock) -> None:
+        from apps.core.telegram.error_logger import log_service_error
+
+        log_service_error(BaseServiceError(telegram_id=1, message="x"))
+
+        mock_send.assert_not_called()
+
+    @mock.patch("apps.core.telegram.error_logger.send_telegram_message")
+    @override_settings(ERROR_NOTIFICATIONS_ENABLED=False, MY_TELEGRAM_ID=999)
+    def test_infra_error_not_sent_when_disabled(self, mock_send: mock.Mock) -> None:
+        from apps.core.telegram.error_logger import log_infra_error
+
+        log_infra_error(BaseInfraError(telegram_id=1, message="x"))
+
+        mock_send.assert_not_called()
