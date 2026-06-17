@@ -8,8 +8,10 @@ from django.test import TestCase
 from django.utils import timezone
 
 from apps.vds.exceptions import KeyDoesNotExist
+from apps.vds.models import MTPRotoKey
 from apps.vds.services.get_my_servers_service import get_my_servers_service
 from apps.vds.tests.factories import MTPRotoKeyFactory, VDSInstanceFactory
+from apps.users.models import SystemUser
 from apps.users.tests.factories import SystemUserFactory
 
 
@@ -59,20 +61,41 @@ class TestGetMyServersService(TestCase):
         self.assertEqual(len(result.servers), 1)
         self.assertEqual(result.servers[0].location, "🇳🇱 Нидерланды")
 
-    def test_raises_when_user_not_found(self, mock_log) -> None:
-        with self.assertRaises(KeyDoesNotExist):
-            self.service(username="nonexistent")
+    @mock.patch("apps.vds.tasks.push_key_to_servers_task.delay")
+    def test_auto_activates_free_period_for_new_user(self, mock_push, mock_log) -> None:
+        # Новый пользователь жмёт «Мои серверы» → бесплатный период активируется
+        # на 30 дней, и сразу возвращается список серверов.
+        VDSInstanceFactory(name="nl1", location="🇳🇱 Нидерланды", is_active=True)
 
-    def test_raises_when_user_has_no_active_key(self, mock_log) -> None:
-        user = SystemUserFactory(username="33333333")
+        result = self.service(username="nonexistent")
+
+        user = SystemUser.objects.get(username="nonexistent")
+        self.assertTrue(user.first_month_free_used)
+        self.assertEqual(MTPRotoKey.objects.filter(user=user).count(), 1)
+        key = MTPRotoKey.objects.get(user=user)
+        self.assertEqual(key.expired_date.date(), (timezone.now() + timedelta(days=30)).date())
+        self.assertEqual(result.expired_date, key.expired_date.date().strftime("%d.%m.%y"))
+        self.assertEqual(len(result.servers), 1)
+        mock_push.assert_called_once_with(key_id=key.pk)
+
+    @mock.patch("apps.vds.tasks.push_key_to_servers_task.delay")
+    def test_auto_activates_when_user_has_no_active_key(self, mock_push, mock_log) -> None:
+        user = SystemUserFactory(username="33333333", first_month_free_used=False)
         VDSInstanceFactory(is_active=True)
 
-        with self.assertRaises(KeyDoesNotExist):
-            self.service(username="33333333")
+        result = self.service(username="33333333")
 
-    def test_raises_when_key_is_expired(self, mock_log) -> None:
-        user = SystemUserFactory(username="44444444")
-        vds = VDSInstanceFactory(is_active=True)
+        user.refresh_from_db()
+        self.assertTrue(user.first_month_free_used)
+        self.assertEqual(MTPRotoKey.objects.filter(user=user).count(), 1)
+        self.assertEqual(len(result.servers), 1)
+        mock_push.assert_called_once()
+
+    @mock.patch("apps.vds.tasks.push_key_to_servers_task.delay")
+    def test_auto_activates_when_existing_key_expired(self, mock_push, mock_log) -> None:
+        # Истёкший ключ + период ещё не использован → выдаётся свежий 30-дневный ключ.
+        user = SystemUserFactory(username="44444444", first_month_free_used=False)
+        VDSInstanceFactory(is_active=True)
         MTPRotoKeyFactory(
             user=user,
             expired_date=timezone.now() - timedelta(days=1),
@@ -80,5 +103,23 @@ class TestGetMyServersService(TestCase):
             was_deleted=False,
         )
 
+        result = self.service(username="44444444")
+
+        user.refresh_from_db()
+        self.assertTrue(user.first_month_free_used)
+        key = MTPRotoKey.objects.get(user=user)
+        self.assertEqual(key.expired_date.date(), (timezone.now() + timedelta(days=30)).date())
+        self.assertEqual(len(result.servers), 1)
+        mock_push.assert_called_once_with(key_id=key.pk)
+
+    @mock.patch("apps.vds.tasks.push_key_to_servers_task.delay")
+    def test_raises_when_free_already_used_and_no_active_key(self, mock_push, mock_log) -> None:
+        # Период уже израсходован, ключ истёк → повторной авто-активации нет.
+        user = SystemUserFactory(username="55555555", first_month_free_used=True)
+        VDSInstanceFactory(is_active=True)
+
         with self.assertRaises(KeyDoesNotExist):
-            self.service(username="44444444")
+            self.service(username="55555555")
+
+        self.assertEqual(MTPRotoKey.objects.filter(user=user).count(), 0)
+        mock_push.assert_not_called()

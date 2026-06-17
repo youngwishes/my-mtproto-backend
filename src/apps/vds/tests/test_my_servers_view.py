@@ -62,11 +62,27 @@ class TestMyServersView(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-    def test_user_without_active_key_returns_error(self, mock_log) -> None:
-        user_no_key = SystemUserFactory(username="66666666")
+    def test_user_who_used_free_without_active_key_returns_error(self, mock_log) -> None:
+        # Период уже израсходован, ключа нет → повторной авто-активации нет, 400.
+        SystemUserFactory(username="66666666", first_month_free_used=True)
         VDSInstanceFactory(is_active=True)
 
         response = self._post(data={"username": "66666666"})
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("error", response.json())
+
+    @mock.patch("apps.vds.tasks.push_key_to_servers_task.delay")
+    def test_new_user_without_key_auto_activates_free_period(
+        self, mock_push, mock_log
+    ) -> None:
+        # Новый пользователь без ключа → бесплатный период активируется, 200 + серверы.
+        SystemUserFactory(username="66666666", first_month_free_used=False)
+
+        response = self._post(data={"username": "66666666"})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertIn("expired_date", data)
+        self.assertTrue(len(data["servers"]) >= 1)
+        mock_push.assert_called_once()

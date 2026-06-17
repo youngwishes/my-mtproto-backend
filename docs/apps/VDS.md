@@ -20,7 +20,7 @@
 - **PushKeyToServerInfraService** — идемпотентно доставляет один секрет на один здоровый VDS: POST `/api/users`; если пользователь уже есть (`409`) — ротация секрета через PATCH `/api/users` (важно при перевыпуске: новый токен обязан заместить старый; PATCH тем же секретом — безопасный no-op).
 - **SyncKeysToVdsInfraService** — синхронизирует все активные валидные ключи БД на конкретный сервер (бэкфилл при восстановлении).
 - **MigrateVdsKeysInfraService** — досылает все активные валидные ключи на остальные активные серверы.
-- **GetMyServersService** — генерирует `tg://proxy` ссылки на лету для каждого активного VDS.
+- **GetMyServersService** — генерирует `tg://proxy` ссылки на лету для каждого активного VDS. Если активного ключа нет, а бесплатный период не использован, активирует его через инъектированный `FirstFreeLinkService` и сразу возвращает серверы; если период израсходован — `KeyDoesNotExist`.
 - **VDSHealthCheckInfraService** — проверяет доступность сервера GET-запросом.
 - **RemoveUserKeyInfraService** / **RemoveKeysFromVdsInstanceInfraService** / **RemoveDeadKeysFromVdsInfraService** — удаление ключей с VDS.
 - **RemoveExpiredKeysDailyService** — дневное удаление истёкших ключей.
