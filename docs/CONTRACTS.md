@@ -55,7 +55,7 @@
 | Поле | Тип | Описание |
 |------|-----|----------|
 | `username` | string | Telegram ID |
-| `telegram_username` | string | Username в Telegram |
+| `telegram_username` | string? | Username в Telegram; необязательное, если у юзера нет @username — поле опускается |
 | `invited_from_username` | string? | Telegram ID пригласившего |
 
 **Ответ:** `200 OK`

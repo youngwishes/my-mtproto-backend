@@ -20,7 +20,7 @@ async def _render_start_screen(
     *,
     deps: Dependencies,
     telegram_id: str,
-    telegram_username: str,
+    telegram_username: str | None,
     invited_from_username: str | None,
 ) -> tuple[str, InlineKeyboardMarkup]:
     available_free_period = await deps.free_trial.check_availability(
@@ -46,7 +46,7 @@ async def cmd_start(message: Message, deps: Dependencies):
     text, keyboard = await _render_start_screen(
         deps=deps,
         telegram_id=str(message.from_user.id),
-        telegram_username=str(getattr(message.from_user, "username", None)),
+        telegram_username=message.from_user.username,
         invited_from_username=invited_from_username,
     )
     await message.answer(text=text, reply_markup=keyboard)
@@ -57,8 +57,8 @@ async def cmd_start_inline(callback: CallbackQuery, deps: Dependencies):
     await callback.answer()
     text, keyboard = await _render_start_screen(
         deps=deps,
-        telegram_id=str(callback.message.chat.id),
-        telegram_username=str(getattr(callback.message.from_user, "username", None)),
+        telegram_id=str(callback.from_user.id),
+        telegram_username=callback.from_user.username,
         invited_from_username=None,
     )
     await callback.message.edit_text(text=text, reply_markup=keyboard)

@@ -25,10 +25,12 @@ class FreeTrialClient:
         self,
         *,
         telegram_id: str,
-        telegram_username: str,
+        telegram_username: str | None,
         invited_from_username: str | None = None,
     ) -> str | None:
-        data = {"username": telegram_id, "telegram_username": telegram_username}
+        data = {"username": telegram_id}
+        if telegram_username is not None:
+            data["telegram_username"] = telegram_username
         if invited_from_username is not None:
             data["invited_from_username"] = invited_from_username
         response = await self.backend.post(

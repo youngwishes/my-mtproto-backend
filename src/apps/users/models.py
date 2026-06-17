@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.conf import settings
@@ -30,4 +32,4 @@ class SystemUser(AbstractUser):
         return settings.BOT_LINK + f"/?start={self.username}"
 
     def __str__(self) -> str:
-        return str(self.telegram_username)
+        return self.telegram_username or "-"

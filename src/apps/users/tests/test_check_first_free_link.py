@@ -73,6 +73,17 @@ class TestCheckFirstMonthFree(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.json(), {"available_free_period": "NOT_AVAILABLE"})
 
+    def test_omitted_telegram_username_creates_user_with_blank(self) -> None:
+        """Новый бот вообще не шлёт поле, если @username нет."""
+        response = self.client.post(
+            path=self.url,
+            data={"username": "silent_user"},
+            headers={"Bot-Auth-Token": settings.BOT_AUTH_TOKEN},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        user = SystemUser.objects.get(username="silent_user")
+        self.assertEqual(user.telegram_username, "")
+
     def test_bad_request(self) -> None:
         response = self.client.post(
             path=self.url,

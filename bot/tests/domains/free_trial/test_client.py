@@ -56,6 +56,21 @@ async def test_check_availability_omits_referrer_when_absent(client: FreeTrialCl
 
 
 @respx.mock
+async def test_check_availability_omits_telegram_username_when_none(
+    client: FreeTrialClient,
+):
+    route = respx.post(CHECK_URL).mock(
+        return_value=httpx.Response(200, json={"available_free_period": "WEEK"})
+    )
+
+    await client.check_availability(telegram_id="42", telegram_username=None)
+
+    body = route.calls.last.request.content
+    assert b"telegram_username" not in body
+    assert b"None" not in body
+
+
+@respx.mock
 async def test_claim_returns_key(client: FreeTrialClient):
     respx.post(CLAIM_URL).mock(
         return_value=httpx.Response(

@@ -21,12 +21,14 @@
 | Поле | Тип | Описание |
 |------|-----|----------|
 | `first_month_free_used` | bool | Использовал ли бесплатный период |
-| `telegram_username` | str | Username в Telegram (@username) |
+| `telegram_username` | str | Username в Telegram (@username); `""` если у юзера нет @username |
 | `invited_from_username` | str? | Telegram ID пригласившего |
 | `referral_activated` | bool | Активировал ли свой бесплатный период (для подсчёта рефералов пригласившего) |
 | `referral_link_activated_count` | SmallInt | Сколько раз забирал бесплатную реферальную ссылку |
 
 **Свойство:** `referral_link` — формирует ссылку `{BOT_LINK}/?start={username}`.
+
+`__str__` показывает `telegram_username` либо `"-"`, если его нет.
 
 ---
 

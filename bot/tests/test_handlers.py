@@ -132,6 +132,16 @@ async def test_cmd_start_offers_paid_boost_when_not_available():
     assert markup.inline_keyboard[0][0].callback_data == "boost_paid"
 
 
+async def test_cmd_start_passes_none_username_as_none_not_string():
+    # У юзера нет @username в Telegram → шлём None, а не str(None) == "None"
+    fake = FakeFreeTrial(check="MONTH")
+    message = FakeMessage(text="/start", user_id=42, username=None)
+
+    await cmd_start(message, make_deps(free_trial=fake))
+
+    assert fake.checked[0][1] is None
+
+
 async def test_cmd_start_extracts_referrer_from_payload():
     fake = FakeFreeTrial()
     message = FakeMessage(text="/start 777", user_id=42)
@@ -158,6 +168,19 @@ async def test_show_start_screen_answers_callback():
     await cmd_start_inline(callback, make_deps(free_trial=fake))
 
     assert callback.answers, "callback.answer() was not called — spinner hangs"
+
+
+async def test_show_start_screen_passes_clicking_user_not_bot():
+    # id и username берутся у нажавшего (callback.from_user), а не из
+    # сообщения с кнопкой (callback.message), которое принадлежит боту
+    fake = FakeFreeTrial(check="MONTH")
+    callback = FakeCallback(chat_id=99, user_id=42, username="real_user")
+
+    await cmd_start_inline(callback, make_deps(free_trial=fake))
+
+    telegram_id, telegram_username, _ = fake.checked[0]
+    assert telegram_id == "42"
+    assert telegram_username == "real_user"
 
 
 async def test_info_answers_callback():
