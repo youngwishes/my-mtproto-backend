@@ -39,7 +39,7 @@
 | Поле | Тип | Описание |
 |------|-----|----------|
 | `name` | str (unique) | DNS-субдомен сервера в хосте proxy-URL (`{name}.beatvault.ru`), напр. `kz`, `nl` |
-| `number` | SmallInt (unique) | Порядковый номер |
+| `number` | SmallInt (unique) | Порядковый номер. Задаёт порядок отображения серверов (`Meta.ordering = ["number"]`), в т.ч. порядок кнопок в «Мои серверы». Управляется через админку. |
 | `ip_address` | str (unique) | Внешний IP |
 | `internal_ip_address` | str | IP в Docker-сети |
 | `port` | SmallInt | Порт FastAPI (default: 8000) |
