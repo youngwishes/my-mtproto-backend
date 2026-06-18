@@ -45,7 +45,7 @@ class VDSInstanceAdmin(admin.ModelAdmin):
         "is_active",
         "is_healthy",
     ]
-    list_editable = ["is_active", "is_healthy"]
+    list_editable = ["is_active", "is_healthy", "is_keys_available", "number"]
     actions = (migrate_vds_keys, remove_dead_keys, sync_keys_to_vds)
 
 

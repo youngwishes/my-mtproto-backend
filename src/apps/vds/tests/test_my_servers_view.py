@@ -55,6 +55,24 @@ class TestMyServersView(APITestCase):
         for server in data["servers"]:
             self.assertIn("tg://proxy", server["proxy_link"])
 
+    def test_servers_ordered_by_number(self, mock_log) -> None:
+        # Создаём серверы с number вперемешку — ответ должен быть отсортирован по number.
+        VDSInstanceFactory(name="c", location="C", number=30, is_active=True)
+        VDSInstanceFactory(name="a", location="A", number=10, is_active=True)
+        VDSInstanceFactory(name="b", location="B", number=20, is_active=True)
+
+        response = self._post()
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        locations = [s["location"] for s in response.json()["servers"]]
+        self.assertEqual(locations, sorted(locations, key=self._number_by_location))
+
+    @staticmethod
+    def _number_by_location(location: str) -> int:
+        from apps.vds.models import VDSInstance
+
+        return VDSInstance.objects.get(location=location).number
+
     def test_missing_bot_auth_token_returns_403(self, mock_log) -> None:
         response = self.client.post(
             path=self.url,

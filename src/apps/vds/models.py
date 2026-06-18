@@ -32,6 +32,7 @@ class VDSInstance(BaseDjangoModel):
     class Meta:
         verbose_name = "VDS сервер"
         verbose_name_plural = "VDS серверы"
+        ordering = ["number"]
 
 
 class MTPRotoKeyQuerySet(ActiveQuerySet):
