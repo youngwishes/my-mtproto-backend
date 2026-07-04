@@ -1,130 +1,94 @@
 # AGENTS.md
 
-This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
+Инструкции для AI-агентов, работающих с BeatVault.
 
-## Project Overview
+## Контекст проекта
 
-Django backend for BeatVault — an MTProto proxy subscription service. Users receive Telegram proxy keys via a Telegram bot. The bot is a separate containerized service in `bot/`. All business user interaction happens through Telegram, not a web UI.
+BeatVault — Django backend сервиса подписки на MTProto-прокси. Пользовательское
+взаимодействие происходит через Telegram-бота из `bot/`; web UI отсутствует.
 
-Подробная документация — в `docs/` (BUSINESS.md, ARCHITECTURE.md, CONTRACTS.md, MODELS.md).
+Перед изменением соответствующей части системы изучи профильную документацию:
 
-## Commands
+- `docs/BUSINESS.md` — бизнес-правила;
+- `docs/ARCHITECTURE.md` — архитектура и инфраструктура;
+- `docs/CONTRACTS.md` — API-контракты;
+- `docs/MODELS.md` и `docs/apps/` — модели и приложения;
+- `docs/DEVELOPMENT_WORKFLOW.md` — обязательный процесс разработки фичи;
+- `docs/DEPLOY.md` — production-релиз.
 
-All Django commands run from `src/`:
+## Обязательный workflow
+
+Разработку новой фичи веди по `docs/DEVELOPMENT_WORKFLOW.md`. Она считается
+завершённой только после реализации, зелёных тестов, обновления документации,
+commit/push в `main` и разрешённого пользователем deploy с post-deploy проверкой.
+
+Агент может самостоятельно делать commit и push прямо в `main`. Непосредственно
+перед production deploy агент обязан остановиться, назвать подготовленный commit
+SHA и явно запросить разрешение пользователя. Разрешение нельзя предполагать из
+исходной постановки задачи или разрешения на предыдущий deploy.
+
+До deploy агент может подключаться к production по SSH для сбора диагностических
+данных. Хост бери только из `ansible/inventory/production.ini`; не дублируй IP в
+командах или документации. Диагностика по умолчанию read-only и не разрешает
+ручное изменение production.
+
+## Команды
+
+Команды Django выполняются из `src/`. Тесты запускаются из корня:
 
 ```bash
-cd src
-
-# Run dev server
-python manage.py runserver 0.0.0.0:8000
-
-# Migrations
-python manage.py migrate
-python manage.py makemigrations
-
-# Run all tests (from repo root, uses test_settings with suppressed logs)
 make test
-
-# Run a single test module
 make test ARGS="apps.users.tests.test_first_free_link"
-
-# Run a single test case
 make test ARGS="apps.users.tests.test_first_free_link.TestFirstFreeLink.test_first_free_link_30days"
 ```
 
-Production runs via Docker Compose:
+Локальный стек:
+
 ```bash
-docker-compose -f docker-compose.yml up -d        # production
-docker-compose -f docker-compose.local.yml up -d  # local
+docker compose -f docker-compose.local.yml up -d
 ```
 
-## Architecture
+Production разворачивается только по `docs/DEPLOY.md`, через Ansible и после
+явного разрешения пользователя. Не используй `docker compose up` как локальную
+замену release-процессу.
 
-### Service Layer
+## Правила реализации
 
-Two decorator types distinguish service kinds:
-- `@log_service_error` — business logic errors, sends Telegram notification to user
-- `@log_infra_error` — infra/VDS errors, sends "sorry" to user + admin notification
+- Пиши тесты до production-кода (TDD), используя существующий `pytest` или
+  `unittest`; новый test framework не добавляй.
+- Сервисы — `@final` frozen dataclass с `kw_only=True`, `slots=True` и
+  `frozen=True`, реализующий `__call__` с keyword-only аргументами.
+- Зависимости сервисов инъектируй через поля dataclass. Создание зависимых
+  сервисов внутри `__call__` запрещено; wiring выполняют module-level factory
+  functions.
+- ORM-запросы переиспользуй или добавляй в `selectors.py`, не размещай их в
+  сервисах.
+- Доменные исключения хранятся в `exceptions.py`, enum — в `enums.py`; между
+  слоями передавай DTO.
+- Используй `from __future__ import annotations`. Импорты только для аннотаций
+  помещай под `TYPE_CHECKING`.
+- Каждый пакет явно реэкспортирует public symbols из `__init__.py`; star imports
+  запрещены.
+- Новые модели наследуй от `BaseDjangoModel`. Не дублируй `is_active`,
+  `created_at`, `updated_at`; используй `Model.objects.active()` вместо
+  `filter(is_active=True)`.
+- `BaseServiceError` и `BaseInfraError` принимают `telegram_id` первым
+  аргументом; docstring исключения является сообщением пользователю.
+- API-тесты передают заголовок `Bot-Auth-Token`. Внешние VDS HTTP-вызовы мокай
+  через `responses`, Telegram-вызовы — патчем `apps.core.bot.TelegramBot`.
+- При изменении бизнес-логики, контрактов, моделей или архитектуры обновляй
+  соответствующие docstrings и документы в `docs/`.
+- `apps/music/` — статическая FakeTLS-заглушка. Не изучай, не рефактори и не
+  изменяй её без прямого запроса пользователя.
 
-Services are plain frozen dataclasses (no DI container here, unlike the global AGENTS.md pattern). Each service file defines a factory function at module level:
+## Архитектурные инварианты
 
-```python
-def get_first_free_link_service() -> FirstFreeLinkService:
-    return FirstFreeLinkService()
-```
+- База данных — source of truth для MTProto-ключей; VDS — равноправные зеркала.
+- Issue/reissue выполняет только DB write. Распространение ключа на все healthy
+  VDS делает асинхронная reconcile-задача.
+- Один `MTPRotoKey` содержит один secret для всей fleet; серверные ссылки
+  формируются на лету.
+- Кнопка `NotificationTemplate` содержит либо URL, либо callback; URL имеет
+  приоритет, а для callback должен существовать aiogram handler.
 
-### Error Handling
-
-`BaseServiceError` and `BaseInfraError` both accept `telegram_id` as first arg. The docstring is the user-facing message:
-
-```python
-class AlreadyUsedFree(BaseServiceError):
-    """🔒 Вы уже получали бесплатную ссылку..."""
-```
-
-### Authentication
-
-API endpoints authenticate via `Bot-Auth-Token` header (checked against `settings.BOT_AUTH_TOKEN`). This header must be included in test HTTP calls.
-
-### VDS Infrastructure (reconcile model)
-
-`VDSInstance` objects represent proxy servers — all equal mirrors; there is **no "home server"** and no `get_least_populated`. The DB is the single source of truth; a key's presence on servers is a derived cache.
-
-Issuing/reissuing a key is a pure DB write (`IssueKeyService` / `UpdateKeyService`) — no synchronous HTTP, no server selection. A Celery task `push_key_to_servers_task(key_id)` then fans the secret out to **all healthy** VDS via idempotent POST (`409` → skip). A global cap `settings.GLOBAL_KEYS_LIMIT` is enforced in `IssueKeyService` (`KeysLimitReached`). Recovery of a downed server is handled by `check_vds_health_task → sync_keys_to_vds_task` (backfill of all active keys).
-
-### Celery Tasks
-
-Scheduled via Celery Beat (defined in `config/settings/celery.py`):
-- `remove_user_keys_daily` — 9:00 UTC, deletes expired keys
-- `notify_before_removing_daily` — 15:00 UTC, warns users
-- `notify_before_removing_daily_hour_before` — 8:00 UTC, 1-hour pre-warning
-
-### NotificationTemplate buttons
-
-Кнопка шаблона — либо URL (`button_url`), либо callback (`button_callback_data`), не оба сразу. URL имеет приоритет. Используй `button_callback_data` когда уведомление должно открывать экран бота (например `"my_servers"`). Соответствующий aiogram-хендлер для этого `callback_data` должен существовать в `bot/src/handlers.py`.
-
-### apps/music/ — FakeTLS-заглушка
-
-Приложение `music/` — статическая заглушка без бизнес-логики. Она развёрнута на домене, под который маскируется FakeTLS прокси-сервера. Не изучать, не рефакторить, не трогать.
-
-### Key Business Rules
-
-- First free key: 30 days for everyone (incl. referrals) while the free quota (`FIRST_MONTH_LIMIT`) is not exhausted; once exhausted — 14 days if referred, 7 days otherwise. `FirstFreeLinkService` (claim) and `CheckFirstFreeLinkService` follow the same logic — the referral bonus applies only after the quota is exhausted
-- Referral reward: after 5 referrals activate their free period, the referrer gets a free key (`GetFreeLinkViaReferralsService`)
-- One `MTPRotoKey` is a single secret valid across the whole fleet (no per-key `vds`/`node_number`/`tls_domain`). It is delivered to **all healthy** VDS via the async `push_key_to_servers_task`. The FakeTLS masking domain lives in `settings.TLS_DOMAIN` (same on every VDS), baked into the secret by `get_secret_token()`.
-- Issue/reissue services return only `expired_date` (DTOs have no `link`) — the bot shows a «📡 Мои серверы» button (`callback_data="my_servers"`) instead of a single link
-- `GetMyServersService` generates proxy links on-the-fly for each active `VDSInstance` using the stored `token` + `VDSInstance.name` (the server's subdomain in `{name}.beatvault.ru`)
-- `VDSInstance.location` holds the display label (e.g. `"🇳🇱 Нидерланды"`) shown as a button in the bot
-
-### Models
-
-Все новые модели наследуются от `BaseDjangoModel` (`apps/core/models.py`). Не дублировать поля `is_active`, `created_at`, `updated_at`. Фильтровать через `Model.objects.active()`, не через `filter(is_active=True)`.
-
-## Rules
-
-1. **Поддерживать документацию в актуальном виде.** При изменении бизнес-логики, контрактов или архитектуры — обновлять docstrings и соответствующие файлы в `docs/` (BUSINESS.md, ARCHITECTURE.md, CONTRACTS.md, MODELS.md).
-2. **Всегда прогонять тесты.** После любых изменений запускать тесты и убедиться, что нет регрессий. Не считать задачу выполненной без зелёных тестов.
-3. **Переиспользовать селекторы.** ORM-запросы живут в `selectors.py` — не дублировать их в сервисах. Перед написанием нового запроса проверить, есть ли подходящий селектор.
-4. **Следовать SOLID, DRY, DDD.** Единая ответственность для сервисов, инъекция зависимостей через поля dataclass, доменные исключения в `exceptions.py`, enum в `enums.py`, DTO для передачи данных между слоями.
-5. **Всегда использовать `from __future__ import annotations`.** Импорты, нужные только для аннотаций типов, выносить в блок `TYPE_CHECKING`:
-   ```python
-   from __future__ import annotations
-   from typing import TYPE_CHECKING
-
-   if TYPE_CHECKING:
-       from apps.users.models import SystemUser
-   ```
-
-## Testing Patterns
-
-Tests use `APITestCase` + `factory_boy` factories. VDS HTTP calls are mocked with the `responses` library:
-
-```python
-@responses.activate
-def test_something(self):
-    responses.add(method=responses.POST, url=..., json={...})
-```
-
-For tests that trigger `log_service_error` or bot notifications, patch `apps.core.bot.TelegramBot` methods to avoid real Telegram calls.
-
-Factories live in `apps/{app}/tests/factories.py`. All test files are in `apps/{app}/tests/`.
+Детали и актуальные бизнес-правила не дублируй здесь — поддерживай их в `docs/`.

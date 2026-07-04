@@ -56,12 +56,14 @@ ansible -i ansible/inventory/production.ini beatvault -m ansible.builtin.ping \
    ```
 
 5. Успешный запуск должен завершиться с `failed=0`. Дополнительно проверь сайт и
-   запущенный SHA:
+   запущенный SHA через хост из Ansible inventory:
 
    ```bash
    curl --fail --silent --show-error https://beatvault.ru/ >/dev/null
-   ssh root@72.56.22.198 \
-     'git -C /root/my-mtproto-backend rev-parse HEAD && cd /root/my-mtproto-backend && docker compose ps'
+   ansible -i ansible/inventory/production.ini beatvault \
+     --private-key ~/.ssh/id_ed25519_deploy \
+     -m ansible.builtin.shell \
+     -a 'git -C /root/my-mtproto-backend rev-parse HEAD && cd /root/my-mtproto-backend && docker compose ps'
    ```
 
 Playbook сам запускает миграции через entrypoint Django, проверяет HTTP-ответ и
