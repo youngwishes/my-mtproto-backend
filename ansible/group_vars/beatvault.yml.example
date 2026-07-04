@@ -1,0 +1,17 @@
+---
+ansible_user: root
+
+deploy_project_name: my-mtproto-backend
+deploy_root: /root/my-mtproto-backend
+deploy_repository: https://github.com/youngwishes/my-mtproto-backend.git
+
+# Полный SHA коммита для воспроизводимого деплоя. Можно передать через -e.
+deploy_revision: ""
+deploy_db_path: "{{ deploy_root }}/data/db.sqlite3"
+
+# Проверка после деплоя. Если домен другой — поменяй host/url.
+deploy_healthcheck_host: beatvault.ru
+deploy_healthcheck_url: https://127.0.0.1/
+deploy_healthcheck_status_codes:
+  - 200
+deploy_validate_certs: false

@@ -1,0 +1,85 @@
+---
+- name: Deploy BeatVault docker stack
+  hosts: beatvault
+  become: true
+
+  pre_tasks:
+    - name: Validate deploy revision
+      ansible.builtin.assert:
+        that:
+          - deploy_revision is match('^[0-9a-f]{40}$')
+        fail_msg: "Pass the full Git commit SHA via -e deploy_revision=<sha>."
+
+  tasks:
+    - name: Install deployment dependencies
+      ansible.builtin.apt:
+        name:
+          - ca-certificates
+          - curl
+          - docker-compose-plugin
+          - docker.io
+          - git
+        state: present
+        update_cache: true
+
+    - name: Ensure docker service is enabled
+      ansible.builtin.service:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Ensure deploy root exists
+      ansible.builtin.file:
+        path: "{{ deploy_root }}"
+        state: directory
+        mode: "0755"
+
+    - name: Check production SQLite database
+      ansible.builtin.stat:
+        path: "{{ deploy_db_path }}"
+      register: deploy_db_stat
+
+    - name: Refuse deploy when production SQLite database is missing
+      ansible.builtin.assert:
+        that:
+          - deploy_db_stat.stat.exists
+        fail_msg: "Refusing deploy because production SQLite database is missing at {{ deploy_db_path }}."
+
+    - name: Check existing Git checkout
+      ansible.builtin.stat:
+        path: "{{ deploy_root }}/.git"
+      register: deploy_git_dir
+
+    - name: Unstage production-only files without changing the working tree
+      ansible.builtin.command:
+        argv:
+          - git
+          - reset
+        chdir: "{{ deploy_root }}"
+      changed_when: false
+      when: deploy_git_dir.stat.exists
+
+    - name: Check out requested Git revision without deleting production state
+      ansible.builtin.git:
+        repo: "{{ deploy_repository }}"
+        dest: "{{ deploy_root }}"
+        version: "{{ deploy_revision }}"
+        update: true
+        force: false
+
+    - name: Deploy docker compose stack
+      ansible.builtin.command:
+        cmd: "docker compose -f docker-compose.yml -p {{ deploy_project_name }} up -d --build --remove-orphans"
+        chdir: "{{ deploy_root }}"
+
+    - name: Wait for application over HTTPS
+      ansible.builtin.uri:
+        url: "{{ deploy_healthcheck_url }}"
+        headers:
+          Host: "{{ deploy_healthcheck_host }}"
+        validate_certs: "{{ deploy_validate_certs }}"
+        status_code: "{{ deploy_healthcheck_status_codes }}"
+      register: deploy_healthcheck_result
+      retries: 20
+      delay: 5
+      until: deploy_healthcheck_result.status in deploy_healthcheck_status_codes
