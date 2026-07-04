@@ -6,6 +6,19 @@ from django.db.models.enums import IntegerChoices
 from apps.core import BaseDjangoModel, ActiveQuerySet
 
 
+class Hosting(BaseDjangoModel):
+    name = models.CharField("название хостинга")
+    link = models.URLField("ссылка")
+
+    def __str__(self) -> str:
+        return self.name
+
+    class Meta:
+        verbose_name = "Хостинг"
+        verbose_name_plural = "Хостинги"
+        ordering = ["name"]
+
+
 class VDSInstance(BaseDjangoModel):
     name = models.CharField("название сервера")
     number = models.PositiveSmallIntegerField("порядковый номер", unique=True)
@@ -15,6 +28,15 @@ class VDSInstance(BaseDjangoModel):
     is_keys_available = models.BooleanField("выпуск ключей доступен", default=True)
     is_healthy = models.BooleanField("сервер здоров", default=True)
     location = models.CharField("геолокация", default="", blank=True)
+    expired_at = models.DateField("оплачен до", blank=True, null=True)
+    hosting = models.ForeignKey(
+        to="vds.Hosting",
+        on_delete=models.SET_NULL,
+        related_name="vds_instances",
+        verbose_name="хостинг",
+        blank=True,
+        null=True,
+    )
 
     objects = ActiveQuerySet.as_manager()
 

@@ -1,8 +1,18 @@
 import factory
 from uuid import uuid4
-from apps.users.tests.factories import SystemUserFactory
-from apps.vds.models import VDSInstance, MTPRotoKey
 from django.utils import timezone
+
+from apps.users.tests.factories import SystemUserFactory
+from apps.vds.models import Hosting, MTPRotoKey, VDSInstance
+
+
+class HostingFactory(factory.django.DjangoModelFactory):
+    name = factory.Sequence(lambda n: f"hosting-{n}")
+    link = factory.Sequence(lambda n: f"https://hosting-{n}.example.com")
+
+    class Meta:
+        model = Hosting
+
 
 class VDSInstanceFactory(factory.django.DjangoModelFactory):
     name = factory.Sequence(lambda n: f"vds-server-{n}")
@@ -12,11 +22,10 @@ class VDSInstanceFactory(factory.django.DjangoModelFactory):
     is_keys_available = True
     port = 8000
     location = factory.Sequence(lambda n: f"🌍 Server {n}")
+    hosting = factory.SubFactory(HostingFactory)
 
     class Meta:
         model = VDSInstance
-
-
 
 class MTPRotoKeyFactory(factory.django.DjangoModelFactory):
     token = factory.LazyFunction(function=uuid4)

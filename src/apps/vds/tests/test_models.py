@@ -3,7 +3,18 @@ from __future__ import annotations
 from django.conf import settings
 from django.test import TestCase
 
+from apps.vds import models as vds_models
+from apps.vds.models import VDSInstance
 from apps.vds.tests.factories import MTPRotoKeyFactory
+
+
+class TestVDSInstanceModelStructure(TestCase):
+    def test_vds_instance_has_hosting_and_expired_at_fields(self) -> None:
+        field_names = {field.name for field in VDSInstance._meta.get_fields()}
+
+        self.assertTrue(hasattr(vds_models, "Hosting"))
+        self.assertIn("hosting", field_names)
+        self.assertIn("expired_at", field_names)
 
 
 class TestMTPRotoKeyMethods(TestCase):

@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.utils import timezone
 from django.utils.html import format_html
 
-from apps.vds.models import MTPRotoKey, VDSInstance
+from apps.vds.models import Hosting, MTPRotoKey, VDSInstance
 from apps.vds.selectors import get_all_active_vds_instances
 from apps.vds.tasks import migrate_vds_keys_task, remove_dead_keys_from_vds_task, sync_keys_to_vds_task
 
@@ -35,13 +35,23 @@ def sync_keys_to_vds(modeladmin, request, queryset):
         sync_keys_to_vds_task.delay(instance_id=instance.pk)
 
 
+@admin.register(Hosting)
+class HostingAdmin(admin.ModelAdmin):
+    list_display = ["pk", "name", "link", "is_active"]
+    list_editable = ["is_active"]
+    search_fields = ("name", "link")
+
+
 @admin.register(VDSInstance)
 class VDSInstanceAdmin(admin.ModelAdmin):
+    list_select_related = ["hosting"]
     list_display = [
         "pk",
         "name",
+        "hosting",
         "internal_ip_address",
         "number",
+        "expired_at",
         "is_active",
         "is_healthy",
         "is_keys_available",

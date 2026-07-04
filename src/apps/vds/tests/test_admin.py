@@ -6,9 +6,18 @@ from django.contrib.admin.sites import AdminSite
 from django.test import RequestFactory, TestCase
 from django.utils import timezone
 
-from apps.vds.admin import MTPRotoKeyAdmin
-from apps.vds.models import MTPRotoKey
+from apps.vds import admin as vds_admin
+from apps.vds.admin import MTPRotoKeyAdmin, VDSInstanceAdmin
+from apps.vds.models import MTPRotoKey, VDSInstance
 from apps.vds.tests.factories import MTPRotoKeyFactory, VDSInstanceFactory
+
+
+class VDSAdminRegistrationTest(TestCase):
+    def test_vds_admin_exposes_hosting_model_and_new_vds_fields(self) -> None:
+        self.assertTrue(hasattr(vds_admin, "HostingAdmin"))
+        self.assertIn("hosting", VDSInstanceAdmin.list_display)
+        self.assertIn("expired_at", VDSInstanceAdmin.list_display)
+        self.assertIn(VDSInstance, vds_admin.admin.site._registry)
 
 
 class MTPRotoKeyAdminProxyLinkTest(TestCase):
