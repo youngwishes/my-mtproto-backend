@@ -169,6 +169,8 @@ Django → POST /api/v2/users/add → VDS #1 (primary, least populated)
 
 Для деплоя на удалённый сервер добавлен playbook [ansible/deploy.yml](ansible/deploy.yml). Он адаптирован под текущий продовый layout, который сейчас реально запущен из `/root/my-mtproto-backend`.
 
+Пошаговый порядок выпуска нового релиза: [docs/DEPLOY.md](docs/DEPLOY.md).
+
 Что делает playbook:
 - ставит `docker`, `docker compose plugin`, `git`
 - переключает `/root/my-mtproto-backend` на явно указанный Git commit без `--force` и `git clean`
