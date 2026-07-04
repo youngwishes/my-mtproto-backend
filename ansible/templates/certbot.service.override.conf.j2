@@ -1,0 +1,4 @@
+[Service]
+ExecStart=
+ExecStart=/usr/bin/docker run --rm --volume {{ deploy_root }}/certbot/conf:/etc/letsencrypt --volume {{ deploy_root }}/certbot/www:/var/www/certbot certbot/certbot renew --quiet --no-random-sleep-on-renew
+ExecStartPost=/usr/bin/docker exec nginx nginx -s reload

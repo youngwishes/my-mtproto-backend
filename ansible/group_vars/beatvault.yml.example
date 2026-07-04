@@ -15,3 +15,13 @@ deploy_healthcheck_url: https://127.0.0.1/
 deploy_healthcheck_status_codes:
   - 200
 deploy_validate_certs: false
+
+deploy_required_services:
+  - django
+  - nginx
+  - redis
+  - celery-worker
+  - celery-beat
+  - flower
+  - litestream
+  - bot

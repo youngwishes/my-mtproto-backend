@@ -12,6 +12,7 @@ services:
       - 8000
     networks:
       - backend
+    restart: unless-stopped
 
   nginx:
     build: ./nginx
@@ -28,6 +29,7 @@ services:
     depends_on:
       - django
       - flower
+    restart: unless-stopped
 
   redis:
     container_name: redis

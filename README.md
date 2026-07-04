@@ -173,8 +173,11 @@ Django → POST /api/v2/users/add → VDS #1 (primary, least populated)
 - ставит `docker`, `docker compose plugin`, `git`
 - переключает `/root/my-mtproto-backend` на явно указанный Git commit без `--force` и `git clean`
 - сохраняет untracked/ignored production `data/`, `certbot/`, `.env`, `bot/.env`
+- ограничивает права production env-файлов до `0600`
+- включает системный `certbot.timer` для автоматического продления TLS-сертификата
 - выполняет `docker compose up -d --build --remove-orphans`
-- ждёт успешный HTTP(S) ответ (`200`) после деплоя
+- ждёт успешный HTTP(S) ответ (`200`) и проверяет, что все Compose-сервисы запущены
+- при ошибке возвращает предыдущий Git revision и пересобирает предыдущий stack
 
 Подготовка:
 
@@ -196,7 +199,7 @@ ansible-playbook -i ansible/inventory/production.ini ansible/deploy.yml \
 
 Указанный commit должен быть предварительно отправлен в `origin`; playbook не деплоит локальные незакоммиченные изменения.
 
-Примечание: это in-place deploy для текущей single-host `docker compose` архитектуры. Playbook не переносит SQLite в новый путь, не изменяет production env-файлы и перед деплоем падает, если файл `/root/my-mtproto-backend/data/db.sqlite3` отсутствует. `git reset` очищает только index существующего checkout и не изменяет файлы; checkout без `force` останавливает deploy при конфликте. Резервное копирование SQLite выполняет Litestream в S3.
+Примечание: это in-place deploy для текущей single-host `docker compose` архитектуры. Playbook не переносит SQLite в новый путь, не изменяет содержимое production env-файлов и перед деплоем падает, если файл `/root/my-mtproto-backend/data/db.sqlite3` отсутствует. `git reset` очищает только index существующего checkout и не изменяет файлы; checkout без `force` останавливает deploy при конфликте. Резервное копирование SQLite выполняет Litestream в S3. Автоматический rollback возвращает код и контейнеры, но намеренно не откатывает уже применённые миграции БД.
 
 ## Команды разработки
 

@@ -212,3 +212,5 @@ __marimo__/
 .idea
 static/
 .DS_Store
+ansible/inventory/production.ini
+ansible/group_vars/beatvault.yml

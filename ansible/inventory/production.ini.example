@@ -1,2 +1,2 @@
 [beatvault]
-beatvault-prod ansible_host=72.56.22.198
+beatvault-prod ansible_host=72.56.22.198 ansible_user=root
