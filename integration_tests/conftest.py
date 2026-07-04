@@ -53,6 +53,7 @@ from integration_tests import db, helpers  # noqa: E402
 async def username():
     """Свежий синтетический telegram_id; гарантированная очистка БД+VDS после теста."""
     uid = helpers.make_test_id()
+    await db.aw(db.ensure_test_vds)()
     await db.aw(db.cleanup_user)(uid)
     await helpers.vds_delete(uid)
     try:

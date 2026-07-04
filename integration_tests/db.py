@@ -42,15 +42,17 @@ def aw(fn: Callable[..., _T]) -> Callable[..., Awaitable[_T]]:
 # --------------------------------------------------------------------------- #
 # VDS-инстансы                                                                 #
 # --------------------------------------------------------------------------- #
-def ensure_local_vds(name: str = "it-local", location: str = "🧪 Local") -> VDSInstance:
-    """Гарантировать здоровый VDSInstance, указывающий на локальный VDS-контейнер.
+def ensure_test_vds(name: str = "it-test", location: str = "🧪 Test") -> VDSInstance:
+    """Гарантировать здоровый VDSInstance для выделенного тестового VDS API.
 
-    ``internal_ip_address``/``port`` берутся из конфига так, чтобы celery-контейнер
-    дотянулся до локального telemt-api (по умолчанию ``host.docker.internal:8080``).
+    Адрес и порт берутся из конфига и доступны как харнессу, так и Celery.
     """
+    VDSInstance.objects.exclude(name=name).update(is_active=False)
     vds, _ = VDSInstance.objects.update_or_create(
         name=name,
         defaults={
+            "number": 99097,
+            "ip_address": config.VDS_INTERNAL_IP,
             "internal_ip_address": config.VDS_INTERNAL_IP,
             "port": config.VDS_PORT,
             "is_healthy": True,

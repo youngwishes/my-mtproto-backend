@@ -91,8 +91,11 @@ async def wait_until(
     """Опрашивать ``predicate`` пока не вернёт True или не выйдет таймаут."""
     deadline = time.monotonic() + timeout
     while True:
-        if await predicate():
-            return True
+        try:
+            if await predicate():
+                return True
+        except httpx.HTTPError:
+            pass
         if time.monotonic() >= deadline:
             return False
         await asyncio.sleep(interval)
@@ -103,7 +106,14 @@ async def wait_until(
 # --------------------------------------------------------------------------- #
 async def vds_get(verify_url: str, username: str) -> httpx.Response:
     async with httpx.AsyncClient(timeout=config.HTTP_TIMEOUT) as client:
-        return await client.get(f"{verify_url}/api/users/{username}")
+        for attempt in range(3):
+            try:
+                return await client.get(f"{verify_url}/api/users/{username}")
+            except httpx.HTTPError:
+                if attempt == 2:
+                    raise
+                await asyncio.sleep(config.WAIT_INTERVAL)
+    raise RuntimeError("unreachable")
 
 
 async def vds_post(verify_url: str, username: str, secret: str) -> httpx.Response:
@@ -117,14 +127,15 @@ async def vds_post(verify_url: str, username: str, secret: str) -> httpx.Respons
 async def run_daily_removal() -> None:
     """Синхронно запустить RemoveExpiredKeysDailyService в django-контейнере.
 
-    Контейнер дотягивается до VDS по internal_url (host.docker.internal), поэтому
-    DELETE реально доходит до локального telemt-api. Триггерится вручную (как в плане).
+    Контейнер дотягивается до выделенного тестового VDS по ``internal_url``, поэтому
+    DELETE реально доходит до FastAPI. Триггерится вручную (как в плане).
     """
     import asyncio
     import subprocess
 
     cmd = [
-        "docker", "exec", "django", "python", "manage.py", "shell", "-c",
+        "docker", "exec", "-e", "VDS_REQUEST_TIMEOUT=10",
+        "django", "python", "manage.py", "shell", "-c",
         "from apps.vds.services.remove_expired_keys_daily_service import "
         "get_remove_expired_keys_daily_service as g; g()()",
     ]
@@ -169,7 +180,10 @@ async def assert_present_on_all_vds(username: str, *, present: bool = True) -> N
 
 
 async def _matches(verify_url: str, username: str, present: bool) -> bool:
-    return (await vds_has(verify_url, username)) is present
+    try:
+        return (await vds_has(verify_url, username)) is present
+    except httpx.HTTPError:
+        return False
 
 
 # --------------------------------------------------------------------------- #

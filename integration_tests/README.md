@@ -1,11 +1,11 @@
 # Интеграционные тесты (бот → бэкенд → VDS)
 
 Чёрнобоксовый e2e-слой: реальные domain-клиенты бота (`bot/src/domains/*`) →
-живой Django-бэкенд → Celery (`push_key_to_servers_task`) → живой VDS-инстанс
-(telemt-api). Проверяется не только HTTP-ответ, но и **фактическое состояние
-секрета на всех VDS** (через `GET /api/users/{username}`).
+живой Django-бэкенд → Celery (`push_key_to_servers_task`) → выделенный тестовый
+VDS API. Проверяется не только HTTP-ответ, но и **фактическое состояние секрета
+на VDS** (через `GET /api/users/{username}`).
 
-> ⚠️ ТОЛЬКО против локального/стейдж-стека с тестовой БД. В прод (~1500 живых
+> ⚠️ ТОЛЬКО против локального backend-стека с тестовой БД. В прод (~1500 живых
 > пользователей) — НЕЛЬЗЯ. Тестовые пользователи — синтетические telegram_id
 > с префиксом `999…`, харнесс чистит за собой (БД + DELETE на VDS).
 
@@ -20,10 +20,10 @@
 ## Предусловия
 
 1. Поднят backend-стек: `docker-compose -f docker-compose.local.yml up -d django redis celery-worker`.
-2. Поднят локальный VDS (`../my-mtproto-vds-instance`, telemt-api на `:8080`).
-3. В БД есть здоровый `VDSInstance`, чей `internal_ip_address:port` достижим из
-   celery-контейнера (по умолчанию `host.docker.internal:8080`) — создаётся
-   `db.ensure_local_vds()` в `arrange`.
+2. Из хоста и `celery-worker` доступен выделенный тестовый VDS API
+   `31.77.148.123:8080`.
+3. Fixture `username` автоматически создаёт в тестовой БД здоровый
+   `VDSInstance`, указывающий на тестовый API.
 
 ## Запуск
 
@@ -37,6 +37,8 @@
 | env | дефолт | назначение |
 |---|---|---|
 | `INTEG_BACKEND_URL` | `http://localhost:8000` | живой Django |
-| `INTEG_VDS_VERIFY_URLS` | `http://localhost:8080` | хост-достижимые VDS (GET/DELETE) |
-| `INTEG_VDS_INTERNAL_IP` | `host.docker.internal` | как celery видит VDS |
+| `INTEG_VDS_VERIFY_URLS` | `http://31.77.148.123:8080` | VDS API для GET/DELETE из харнесса |
+| `INTEG_VDS_INTERNAL_IP` | `31.77.148.123` | как Celery видит тестовый VDS API |
 | `INTEG_VDS_PORT` | `8080` | порт VDS |
+| `INTEG_VDS_REQUEST_TIMEOUT` | `10` | timeout Django/Celery до удалённого VDS API |
+| `INTEG_WAIT_TIMEOUT` | `75` | ожидание доставки с учётом первого Celery retry |

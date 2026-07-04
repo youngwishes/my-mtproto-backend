@@ -8,6 +8,8 @@ services:
       - ./data:/app/data
     env_file:
       - .env
+    environment:
+      VDS_REQUEST_TIMEOUT: "${INTEG_VDS_REQUEST_TIMEOUT:-10}"
     expose:
       - 8000
     ports:
@@ -30,6 +32,8 @@ services:
       - redis
     env_file:
       - .env
+    environment:
+      VDS_REQUEST_TIMEOUT: "${INTEG_VDS_REQUEST_TIMEOUT:-10}"
     restart: unless-stopped
 
   celery-beat:
