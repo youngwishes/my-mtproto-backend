@@ -93,3 +93,15 @@ class TestAnsibleDeployArtifacts(SimpleTestCase):
     def test_deploy_requires_every_compose_service_to_be_running(self) -> None:
         self.assertIn("Check running compose services", self.content)
         self.assertIn("deploy_required_services | difference", self.content)
+
+    def test_docker_packages_are_installed_only_when_docker_is_missing(self) -> None:
+        self.assertIn("Check installed Docker engine", self.content)
+        self.assertIn("Check installed Docker Compose plugin", self.content)
+        self.assertIn("when: deploy_docker_version.rc != 0", self.content)
+        self.assertIn("when: deploy_compose_version.rc != 0", self.content)
+
+        base_dependencies = self.content.split(
+            "- name: Install deployment dependencies", maxsplit=1
+        )[1].split("- name: Check installed Docker engine", maxsplit=1)[0]
+        self.assertNotIn("docker.io", base_dependencies)
+        self.assertNotIn("docker-compose-plugin", base_dependencies)
