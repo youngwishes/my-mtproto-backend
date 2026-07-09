@@ -6,7 +6,7 @@
 
 ```bash
 cp ansible/inventory/production.ini.example ansible/inventory/production.ini
-cp ansible/group_vars/beatvault.yml.example ansible/group_vars/beatvault.yml
+cp ansible/group_vars/mtproto_keys.yml.example ansible/group_vars/mtproto_keys.yml
 ```
 
 Проверь адрес сервера и остальные значения в созданных файлах. Они содержат
@@ -15,7 +15,7 @@ production-настройки и не добавляются в Git.
 Проверь доступ к серверу:
 
 ```bash
-ansible -i ansible/inventory/production.ini beatvault -m ansible.builtin.ping \
+ansible -i ansible/inventory/production.ini mtproto_keys -m ansible.builtin.ping \
   --private-key ~/.ssh/id_ed25519_deploy
 ```
 
@@ -60,7 +60,7 @@ ansible -i ansible/inventory/production.ini beatvault -m ansible.builtin.ping \
 
    ```bash
    curl --fail --silent --show-error https://beatvault.ru/ >/dev/null
-   ansible -i ansible/inventory/production.ini beatvault \
+   ansible -i ansible/inventory/production.ini mtproto_keys \
      --private-key ~/.ssh/id_ed25519_deploy \
      -m ansible.builtin.shell \
      -a 'git -C /root/my-mtproto-backend rev-parse HEAD && cd /root/my-mtproto-backend && docker compose ps'

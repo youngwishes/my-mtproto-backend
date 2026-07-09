@@ -213,4 +213,5 @@ __marimo__/
 static/
 .DS_Store
 ansible/inventory/production.ini
-ansible/group_vars/beatvault.yml
+ansible/group_vars/mtproto_keys.yml
+superpowers/

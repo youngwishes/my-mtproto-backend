@@ -1,8 +1,8 @@
-# BeatVault — MTProto Proxy Subscription Service
+# MTPRoto Keys — MTProto Proxy Subscription Service
 
 ## Что это
 
-BeatVault — сервис продажи MTProto proxy ссылок для пользователей Telegram в странах, где мессенджер замедлен или заблокирован. Весь пользовательский опыт построен через Telegram-бота: пользователь пишет боту, получает прокси-ссылку, нажимает — Telegram начинает работать быстро.
+MTPRoto Keys — сервис продажи MTProto proxy ссылок для пользователей Telegram в странах, где мессенджер замедлен или заблокирован. Весь пользовательский опыт построен через Telegram-бота: пользователь пишет боту, получает прокси-ссылку, нажимает — Telegram начинает работать быстро.
 
 ## Архитектура системы
 
@@ -185,12 +185,12 @@ Django → POST /api/v2/users/add → VDS #1 (primary, least populated)
 
 ```bash
 cp ansible/inventory/production.ini.example ansible/inventory/production.ini
-cp ansible/group_vars/beatvault.yml.example ansible/group_vars/beatvault.yml
+cp ansible/group_vars/mtproto_keys.yml.example ansible/group_vars/mtproto_keys.yml
 ```
 
 Заполни:
 - `ansible/inventory/production.ini` — IP/hostname сервера
-- `ansible/group_vars/beatvault.yml` — при необходимости repository, домен, путь деплоя и пользователя
+- `ansible/group_vars/mtproto_keys.yml` — при необходимости repository, домен, путь деплоя и пользователя
 
 Запуск:
 

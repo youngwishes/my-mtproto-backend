@@ -1,7 +1,7 @@
 [project]
 name = "my-mtproto-backend"
 version = "0.1.0"
-description = "Django backend for BeatVault — MTProto proxy subscription service"
+description = "Django backend for MTPRoto Keys — MTProto proxy subscription service"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [

@@ -2,7 +2,7 @@
 
 ## Objective
 
-Allow any Telegram user who receives a valid certificate code to activate it for 30 days of BeatVault access.
+Allow any Telegram user who receives a valid certificate code to activate it for 30 days of MTPRoto Keys access.
 
 ## Scope
 

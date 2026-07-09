@@ -72,11 +72,11 @@ async def process_gift_yukassa(callback: CallbackQuery, deps: Dependencies):
     await callback.answer()
     invoice = await deps.payments.get_card_invoice()
     invoice_data = invoice.asdict()
-    invoice_data["title"] = "Подарочный сертификат BeatVault — 30 дней"
+    invoice_data["title"] = "Подарочный сертификат MTPRoto Keys — 30 дней"
     invoice_data["description"] = "Одноразовый код на 30 дней подписки"
     provider_data = json.loads(invoice_data["provider_data"])
     for item in provider_data.get("receipt", {}).get("items", []):
-        item["description"] = "Подарочный сертификат BeatVault на 30 дней"
+        item["description"] = "Подарочный сертификат MTPRoto Keys на 30 дней"
     invoice_data["provider_data"] = json.dumps(provider_data)
     await bot.send_invoice(
         chat_id=callback.message.chat.id,
@@ -92,7 +92,7 @@ async def process_gift_stars(callback: CallbackQuery, deps: Dependencies):
     invoice = await deps.payments.get_stars_invoice()
     await bot.send_invoice(
         chat_id=callback.message.chat.id,
-        title="Подарочный сертификат BeatVault — 30 дней",
+        title="Подарочный сертификат MTPRoto Keys — 30 дней",
         description="Одноразовый код на 30 дней подписки",
         start_parameter="gift_certificate_stars",
         payload="gift_certificate_stars",

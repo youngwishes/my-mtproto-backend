@@ -1,6 +1,6 @@
 ---
-- name: Deploy BeatVault docker stack
-  hosts: beatvault
+- name: Deploy MTPRoto Keys docker stack
+  hosts: mtproto_keys
   become: true
 
   pre_tasks:

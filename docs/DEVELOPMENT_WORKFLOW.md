@@ -83,7 +83,7 @@ ansible-playbook -i ansible/inventory/production.ini ansible/deploy.yml \
 При необходимости агент может до deploy собирать данные на production по SSH:
 
 - адрес и пользователь берутся только из `ansible/inventory/production.ini`;
-- предпочтителен доступ через Ansible inventory, например `ansible beatvault`;
+- предпочтителен доступ через Ansible inventory, например `ansible mtproto_keys`;
 - допустима read-only диагностика: состояние сервисов, логи, текущий SHA,
   доступность диска и health checks;
 - нельзя изменять файлы, БД, контейнеры, конфигурацию или состояние сервисов;
@@ -108,7 +108,7 @@ ansible-playbook -i ansible/inventory/production.ini ansible/deploy.yml \
 
 ```bash
 curl --fail --silent --show-error https://beatvault.ru/ >/dev/null
-ansible -i ansible/inventory/production.ini beatvault \
+ansible -i ansible/inventory/production.ini mtproto_keys \
   --private-key ~/.ssh/id_ed25519_deploy \
   -m ansible.builtin.shell \
   -a 'git -C /root/my-mtproto-backend rev-parse HEAD && cd /root/my-mtproto-backend && docker compose ps'

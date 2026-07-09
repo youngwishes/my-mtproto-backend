@@ -14,17 +14,17 @@ gift-certificates
 
 ## Problem
 
-BeatVault users can buy or extend only their own subscription. They have no simple way to pay for 30 days of access as a gift for a friend or relative without sharing their own account or coordinating payment manually.
+MTPRoto Keys users can buy or extend only their own subscription. They have no simple way to pay for 30 days of access as a gift for a friend or relative without sharing their own account or coordinating payment manually.
 
 ## Target User
 
-Primary user: an existing or new BeatVault user who wants to buy 30 days of MTProto proxy access for another Telegram user.
+Primary user: an existing or new MTPRoto Keys user who wants to buy 30 days of MTProto proxy access for another Telegram user.
 
 Recipient: a friend or relative who receives a certificate code and activates it in the Telegram bot.
 
 ## Proposed Solution
 
-Add one-time gift certificates for 30 days of BeatVault subscription. A user buys a certificate in the bot for rubles via YuKassa or for Telegram Stars, receives a code in the format `KEY-XXXX-XXXX`, and can forward it to another person. The recipient activates the code in the bot: if they already have an active subscription, it is extended by 30 days; otherwise a new key is issued for 30 days.
+Add one-time gift certificates for 30 days of MTPRoto Keys subscription. A user buys a certificate in the bot for rubles via YuKassa or for Telegram Stars, receives a code in the format `KEY-XXXX-XXXX`, and can forward it to another person. The recipient activates the code in the bot: if they already have an active subscription, it is extended by 30 days; otherwise a new key is issued for 30 days.
 
 ## Scope
 

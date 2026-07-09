@@ -10,12 +10,12 @@ class TestAnsibleDeployArtifacts(SimpleTestCase):
     def setUp(self) -> None:
         repo_root = Path(__file__).resolve().parents[4]
         playbook_path = repo_root / "ansible" / "deploy.yml"
-        group_vars_path = repo_root / "ansible" / "group_vars" / "beatvault.yml.example"
+        group_vars_path = repo_root / "ansible" / "group_vars" / "mtproto_keys.yml.example"
         inventory_path = repo_root / "ansible" / "inventory" / "production.ini.example"
         compose_path = repo_root / "docker-compose.yml"
 
         self.assertTrue(playbook_path.exists(), "ansible/deploy.yml is missing")
-        self.assertTrue(group_vars_path.exists(), "group_vars must match the beatvault inventory group")
+        self.assertTrue(group_vars_path.exists(), "group_vars must match the mtproto_keys inventory group")
         self.content = playbook_path.read_text(encoding="utf-8")
         self.group_vars_content = group_vars_path.read_text(encoding="utf-8")
         self.inventory_content = inventory_path.read_text(encoding="utf-8")

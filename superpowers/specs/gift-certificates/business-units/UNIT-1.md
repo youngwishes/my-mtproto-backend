@@ -2,7 +2,7 @@
 
 ## Objective
 
-Allow a user to buy a 30-day BeatVault gift certificate in the Telegram bot and receive a one-time code they can forward to another person.
+Allow a user to buy a 30-day MTPRoto Keys gift certificate in the Telegram bot and receive a one-time code they can forward to another person.
 
 ## Scope
 

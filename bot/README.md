@@ -1,6 +1,6 @@
 # MTPRoto Telegram Bot
 
-Aiogram 3 bot for the BeatVault MTProto proxy subscription service. All user
+Aiogram 3 bot for the MTPRoto Keys MTProto proxy subscription service. All user
 interaction (free trial, proxy links, referrals, payments) happens here; the
 bot talks to the Django backend over its REST API.
 
