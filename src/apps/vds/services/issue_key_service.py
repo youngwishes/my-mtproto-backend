@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, final
 
 from django.conf import settings
+from django.db import transaction
 
 from apps.vds.exceptions import KeysLimitReached
 from apps.vds.models import MTPRotoKey
@@ -26,6 +27,8 @@ class IssueKeyService:
     флоте, доставка на здоровые VDS происходит таском push_key_to_servers_task.
     """
 
+    enqueue_push_on_commit: bool = False
+
     def __call__(
         self,
         *,
@@ -43,9 +46,18 @@ class IssueKeyService:
             token=os.urandom(16).hex(),
             expired_date=expired_date,
         )
-        push_key_to_servers_task.delay(key_id=key.pk)
+        if self.enqueue_push_on_commit:
+            transaction.on_commit(
+                lambda key_id=key.pk: push_key_to_servers_task.delay(key_id=key_id),
+            )
+        else:
+            push_key_to_servers_task.delay(key_id=key.pk)
         return key
 
 
 def get_issue_key_service() -> IssueKeyService:
     return IssueKeyService()
+
+
+def get_issue_key_on_commit_service() -> IssueKeyService:
+    return IssueKeyService(enqueue_push_on_commit=True)

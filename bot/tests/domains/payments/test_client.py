@@ -8,11 +8,19 @@ import respx
 from aiogram.types import LabeledPrice
 
 from src.core.backend_client import BackendClient
-from src.domains.payments import CardInvoice, PaymentsClient, StarsInvoice
+from src.domains.payments import (
+    ActivatedGiftCertificate,
+    CardInvoice,
+    GiftCertificate,
+    PaymentsClient,
+    StarsInvoice,
+)
 
 BASE = "http://backend"
 PRODUCT_URL = f"{BASE}/api/v1/payments/"
 BUY_URL = f"{BASE}/api/v1/payments/buy/"
+GIFT_BUY_URL = f"{BASE}/api/v1/payments/gift-certificates/buy/"
+GIFT_ACTIVATE_URL = f"{BASE}/api/v1/payments/gift-certificates/activate/"
 
 PRODUCT_JSON = {
     "title": "MTPRoto на месяц",
@@ -98,3 +106,39 @@ async def test_confirm_purchase_posts_charge(client: PaymentsClient):
     assert b"username=42" in body
     assert b"charge_id=ch_1" in body
     assert b"provider=stars" in body
+
+
+@respx.mock
+async def test_confirm_gift_certificate_purchase_returns_code(client: PaymentsClient):
+    route = respx.post(GIFT_BUY_URL).mock(
+        return_value=httpx.Response(200, json={"code": "KEY-ABCD-1234"})
+    )
+
+    result = await client.confirm_gift_certificate_purchase(
+        telegram_id=42,
+        charge_id="gift_ch_1",
+        provider="yukassa",
+    )
+
+    assert result == GiftCertificate(code="KEY-ABCD-1234")
+    body = route.calls.last.request.content
+    assert b"username=42" in body
+    assert b"charge_id=gift_ch_1" in body
+    assert b"provider=yukassa" in body
+
+
+@respx.mock
+async def test_activate_gift_certificate_posts_code(client: PaymentsClient):
+    route = respx.post(GIFT_ACTIVATE_URL).mock(
+        return_value=httpx.Response(200, json={"expired_date": "08.08.26"})
+    )
+
+    result = await client.activate_gift_certificate(
+        telegram_id=42,
+        code=" key-abcd-1234 ",
+    )
+
+    assert result == ActivatedGiftCertificate(expired_date="08.08.26")
+    body = route.calls.last.request.content
+    assert b"username=42" in body
+    assert b"code=+key-abcd-1234+" in body

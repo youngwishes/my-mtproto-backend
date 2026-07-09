@@ -1,7 +1,10 @@
 import factory
+from datetime import timedelta
+
+from django.utils import timezone
 
 from apps.payments.enums import PaymentProviderEnum
-from apps.payments.models import Payment, Product
+from apps.payments.models import GiftCertificate, Payment, Product
 
 
 class ProductFactory(factory.django.DjangoModelFactory):
@@ -24,3 +27,15 @@ class PaymentFactory(factory.django.DjangoModelFactory):
 
     class Meta:
         model = Payment
+
+
+class GiftCertificateFactory(factory.django.DjangoModelFactory):
+    code = factory.Sequence(lambda n: f"KEY-T{n:03d}-ABCD")
+    buyer = factory.SubFactory("apps.users.tests.factories.SystemUserFactory")
+    payment = factory.SubFactory(PaymentFactory)
+    expires_at = factory.LazyFunction(
+        lambda: timezone.now() + timedelta(days=365)
+    )
+
+    class Meta:
+        model = GiftCertificate

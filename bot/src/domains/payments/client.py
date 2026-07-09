@@ -11,6 +11,8 @@ if TYPE_CHECKING:
 
 _PRODUCT_PATH = "/api/v1/payments/"
 _BUY_PATH = "/api/v1/payments/buy/"
+_GIFT_BUY_PATH = "/api/v1/payments/gift-certificates/buy/"
+_GIFT_ACTIVATE_PATH = "/api/v1/payments/gift-certificates/activate/"
 
 
 @final
@@ -37,6 +39,18 @@ class StarsInvoice:
     prices: list[LabeledPrice]
     currency: str = "XTR"
     provider_token: str = ""
+
+
+@final
+@dataclass(kw_only=True, slots=True, frozen=True)
+class GiftCertificate:
+    code: str
+
+
+@final
+@dataclass(kw_only=True, slots=True, frozen=True)
+class ActivatedGiftCertificate:
+    expired_date: str
 
 
 @final
@@ -79,3 +93,27 @@ class PaymentsClient:
             telegram_id=telegram_id,
             expect_json=False,
         )
+
+    async def confirm_gift_certificate_purchase(
+        self, *, telegram_id: str | int, charge_id: str, provider: str
+    ) -> GiftCertificate:
+        response = await self.backend.post(
+            _GIFT_BUY_PATH,
+            data={
+                "username": str(telegram_id),
+                "charge_id": charge_id,
+                "provider": provider,
+            },
+            telegram_id=telegram_id,
+        )
+        return GiftCertificate(**response)
+
+    async def activate_gift_certificate(
+        self, *, telegram_id: str | int, code: str
+    ) -> ActivatedGiftCertificate:
+        response = await self.backend.post(
+            _GIFT_ACTIVATE_PATH,
+            data={"username": str(telegram_id), "code": code},
+            telegram_id=telegram_id,
+        )
+        return ActivatedGiftCertificate(**response)

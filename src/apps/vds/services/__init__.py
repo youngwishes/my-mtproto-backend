@@ -6,6 +6,7 @@ from apps.vds.services.migrate_keys_infra_service import (
 )
 from apps.vds.services.issue_key_service import (
     IssueKeyService,
+    get_issue_key_on_commit_service,
     get_issue_key_service,
 )
 from apps.vds.services.remove_expired_keys_daily_service import (
@@ -49,6 +50,7 @@ __all__ = [
     "MigrateVdsKeysInfraService",
     "get_migrate_vds_keys_service",
     "IssueKeyService",
+    "get_issue_key_on_commit_service",
     "get_issue_key_service",
     "RemoveExpiredKeysDailyService",
     "get_remove_expired_keys_daily_service",

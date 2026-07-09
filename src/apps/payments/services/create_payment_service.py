@@ -9,6 +9,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.core.decorators import log_service_error
+from apps.payments.enums import PaymentKindEnum
 from apps.payments.exceptions import BadPaymentData
 from apps.payments.models import Payment
 from apps.notifications.services.send_notification_service import SendNotificationService
@@ -58,6 +59,7 @@ class CreatePaymentService:
                 key=key,
                 charge_id=payment.charge_id,
                 provider=payment.provider,
+                kind=PaymentKindEnum.SUBSCRIPTION,
             )
 
         # Уведомление — best-effort: платёж уже проведён и закоммичен, сбой

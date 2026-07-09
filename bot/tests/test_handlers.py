@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -10,6 +11,10 @@ from src.handlers import payments as payments_module
 from src.handlers.free_trial import process_boost_free
 from src.handlers.links import process_my_servers, update_link, update_link_confirm
 from src.handlers.payments import (
+    process_gift_certificate,
+    process_gift_certificate_activation,
+    process_gift_stars,
+    process_gift_yukassa,
     process_boost_paid,
     process_pay_stars,
     process_pay_yukassa,
@@ -21,7 +26,12 @@ from src.handlers.start import cmd_start, cmd_start_inline, process_info
 from src.messages import PRIVACY_URL, SITE_URL, SUPPORT_URL, TERMS_URL
 from src.domains.free_trial import FreeTrialKey
 from src.domains.links import MyServers, ReissuedKey, ServerItem
-from src.domains.payments import CardInvoice, StarsInvoice
+from src.domains.payments import (
+    ActivatedGiftCertificate,
+    CardInvoice,
+    GiftCertificate,
+    StarsInvoice,
+)
 from src.domains.referrals import ReferralCabinet, ReferralRewardKey
 from tests.fakes import FakeBot, FakeCallback, FakeMessage, make_deps
 
@@ -82,11 +92,27 @@ class FakeReferrals:
 
 
 class FakePayments:
-    def __init__(self, *, card=None, stars=None, confirm_error=None) -> None:
+    def __init__(
+        self,
+        *,
+        card=None,
+        stars=None,
+        gift=None,
+        activation=None,
+        confirm_error=None,
+        activation_error=None,
+    ) -> None:
         self._card = card
         self._stars = stars
+        self._gift = gift or GiftCertificate(code="KEY-ABCD-1234")
+        self._activation = activation or ActivatedGiftCertificate(
+            expired_date="2026-08-08"
+        )
         self._confirm_error = confirm_error
+        self._activation_error = activation_error
         self.confirmed: list[tuple] = []
+        self.gift_confirmed: list[tuple] = []
+        self.activated: list[tuple] = []
 
     async def get_card_invoice(self):
         return self._card
@@ -98,6 +124,18 @@ class FakePayments:
         self.confirmed.append((telegram_id, charge_id, provider))
         if self._confirm_error is not None:
             raise self._confirm_error
+
+    async def confirm_gift_certificate_purchase(self, *, telegram_id, charge_id, provider):
+        self.gift_confirmed.append((telegram_id, charge_id, provider))
+        if self._confirm_error is not None:
+            raise self._confirm_error
+        return self._gift
+
+    async def activate_gift_certificate(self, *, telegram_id, code):
+        self.activated.append((telegram_id, code))
+        if self._activation_error is not None:
+            raise self._activation_error
+        return self._activation
 
 
 @pytest.fixture
@@ -372,6 +410,62 @@ async def test_pay_stars_sends_xtr_invoice(monkeypatch):
     assert invoice["prices"][0].amount == 80
 
 
+async def test_gift_certificate_screen_shows_payment_options():
+    callback = FakeCallback(chat_id=42)
+
+    await process_gift_certificate(callback)
+
+    text, markup = callback.message.edits[0]
+    assert "сертификат" in text.lower()
+    callbacks = [btn.callback_data for row in markup.inline_keyboard for btn in row]
+    assert "gift_yukassa" in callbacks
+    assert "gift_stars" in callbacks
+
+
+async def test_gift_yukassa_invoice_uses_gift_payload(monkeypatch):
+    fake_bot = FakeBot()
+    monkeypatch.setattr(payments_module, "bot", fake_bot)
+    card = CardInvoice(
+        title="Месяц",
+        description="прокси",
+        currency="RUB",
+        provider_data=json.dumps(
+            {"receipt": {"items": [{"description": "Обычная подписка"}]}}
+        ),
+        send_email_to_provider=False,
+        need_email=False,
+        prices=[LabeledPrice(label="Месяц", amount=9900)],
+        provider_token="PROV",
+    )
+    callback = FakeCallback(chat_id=42)
+
+    await process_gift_yukassa(callback, make_deps(payments=FakePayments(card=card)))
+
+    invoice = fake_bot.invoices[0]
+    assert invoice["payload"] == "gift_certificate_yukassa"
+    assert "сертификат" in invoice["title"].lower()
+    provider_data = json.loads(invoice["provider_data"])
+    description = provider_data["receipt"]["items"][0]["description"]
+    assert "сертификат" in description.lower()
+
+
+async def test_gift_stars_invoice_uses_gift_payload(monkeypatch):
+    fake_bot = FakeBot()
+    monkeypatch.setattr(payments_module, "bot", fake_bot)
+    stars = StarsInvoice(
+        title="Месяц",
+        description="прокси",
+        prices=[LabeledPrice(label="Месяц", amount=80)],
+    )
+    callback = FakeCallback(chat_id=42)
+
+    await process_gift_stars(callback, make_deps(payments=FakePayments(stars=stars)))
+
+    invoice = fake_bot.invoices[0]
+    assert invoice["payload"] == "gift_certificate_stars"
+    assert invoice["currency"] == "XTR"
+
+
 @pytest.mark.parametrize(
     "currency,expected_provider",
     [("XTR", "stars"), ("RUB", "yukassa")],
@@ -389,6 +483,53 @@ async def test_successful_payment_routes_by_currency(currency, expected_provider
 
     _, _, provider = payments.confirmed[0]
     assert provider == expected_provider
+
+
+async def test_successful_gift_payment_returns_code_to_forward():
+    payments = FakePayments(gift=GiftCertificate(code="KEY-ABCD-1234"))
+    message = FakeMessage(user_id=42)
+    message.successful_payment = SimpleNamespace(
+        currency="RUB",
+        invoice_payload="gift_certificate_yukassa",
+        telegram_payment_charge_id="ch_stars",
+        provider_payment_charge_id="gift_ch_card",
+    )
+
+    await process_successful_payment(message, make_deps(payments=payments))
+
+    assert payments.gift_confirmed == [(42, "gift_ch_card", "yukassa")]
+    text, _ = message.answers[0]
+    assert "KEY-ABCD-1234" in text
+    assert "перешл" in text.lower()
+
+
+async def test_successful_regular_payment_ignores_gift_confirmation():
+    payments = FakePayments()
+    message = FakeMessage(user_id=42)
+    message.successful_payment = SimpleNamespace(
+        currency="XTR",
+        invoice_payload="payment_stars",
+        telegram_payment_charge_id="ch_stars",
+        provider_payment_charge_id="ch_card",
+    )
+
+    await process_successful_payment(message, make_deps(payments=payments))
+
+    assert payments.confirmed == [(42, "ch_stars", "stars")]
+    assert payments.gift_confirmed == []
+
+
+async def test_gift_certificate_code_message_activates_certificate():
+    payments = FakePayments(
+        activation=ActivatedGiftCertificate(expired_date="08.08.26")
+    )
+    message = FakeMessage(user_id=42, text="KEY-ABCD-1234")
+
+    await process_gift_certificate_activation(message, make_deps(payments=payments))
+
+    assert payments.activated == [(42, "KEY-ABCD-1234")]
+    text, _ = message.answers[0]
+    assert "08.08.26" in text
 
 
 async def test_successful_payment_warns_user_on_failure():

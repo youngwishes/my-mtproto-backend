@@ -5,7 +5,7 @@ import json
 from django.db import models
 
 from apps.core import ActiveQuerySet, BaseDjangoModel
-from apps.payments.enums import PaymentProviderEnum
+from apps.payments.enums import PaymentKindEnum, PaymentProviderEnum
 
 
 class ProductQuerySet(ActiveQuerySet):
@@ -59,6 +59,8 @@ class Product(BaseDjangoModel):
 
 
 class Payment(BaseDjangoModel):
+    Kind = PaymentKindEnum
+
     user = models.ForeignKey(
         "users.SystemUser",
         on_delete=models.CASCADE,
@@ -82,7 +84,61 @@ class Payment(BaseDjangoModel):
         choices=PaymentProviderEnum.choices(),
         default=PaymentProviderEnum.YUKASSA,
     )
+    kind = models.CharField(
+        "тип платежа",
+        max_length=32,
+        choices=PaymentKindEnum.choices(),
+        default=PaymentKindEnum.SUBSCRIPTION,
+    )
 
     class Meta:
         verbose_name = "платеж"
         verbose_name_plural = "платежи"
+        constraints = [
+            models.UniqueConstraint(
+                fields=("provider", "charge_id", "kind"),
+                condition=models.Q(kind=PaymentKindEnum.GIFT_CERTIFICATE),
+                name="uniq_gift_certificate_payment_identity",
+            ),
+        ]
+
+
+class GiftCertificate(BaseDjangoModel):
+    class Status(models.TextChoices):
+        CREATED = "created", "Создан"
+        ACTIVATED = "activated", "Активирован"
+        EXPIRED = "expired", "Истёк"
+
+    code = models.CharField("код", max_length=13, unique=True)
+    buyer = models.ForeignKey(
+        "users.SystemUser",
+        on_delete=models.CASCADE,
+        related_name="gift_certificates_bought",
+        verbose_name="покупатель",
+    )
+    payment = models.OneToOneField(
+        "payments.Payment",
+        on_delete=models.CASCADE,
+        related_name="gift_certificate",
+        verbose_name="платёж",
+    )
+    expires_at = models.DateTimeField("действует до")
+    activated_by = models.ForeignKey(
+        "users.SystemUser",
+        on_delete=models.SET_NULL,
+        related_name="gift_certificates_activated",
+        verbose_name="активировал",
+        null=True,
+        blank=True,
+    )
+    activated_at = models.DateTimeField("дата активации", null=True, blank=True)
+    status = models.CharField(
+        "статус",
+        max_length=16,
+        choices=Status.choices,
+        default=Status.CREATED,
+    )
+
+    class Meta:
+        verbose_name = "подарочный сертификат"
+        verbose_name_plural = "подарочные сертификаты"

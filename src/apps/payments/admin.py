@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 
-from apps.payments.models import Payment, Product
+from apps.payments.models import GiftCertificate, Payment, Product
 
 
 @admin.register(Payment)
@@ -12,6 +12,7 @@ class PaymentAdmin(admin.ModelAdmin):
         "telegram_username_link",
         "key",
         "provider",
+        "kind",
         "created_at",
     ]
     list_select_related = ["user", "key"]
@@ -40,3 +41,27 @@ class ProductAdmin(admin.ModelAdmin):
         "send_email_to_provider",
         "need_email",
     ]
+
+
+@admin.register(GiftCertificate)
+class GiftCertificateAdmin(admin.ModelAdmin):
+    list_display = [
+        "id",
+        "code",
+        "buyer",
+        "status",
+        "activated_by",
+        "expires_at",
+        "activated_at",
+        "payment",
+    ]
+    list_filter = ["status", "payment__provider"]
+    search_fields = [
+        "code",
+        "buyer__username",
+        "buyer__telegram_username",
+        "activated_by__username",
+        "activated_by__telegram_username",
+        "payment__charge_id",
+    ]
+    list_select_related = ["buyer", "activated_by", "payment"]

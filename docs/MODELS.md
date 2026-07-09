@@ -118,6 +118,21 @@
 | `key` | OneToOne → MTPRotoKey? | За какой ключ (nullable) |
 | `charge_id` | str | ID платежа от провайдера |
 | `provider` | str | `YUKASSA` или `STARS` |
+| `kind` | str | `SUBSCRIPTION` или `GIFT_CERTIFICATE`; отличает обычную покупку подписки от покупки подарочного сертификата |
+
+## GiftCertificate (apps/payments)
+
+Одноразовый подарочный сертификат на 30 дней подписки.
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `code` | str (unique) | Код формата `KEY-XXXX-XXXX` |
+| `buyer` | FK → SystemUser | Кто купил сертификат |
+| `payment` | OneToOne → Payment | Платёж за сертификат |
+| `expires_at` | DateTimeField | До какого момента сертификат можно активировать (1 год с покупки) |
+| `activated_by` | FK → SystemUser? | Кто активировал сертификат |
+| `activated_at` | DateTimeField? | Когда сертификат был активирован |
+| `status` | str | `CREATED`, `ACTIVATED`, `EXPIRED` |
 
 ---
 
