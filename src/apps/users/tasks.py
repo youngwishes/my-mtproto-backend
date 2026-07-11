@@ -15,6 +15,13 @@ from apps.vds.models import MTPRotoKey
 
 
 @shared_task
+def grant_daily_free_trials_task() -> None:
+    from apps.users.services import get_daily_free_trial_grant_service
+
+    get_daily_free_trial_grant_service()()
+
+
+@shared_task
 def send_invite_to_chat_task(telegram_ids: list[str]) -> None:
     if not telegram_ids:
         telegram_ids = SystemUser.objects.filter(

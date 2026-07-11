@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from django.db.models import QuerySet
+
 from apps.users.models import SystemUser
 
 
@@ -11,6 +13,13 @@ def get_user_by_username(*, username: str) -> SystemUser | None:
 def get_free_used_count() -> int:
     """Количество пользователей, использовавших бесплатный период."""
     return SystemUser.objects.filter(first_month_free_used=True).count()
+
+
+def get_daily_free_trial_candidates() -> QuerySet[SystemUser]:
+    """Пользователи, ожидающие бесплатный период, от старых к новым."""
+    return SystemUser.objects.filter(first_month_free_used=False).order_by(
+        "date_joined", "pk"
+    )
 
 
 def get_total_referrals_count(*, username: str) -> int:

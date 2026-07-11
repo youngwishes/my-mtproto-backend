@@ -18,10 +18,11 @@ def log_service_error(__call__: Callable) -> Callable:
         except BaseServiceError as service_error:
             # Нотификация админа — best-effort: сбой Telegram не должен подменять
             # доменную ошибку (иначе бизнес-400 превратится в 500).
-            try:
-                _log_service_error(service_error)
-            except Exception:
-                pass
+            if kwargs.get("notify_on_error", True):
+                try:
+                    _log_service_error(service_error)
+                except Exception:
+                    pass
             raise service_error
 
     return wrapper

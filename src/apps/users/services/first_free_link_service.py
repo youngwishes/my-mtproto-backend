@@ -32,15 +32,20 @@ class FirstFreeLinkService:
     issue_key_service: IssueKeyService
 
     @log_service_error
-    def __call__(self, *, username: str) -> IssuedKeyOut:
+    def __call__(
+        self,
+        *,
+        username: str,
+        notify_on_error: bool = True,
+    ) -> IssuedKeyOut:
         user, _ = SystemUser.objects.get_or_create(username=username)
 
-        if user.first_month_free_used:
-            raise AlreadyUsedFree(telegram_id=username)
-
-        expired_date = self._resolve_expired_date(user=user)
-
         with transaction.atomic():
+            user = SystemUser.objects.select_for_update().get(pk=user.pk)
+            if user.first_month_free_used:
+                raise AlreadyUsedFree(telegram_id=username)
+
+            expired_date = self._resolve_expired_date(user=user)
             self.issue_key_service(user=user, expired_date=expired_date)
             user.first_month_free_used = True
             if user.invited_from_username:

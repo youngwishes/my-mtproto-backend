@@ -109,6 +109,22 @@ def get_first_free_link_service() -> FirstFreeLinkService:
     return FirstFreeLinkService()
 ```
 
+### Ежедневная выдача бесплатных периодов
+
+Celery Beat в 12:00 UTC вызывает тонкую задачу
+`apps.users.tasks.grant_daily_free_trials_task`. Selector в `apps.users` выбирает
+не активировавших пробный период пользователей по `date_joined, pk` (`date_joined`
+является timestamp создания у `SystemUser`, наследуемым от `AbstractUser`).
+`DailyFreeTrialGrantService` получает selector, сервис выдачи, selectors ключа и
+активных VDS и Telegram transport через DI. Он продолжает обход после ошибки до
+десяти сохранённых активаций, после чего отправляет один итоговый отчёт админу.
+
+`FirstFreeLinkService` блокирует строку пользователя через `select_for_update()`
+и повторно проверяет `first_month_free_used` внутри транзакции. Поэтому
+параллельный или повторный запуск не может выдать одному пользователю два
+бесплатных периода. Выдача остаётся DB-only; доставка секрета на healthy VDS
+выполняется существующей reconcile-задачей.
+
 ## apps/notifications — Уведомления и рассылки
 
 ```

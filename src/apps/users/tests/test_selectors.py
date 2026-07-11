@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from django.test import TestCase
+from django.utils import timezone
 
 from apps.users.selectors import (
     get_user_by_username,
     get_free_used_count,
     get_total_referrals_count,
     get_active_referrals_count,
+    get_daily_free_trial_candidates,
 )
 from apps.users.tests.factories import SystemUserFactory
 
@@ -54,3 +56,38 @@ class TestGetActiveReferralsCount(TestCase):
         SystemUserFactory(invited_from_username="user1", referral_activated=True)
         SystemUserFactory(invited_from_username="user1", referral_activated=False)
         self.assertEqual(get_active_referrals_count(username="user1"), 2)
+
+
+class TestGetDailyFreeTrialCandidates(TestCase):
+    def test_returns_unused_users_oldest_first(self) -> None:
+        newest = SystemUserFactory(first_month_free_used=False)
+        used = SystemUserFactory(first_month_free_used=True)
+        oldest = SystemUserFactory(first_month_free_used=False)
+        now = timezone.now()
+        type(oldest).objects.filter(pk=oldest.pk).update(
+            date_joined=now - timezone.timedelta(days=2)
+        )
+        type(used).objects.filter(pk=used.pk).update(
+            date_joined=now - timezone.timedelta(days=3)
+        )
+        type(newest).objects.filter(pk=newest.pk).update(
+            date_joined=now - timezone.timedelta(days=1)
+        )
+
+        self.assertEqual(
+            list(get_daily_free_trial_candidates()),
+            [oldest, newest],
+        )
+
+    def test_uses_primary_key_as_tie_breaker(self) -> None:
+        first = SystemUserFactory(first_month_free_used=False)
+        second = SystemUserFactory(first_month_free_used=False)
+        date_joined = timezone.now() - timezone.timedelta(days=1)
+        type(first).objects.filter(pk__in=[first.pk, second.pk]).update(
+            date_joined=date_joined
+        )
+
+        self.assertEqual(
+            list(get_daily_free_trial_candidates()),
+            [first, second],
+        )

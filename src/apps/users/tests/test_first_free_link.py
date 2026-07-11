@@ -8,6 +8,9 @@ from rest_framework.test import APITestCase
 from django.utils import timezone
 from apps.users.tests.factories import SystemUserFactory
 from apps.vds.models import MTPRotoKey
+from apps.users.exceptions import AlreadyUsedFree
+from apps.users.models import SystemUser
+from apps.users.services.first_free_link_service import FirstFreeLinkService
 
 
 class TestFirstFreeLink(APITestCase):
@@ -15,6 +18,20 @@ class TestFirstFreeLink(APITestCase):
 
     def setUp(self) -> None:
         self.user = SystemUserFactory()
+
+    @mock.patch("apps.core.decorators._log_service_error")
+    @mock.patch("apps.users.services.first_free_link_service.SystemUser.objects.get_or_create")
+    def test_rechecks_eligibility_inside_transaction(self, get_or_create, _log) -> None:
+        stale_user = SystemUser(pk=self.user.pk, username=self.user.username)
+        get_or_create.return_value = (stale_user, False)
+        self.user.first_month_free_used = True
+        self.user.save(update_fields=["first_month_free_used"])
+        issue_key = mock.Mock()
+
+        with self.assertRaises(AlreadyUsedFree):
+            FirstFreeLinkService(issue_key_service=issue_key)(username=self.user.username)
+
+        issue_key.assert_not_called()
 
     @mock.patch("apps.vds.tasks.push_key_to_servers_task.delay")
     def test_first_free_link_30days(self, mock_push) -> None:

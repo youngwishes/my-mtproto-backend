@@ -24,4 +24,8 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.vds.tasks.check_vds_health_task",
         "schedule": crontab(minute="*/5"),
     },
+    "grant-daily-free-trials": {
+        "task": "apps.users.tasks.grant_daily_free_trials_task",
+        "schedule": crontab(hour=12, minute=0),
+    },
 }
