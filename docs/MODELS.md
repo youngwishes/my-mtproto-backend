@@ -148,7 +148,7 @@
 | `button_text` | str | Текст кнопки (опционально) |
 | `button_url` | str | URL кнопки с `{переменными}` (опционально) |
 | `button_callback_data` | str | callback_data для кнопки (опционально) |
-| `include_payment_buttons` | bool | Прикрепить кнопку "Поддержать" (default: False) |
+| `include_payment_buttons` | bool | Прикрепить кнопку «⚡Продлить» (default: False) |
 
 **Метод:** `render(context)` → `RenderedMessage(text, markup)`. Подставляет переменные, формирует InlineKeyboardMarkup из кнопки-ссылки и/или кнопки оплаты. Кнопка может быть типа URL или callback (URL имеет приоритет).
 

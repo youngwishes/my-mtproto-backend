@@ -60,7 +60,7 @@ class TestNotificationTemplateRender(TestCase):
         self.assertIsNotNone(result.markup)
         self.assertEqual(len(result.markup.keyboard), 1)
         button = result.markup.keyboard[0][0]
-        self.assertEqual(button.text, "❤️ Поддержать")
+        self.assertEqual(button.text, "⚡Продлить")
         self.assertEqual(button.callback_data, "boost_paid")
 
     def test_render_with_custom_button_and_payment_button(self) -> None:
@@ -77,7 +77,7 @@ class TestNotificationTemplateRender(TestCase):
         self.assertEqual(custom_button.text, "Перейти")
         self.assertEqual(custom_button.url, "https://example.com")
         payment_button = result.markup.keyboard[1][0]
-        self.assertEqual(payment_button.text, "❤️ Поддержать")
+        self.assertEqual(payment_button.text, "⚡Продлить")
         self.assertEqual(payment_button.callback_data, "boost_paid")
 
     def test_render_without_payment_button_flag(self) -> None:

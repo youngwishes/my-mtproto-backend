@@ -56,7 +56,7 @@ class NotificationTemplate(BaseDjangoModel):
         if self.include_payment_buttons:
             keyboard_rows.append(
                 [InlineKeyboardButton(
-                    text="❤️ Поддержать",
+                    text="⚡Продлить",
                     callback_data="boost_paid",
                     style="primary",
                 )]
