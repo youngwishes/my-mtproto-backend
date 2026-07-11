@@ -59,9 +59,10 @@ class DailyFreeTrialGrantService:
                 self.send_message(
                     chat_id=int(user.username),
                     text=(
-                        "✨ <b>Бесплатный период активирован!</b>\n\n"
-                        f"Доступ действует до <b>{issued_key.expired_date}</b>.\n\n"
-                        "Выберите сервер для подключения:"
+                        "🎁 <b>Для тебя открыт бесплатный доступ!</b>\n\n"
+                        "Теперь Telegram может работать быстрее и стабильнее — "
+                        f"доступ активен до <b>{issued_key.expired_date}</b>.\n\n"
+                        "👇 <b>Выбери сервер и подключись прямо сейчас:</b>"
                     ),
                     markup=markup,
                 )

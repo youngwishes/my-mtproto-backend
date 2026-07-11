@@ -107,7 +107,15 @@ class TestDailyFreeTrialGrantService(SimpleTestCase):
 
         notification = sender.call_args_list[0]
         self.assertEqual(notification.kwargs["chat_id"], 123)
-        self.assertIn("10.08.26", notification.kwargs["text"])
+        self.assertEqual(
+            notification.kwargs["text"],
+            (
+                "🎁 <b>Для тебя открыт бесплатный доступ!</b>\n\n"
+                "Теперь Telegram может работать быстрее и стабильнее — "
+                "доступ активен до <b>10.08.26</b>.\n\n"
+                "👇 <b>Выбери сервер и подключись прямо сейчас:</b>"
+            ),
+        )
         keyboard = notification.kwargs["markup"].keyboard
         self.assertEqual(
             [row[0].text for row in keyboard],
