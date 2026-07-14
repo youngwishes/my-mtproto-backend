@@ -71,6 +71,8 @@ class TestCodexAgents(SimpleTestCase):
 
         config = tomllib.loads(path.read_text(encoding="utf-8"))
 
+        self.assertEqual(config.get("approval_policy"), "never")
+        self.assertEqual(config.get("sandbox_mode"), "danger-full-access")
         self.assertEqual(config["agents"]["max_threads"], 6)
         self.assertEqual(config["agents"]["max_depth"], 1)
 
