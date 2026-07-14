@@ -39,7 +39,14 @@ class TestCodexAgents(SimpleTestCase):
             "product-architect": ("без второго текущего", "ERD", "changes_requested"),
             "plan-maker": ("максимум из 10", "не более двух пунктов", "пересекающихся файлов"),
             "plan-implementer": ("RED → GREEN → REFACTOR", "больше двух", "commit, push или deploy"),
-            "code-reviewer": ("режим batch", "integration", "не изменяй файлы"),
+            "code-reviewer": (
+                "режим batch",
+                "pull_request",
+                "gh pr review --comment",
+                "headRefOid",
+                "VERDICT: approved",
+                "не изменяй файлы",
+            ),
             "product-reviewer": (
                 "acceptance.md",
                 "Для каждого BR и AC",
@@ -47,7 +54,8 @@ class TestCodexAgents(SimpleTestCase):
                 "подтверждающий тест",
                 "наблюдаемый результат",
                 "passed, failed или unverified",
-                "Не изменяй production-код",
+                "Не изменяй",
+                "production-код",
             ),
         }
 
@@ -88,7 +96,34 @@ class TestCodexAgents(SimpleTestCase):
         self.assertIn("без незавершённых зависимостей", instructions)
         self.assertIn("отдельный `code-reviewer`", instructions)
         self.assertIn("новый экземпляр `code-reviewer`", instructions)
-        self.assertIn("интеграционное ревью", instructions)
+        self.assertIn("финальное интеграционное ревью", instructions)
         self.assertIn("runtime permissions", instructions)
         self.assertIn("не запускает reviewer параллельно с write-сессиями", instructions)
         self.assertIn("git status", instructions)
+        self.assertIn("Pull Request в `main`", instructions)
+        self.assertIn("Прямой push в `main`", instructions)
+        self.assertIn("gh pr review --comment", instructions)
+        self.assertIn("оставляет PR открытым", instructions)
+
+    def test_delivery_workflow_publishes_a_reviewed_pull_request(self) -> None:
+        workflow = (self.repo_root / "docs" / "DEVELOPMENT_WORKFLOW.md").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("`codex/<feature-slug>`", workflow)
+        self.assertIn("gh auth status", workflow)
+        self.assertIn("gh pr create --base main", workflow)
+        self.assertIn("gh pr checks", workflow)
+        self.assertIn("gh pr review --comment", workflow)
+        self.assertIn("--match-head-commit", workflow)
+        self.assertIn("оставляет PR открытым", workflow)
+        self.assertNotIn("git push origin main", workflow)
+
+    def test_github_runs_tests_for_pull_requests_to_main(self) -> None:
+        workflow = (self.repo_root / ".github" / "workflows" / "tests.yml").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("pull_request:", workflow)
+        self.assertIn("branches: [main]", workflow)
+        self.assertIn("uv run make test", workflow)
