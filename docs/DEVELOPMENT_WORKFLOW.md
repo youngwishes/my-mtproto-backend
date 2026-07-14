@@ -4,21 +4,29 @@
 другой задачи без изменения продукта применяются только релевантные этапы;
 деплоить отсутствие изменений не нужно.
 
-Все действия выполняются прямо в `main`. Агент может самостоятельно создавать
-commit и выполнять push. Production deploy всегда требует отдельного явного
-разрешения пользователя непосредственно перед запуском playbook.
+Каждое изменение выполняется в отдельной ветке `codex/<feature-slug>` и
+доставляется Pull Request-ом в `main`. Агент может самостоятельно создавать
+ветку, commit, push и PR, но не делает прямой push в `main` и не выполняет merge
+без отдельного явного разрешения пользователя. Production deploy требует ещё
+одного, нового явного разрешения непосредственно перед запуском playbook.
 
 ## 1. Подготовка
 
 1. Прочитать постановку и профильные документы из `docs/`.
 2. Проверить `git status --short`, текущую ветку и последние изменения. Не
    перезаписывать и не включать в commit чужие незавершённые изменения.
-3. Найти существующие сервисы, selectors, DTO, exceptions, factories и тестовые
+3. Обновить локальный `main` без переписывания истории и создать от него ветку
+   `codex/<feature-slug>`. Если рабочее дерево грязное или `main` разошёлся с
+   `origin/main`, сначала исследовать состояние и не терять чужие изменения.
+4. Проверить доступность GitHub CLI командой `gh auth status`. Отсутствие `gh`
+   или авторизации является блокером публикации PR и не разрешает fallback на
+   прямой push в `main`.
+5. Найти существующие сервисы, selectors, DTO, exceptions, factories и тестовые
    паттерны, которые можно переиспользовать.
-4. Сформулировать scope, критерии приёмки, затронутые контракты и риски. Если
+6. Сформулировать scope, критерии приёмки, затронутые контракты и риски. Если
    существенное решение нельзя безопасно вывести из проекта, уточнить его у
    пользователя до реализации.
-5. Для рискованных изменений определить обратную совместимость миграций и
+7. Для рискованных изменений определить обратную совместимость миграций и
    стратегию отката до написания кода.
 
 ## 2. Реализация через TDD
@@ -53,26 +61,71 @@ commit и выполнять push. Production deploy всегда требует
    `CONTRACTS.md`, `MODELS.md` или `docs/apps/`. Если обновление не требуется,
    явно проверить это, а не пропускать этап автоматически.
 
-## 4. Публикация commit
+## 4. Публикация Pull Request
 
 После зелёных проверок агент самостоятельно:
 
 1. Добавляет только относящиеся к фиче файлы.
-2. Создаёт осмысленный commit в `main`.
-3. Выполняет `git push origin main`.
-4. Сохраняет точный опубликованный SHA и проверяет:
+2. Создаёт осмысленный commit в feature-ветке; commit в `main` запрещён.
+3. Выполняет push feature-ветки и открывает Pull Request с base `main`.
+4. В описании PR указывает scope, связанные BR/AC при наличии, проверки, риски и
+   влияние на deploy.
+5. Сохраняет номер PR, URL и точный head SHA:
 
    ```bash
-   RELEASE_SHA="$(git rev-parse HEAD)"
-   test "$(git rev-parse origin/main)" = "$RELEASE_SHA"
+   FEATURE_BRANCH="$(git branch --show-current)"
+   PR_BODY_FILE="<path-to-prepared-pr-body>"
+   test "$FEATURE_BRANCH" != main
+   gh auth status
+   git push -u origin "$FEATURE_BRANCH"
+   PR_URL="$(gh pr create --base main --head "$FEATURE_BRANCH" \
+     --title "<PR title>" --body-file "$PR_BODY_FILE")"
+   PR_NUMBER="$(gh pr view "$PR_URL" --json number --jq '.number')"
+   PR_HEAD_SHA="$(gh pr view "$PR_NUMBER" --json headRefOid --jq '.headRefOid')"
+   test "$PR_HEAD_SHA" = "$(git rev-parse HEAD)"
    ```
 
-Если push отклонён или `origin/main` изменился, агент не переписывает удалённую
-историю: сначала исследует расхождение и сообщает о конфликте пользователю.
+Если push отклонён, `main` изменился или PR нельзя создать, агент не переписывает
+удалённую историю и не пушит напрямую в `main`: сначала исследует расхождение и
+сообщает пользователю точный блокер.
 
-## 5. Pre-deploy
+## 5. Финальное ревью Pull Request
 
-Проверить playbook для опубликованного SHA:
+1. Главный агент передаёт новому `code-reviewer` номер PR и `PR_HEAD_SHA`.
+2. Reviewer в read-only режиме читает метаданные, полный diff и checks через
+   `gh pr view`, `gh pr diff` и `gh pr checks`, затем публикует один
+   структурированный комментарий через `gh pr review --comment`.
+3. Комментарий заканчивается точным вердиктом `VERDICT: approved` либо
+   `VERDICT: changes_requested` и содержит проверенный head SHA.
+4. При `changes_requested` изменения возвращаются implementer-у. После нового
+   commit/push старый review считается устаревшим, а новый экземпляр reviewer-а
+   проверяет новый head SHA.
+5. Перед завершением главный агент подтверждает, что обязательные checks зелёные,
+   SHA не изменился и последний review содержит `VERDICT: approved`:
+
+   ```bash
+   gh pr checks "$PR_NUMBER" --watch
+   test "$(gh pr view "$PR_NUMBER" --json headRefOid --jq '.headRefOid')" = \
+     "$PR_HEAD_SHA"
+   ```
+
+При завершении работы агент оставляет PR открытым и сообщает пользователю URL,
+проверенный head SHA и результаты checks. Создание PR не разрешает его merge.
+
+## 6. Merge и pre-deploy
+
+Только после явного разрешения пользователя агент может выполнить merge
+проверенного SHA:
+
+```bash
+gh pr merge "$PR_NUMBER" --squash --delete-branch \
+  --match-head-commit "$PR_HEAD_SHA"
+RELEASE_SHA="$(gh pr view "$PR_NUMBER" --json mergeCommit --jq '.mergeCommit.oid')"
+git fetch origin main
+test "$(git rev-parse origin/main)" = "$RELEASE_SHA"
+```
+
+После merge проверить playbook для опубликованного SHA:
 
 ```bash
 ansible-playbook -i ansible/inventory/production.ini ansible/deploy.yml \
@@ -93,7 +146,7 @@ ansible-playbook -i ansible/inventory/production.ini ansible/deploy.yml \
 указав `RELEASE_SHA`, результаты тестов и существенные риски. Без нового ответа
 пользователя, явно разрешающего этот deploy, playbook не запускается.
 
-## 6. Deploy и post-deploy
+## 7. Deploy и post-deploy
 
 Только после явного разрешения пользователя выполнить:
 

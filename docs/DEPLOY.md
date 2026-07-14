@@ -29,19 +29,22 @@ ansible -i ansible/inventory/production.ini mtproto_keys -m ansible.builtin.ping
    docker compose -f docker-compose.yml config --quiet
    ```
 
-2. Создай commit и отправь его в `origin/main`:
+2. Убедись, что изменения прошли workflow из `docs/DEVELOPMENT_WORKFLOW.md`, Pull
+   Request одобрен и merged в `main`. Прямой push релиза в `main` запрещён.
+   Получи SHA merge commit через GitHub CLI и сверь его с `origin/main`:
 
    ```bash
-   git add <files>
-   git commit -m "Описание релиза"
-   git push origin main
+   gh auth status
+   PR_NUMBER=<merged-pr-number>
+   test "$(gh pr view "$PR_NUMBER" --json state --jq '.state')" = MERGED
+   RELEASE_SHA="$(gh pr view "$PR_NUMBER" --json mergeCommit --jq '.mergeCommit.oid')"
+   git fetch origin main
+   test "$(git rev-parse origin/main)" = "$RELEASE_SHA"
    ```
 
-3. Сохрани полный SHA опубликованного commit и проверь playbook:
+3. Проверь playbook для опубликованного SHA:
 
    ```bash
-   RELEASE_SHA="$(git rev-parse HEAD)"
-   test "$(git rev-parse origin/main)" = "$RELEASE_SHA"
    ansible-playbook -i ansible/inventory/production.ini ansible/deploy.yml \
      --syntax-check -e deploy_revision="$RELEASE_SHA" \
      --private-key ~/.ssh/id_ed25519_deploy
