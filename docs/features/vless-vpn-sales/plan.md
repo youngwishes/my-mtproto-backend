@@ -135,7 +135,7 @@ untracked-файлов. Фаза содержит десять атомарны�
   `docs/contracts/v1/`; reviewed C-001 source/fixtures копируются в agent с
   явной provenance/checksum, но backend-файлы этим implementer-ом не меняются.
 - **RED:** provider tests на malformed UUID/access ID, duplicate access,
-  unsorted input normalization, wrong hash, oversized bytes/entries и unknown
+  unsorted input rejection, wrong hash, oversized bytes/entries и unknown
   schema/contract major.
 - **Минимальное production-изменение:** immutable DTO и pure canonicalizer;
   никаких Xray side effects.
