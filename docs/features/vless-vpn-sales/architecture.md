@@ -374,7 +374,8 @@ identity и аудита суммы.
 
 - unique `name` и `number`;
 - пользовательские `location`, публичные `host`, `port`;
-- HTTPS `agent_base_url`, построенный из private hostname и agent port;
+- HTTPS `agent_base_url` host-nginx management endpoint; backend никогда не
+  обращается напрямую к контейнерному адресу агента;
 - `agent_secret_key` — имя секрета в environment/Ansible, не сам token;
 - `agent_contract_version`;
 - `health_state`: `NEW`, `SYNCING`, `READY`, `UNHEALTHY`, `INCOMPATIBLE`,
@@ -521,10 +522,38 @@ DRF error DTO для новых endpoints един:
 
 Каждая нода имеет отдельный bearer token минимум 256 бит. Token хранится только
 в Ansible Vault/environment backend и агента; `VPNNode` содержит лишь lookup key.
-Все agent endpoints, включая health, доступны только по HTTPS с обязательной
-проверкой сертификата и firewall allowlist исходящего адреса центрального
-backend. Plain HTTP даже на private address запрещён. Сравнение bearer token —
-constant-time.
+Для центрального backend все agent endpoints, включая health, доступны только
+через host nginx по HTTPS с обязательной проверкой сертификата и firewall
+allowlist исходящего IPv4-адреса backend. Nginx проверяет внешний TLS и
+проксирует запрос с исходным bearer token к агенту. Сравнение bearer token в
+агенте — constant-time.
+
+Единственное разрешённое plaintext-соединение management plane —
+`host nginx -> agent` внутри принадлежащего Compose bridge с `internal: true`.
+Это локальный upstream nginx, а не удалённо доступный endpoint на private
+address: агент не публикует host ports, не подключается к public/default
+network и не имеет иного management listener. Для production Compose сеть
+фиксирована полностью:
+
+- subnet `172.31.255.0/28`, gateway `172.31.255.1`;
+- Xray `172.31.255.2`;
+- agent `172.31.255.3`.
+
+Plain HTTP на host port, внешнем/private интерфейсе, другой Docker-сети или при
+любом отклонении от этой топологии запрещён. До создания/старта контейнеров
+deploy fail-closed проверяет, что subnet не пересекается с маршрутами и
+интерфейсными сетями хоста либо другими Docker networks. Уже существующая
+Compose management network допустима только при точном совпадении имени,
+`internal`, subnet и gateway; несовпадение считается drift, а не исправляется
+неявно. Также preflight проверяет фиксированные container IPv4, отсутствие
+публикации портов агента и отсутствие у него дополнительных сетей.
+
+После старта deploy повторно проверяет фактическую Docker network/container
+конфигурацию через runtime inspection и с хоста выполняет прямой
+аутентифицированный health-запрос к `172.31.255.3` по HTTP. Только после
+успешного direct health nginx получает/reloads HTTPS vhost; внешний
+аутентифицированный HTTPS health является отдельной финальной проверкой. При
+ошибке nginx endpoint не публикуется, а deploy завершается fail-closed.
 
 Ротация token выполняется без разрыва:
 
@@ -629,6 +658,25 @@ flag.
 - поддерживаемую backend↔agent compatibility matrix;
 - результаты agent contract, Android/iOS import и connection smoke tests.
 
+Первое исправление management transport на direct bridge выпускается в два
+неразделимых этапа. Сначала отдельный bootstrap SHA с описанной выше topology
+проходит review, CI и test deploy; rollback на более старый loopback SHA для
+него явно отключён. Loopback-вариант, где host nginx обращается к опубликованному
+на `127.0.0.1` порту контейнера, не считается операционно совместимым rollback
+target на Docker 29.6. Затем новый final SHA tracked-изменением объявляет только
+проверенный bootstrap SHA совместимым rollback target, снова проходит полный
+review, CI и test deploy, откатывается на bootstrap в controlled rehearsal и
+разворачивается вперёд на тот же final SHA. Именно final SHA, а не bootstrap,
+становится A-010 agent SHA для backend integration.
+
+Каждый этап идентифицируется полным immutable SHA. Любое tracked-изменение после
+review или test deploy лишает прежнее evidence статуса evidence текущего head и
+требует полного gate для нового SHA; историческое evidence exact bootstrap SHA
+сохраняется как доказательство допустимости rollback target. Release evidence
+final SHA обязано отдельно содержать bootstrap SHA, успешный rollback rehearsal
+и успешный forward redeploy; branch names и плавающие image tags не заменяют ни
+один SHA gate.
+
 Backend для MVP принимает только agent contract v1. Несовместимый агент получает
 `INCOMPATIBLE`, не участвует в продаже/подписке и не получает mutation calls.
 Изменения contract сначала добавляются backward-compatible на agent, затем на
@@ -660,8 +708,10 @@ Rollback:
 - backend можно вернуть только на предыдущий VLESS-совместимый SHA без rollback
   expand migrations; действующие receipts/reconcile продолжает обслуживать
   worker из этого совместимого release;
-- agent откатывается только на SHA, совместимый с сохранённой snapshot schema и
-  текущим backend contract; snapshot перед downgrade сохраняется;
+- agent откатывается только на SHA, совместимый с сохранённой snapshot schema,
+  текущим backend contract и фактической Docker network topology; snapshot перед
+  downgrade сохраняется. Для direct-bridge final SHA таким target является
+  проверенный bootstrap SHA, но не более старый loopback SHA;
 - для первого VLESS release прежний pre-VLESS SHA не считается совместимым после
   появления оплаченного receipt; если совместимого code rollback нет, остаётся
   текущий runtime с продажами off, пока выпускается forward fix;

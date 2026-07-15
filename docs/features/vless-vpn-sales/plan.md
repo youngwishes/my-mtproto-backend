@@ -28,6 +28,9 @@ Pull Request, получает финальное ревью точного head
   `my-vless-vds-instance`; его нельзя создавать внутри backend-репозитория.
 - Agent contract v1 фиксируется до runtime-кода. Agent проходит реализацию,
   review и test deploy до включения backend mutation integration.
+- Исправление management transport проходит двухступенчатый A-010: immutable
+  direct-bridge bootstrap без loopback rollback, затем final SHA с bootstrap как
+  единственным проверенным rollback target.
 - `VPN_SALES_ENABLED` остаётся `False` до совместной приёмки release pair.
 
 ## Фаза C — общий контракт и границы репозиториев
@@ -235,8 +238,11 @@ untracked-файлов. Фаза содержит десять атомарны�
 - **RED:** integration test падает при mutable/unpinned image, invalid REALITY
   target/private key, неверном flow/security или agent readiness до restore.
 - **Минимальное production-изменение:** pinned image digest, read-only config,
-  dropped capabilities where possible, healthchecks and private management
-  network; 3x-ui отсутствует.
+  dropped capabilities where possible и healthchecks. Compose-owned management
+  bridge имеет `internal: true`, subnet `172.31.255.0/28`, gateway
+  `172.31.255.1`, фиксированные Xray `172.31.255.2` и agent `172.31.255.3`;
+  agent не публикует host ports и не подключается к public/default network.
+  3x-ui отсутствует.
 - **Документация:** Xray upgrade policy, target/SNI TLS 1.3 preflight и запрет
   private/loopback/link-local/metadata target.
 - **Проверка:** `docker compose -f docker-compose.yml config --quiet && uv run pytest tests/integration/test_runtime.py -q`.
@@ -254,11 +260,21 @@ untracked-файлов. Фаза содержит десять атомарны�
   `deploy/playbook-prod.yml`, `deploy/roles/vless_agent/**`,
   `deploy/group_vars/*.example.yml`, `deploy/tests/`.
 - **RED:** Molecule/unittest-style deploy tests требуют TLS certificate
-  verification, backend-only source allowlist, no plaintext listener, unique
-  node token lookup, image digest and full deploy revision.
+  verification, backend-only source allowlist, отсутствия plaintext host
+  listener, unique node token lookup, image digest и full deploy revision.
+  Отдельные tests требуют fail-closed при пересечении `172.31.255.0/28` с
+  host routes/interfaces или другими Docker networks, при drift уже созданной
+  management network, неверных static IP, публикации agent port или
+  дополнительной agent network.
 - **Минимальное production-изменение:** idempotent Ansible role по образцу
   sibling operational layout, но без копирования его inventory/env; rolling
-  replacement сохраняет snapshot.
+  replacement сохраняет snapshot. До старта выполняется network preflight;
+  после старта runtime inspection подтверждает точную topology и прямой
+  аутентифицированный HTTP health с хоста к `172.31.255.3`. Только затем
+  устанавливается/reloads nginx vhost и проверяется внешний аутентифицированный
+  HTTPS health. Plaintext разрешён только для этого host-nginx upstream внутри
+  Compose-owned `internal` bridge и не является удалённо достижимым
+  private-address endpoint.
 - **Документация:** test deploy, prod deploy, staged token rotation, firewall,
   snapshot backup/downgrade compatibility, rollback и первый вариант
   `docs/COMPATIBILITY.md`; все agent deploy/compatibility docs завершаются в
@@ -286,30 +302,51 @@ untracked-файлов. Фаза содержит десять атомарны�
 - **Готово, когда:** failure fixtures создают только маскированные события и
   runbook однозначно восстанавливает exact snapshot.
 
-### A-010 — Завершить agent CI, review и test-deploy evidence
+### A-010 — Завершить direct-bridge bootstrap и final release evidence
 
-- **Результат:** agent PR имеет зелёный full suite, reviewed head SHA и проверен
-  на выделенном тестовом сервере до начала backend mutation integration.
+- **Результат:** agent PR имеет зелёный full suite и два последовательно
+  проверенных immutable SHA: direct-bridge bootstrap и final head. Final head
+  проверен на выделенном тестовом сервере вместе с rollback на bootstrap и
+  forward redeploy до начала backend mutation integration.
 - **BR/AC:** BR-006, BR-007, BR-008, BR-013, BR-014; AC-003, AC-004, AC-005.
 - **Зависимости:** A-001..A-009.
-- **Файлы и владение:** **[NEW REPO]** CI workflow и финальная проверка уже
-  завершённых `docs/DEPLOY.md`, `docs/COMPATIBILITY.md`, `docs/RUNBOOK.md`;
+- **Файлы и владение:** **[NEW REPO]** Compose/network topology, Ansible
+  preflight/runtime inspection, их tests, CI workflow и финальная проверка
+  `docs/DEPLOY.md`, `docs/COMPATIBILITY.md`, `docs/RUNBOOK.md`;
   локально gitignored `deploy/inventory.test.ini` после получения
   адреса/SSH-доступа. Exact SHA evidence хранится во внешнем PR/release report,
   а не в tracked файле, который изменил бы собственный SHA.
-- **RED:** release-evidence check не принимает branch name/floating image,
-  непроверенный SHA, отсутствующий consumer fixture или незаполненный test smoke.
-- **Минимальное production-изменение:** нет нового runtime behavior; после
-  последнего docs/CI commit выполняются публикация feature branch, review и
-  безопасный test deploy точного immutable head SHA.
-- **Документация:** exact SHA, Xray digest, test node health, empty+non-empty
-  apply, stale/conflict, restart restore и rollback rehearsal.
-- **Проверка:** `uv run pytest -q && docker compose -f docker-compose.yml config --quiet && ansible-playbook -i deploy/inventory.test.ini deploy/playbook-test.yml --syntax-check -e deploy_revision="$(git rev-parse HEAD)"` плюс controlled test-node smoke.
+- **RED:** topology/deploy regression tests запрещают прежний loopback upstream
+  и требуют exact internal bridge/static IP/no agent ports; test-deploy evidence
+  фиксирует наблюдавшуюся недоступность loopback topology на Docker 29.6.
+  Preflight tests отклоняют host/Docker overlap и drift. Runtime ordering test
+  требует inspection и direct authenticated health до nginx.
+  Release-evidence check не принимает branch name/floating image,
+  непроверенный SHA, loopback SHA как rollback target, отсутствующий consumer
+  fixture или незаполненный test smoke/rollback/forward redeploy.
+- **Минимальное production-изменение:**
+  1. реализовать direct bridge и создать bootstrap SHA; явно отключить rollback
+     на прежний loopback SHA, затем выполнить review, CI и test deploy именно
+     bootstrap SHA;
+  2. tracked-изменением compatibility matrix объявить проверенный bootstrap SHA
+     rollback-compatible, создать final SHA, повторить review, CI и test deploy,
+     выполнить controlled rollback на bootstrap и forward redeploy exact final
+     SHA.
+- **Документация:** оба exact SHA, Xray digest, причина несовместимости
+  loopback SHA на Docker 29.6, network preflight/runtime inspection, test node
+  direct+external health, empty+non-empty apply, stale/conflict, restart restore,
+  rollback на bootstrap и forward redeploy final.
+- **Проверка:** для каждого из bootstrap и final:
+  `uv run pytest -q && uv run pytest deploy/tests -q && docker compose -f docker-compose.yml config --quiet && ansible-playbook -i deploy/inventory.test.ini deploy/playbook-test.yml --syntax-check -e deploy_revision="$(git rev-parse HEAD)"`, затем review/CI точного SHA и controlled test-node smoke. Для final дополнительно выполняются rollback exact bootstrap SHA, проверка authenticated health/snapshot restore и forward redeploy exact final SHA с повторной health/snapshot проверкой.
 - **Готово, когда:** agent PR оставлен открытым с финальным
-  `VERDICT: approved`, test node принимает contract v1 по HTTPS, rollback
-  rehearsal успешен и его точный SHA передан backend-плану. Любое последующее
-  tracked изменение agent, включая docs/CI, инвалидирует evidence и требует
-  нового полного review и test deploy нового head SHA до R-004/R-005.
+  `VERDICT: approved` для exact final head, bootstrap и final имеют отдельные
+  зелёные review/CI/test-deploy evidence, test node принимает contract v1 через
+  внешний HTTPS endpoint, а rollback на bootstrap и forward redeploy final
+  успешны. Backend-плану передаётся только final SHA вместе с bootstrap rollback
+  evidence. Любое последующее tracked изменение agent, включая compatibility,
+  docs/CI, лишает прежнее evidence статуса evidence текущего head и требует
+  нового полного review и test deploy нового head до R-004/R-005; историческое
+  exact bootstrap evidence сохраняется только для проверки rollback target.
 
 ### Партии delivery unit A
 
