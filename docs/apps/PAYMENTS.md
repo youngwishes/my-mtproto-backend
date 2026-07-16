@@ -65,6 +65,36 @@ collision, потому что legacy-схема не хранит достат�
 безопасного доказательства exact replay. При применении receipt nullable-связь
 с Payment заполняется только если provider/charge/user/product совпадают.
 
+## VLESS intent и приём receipt
+
+`CreatePaymentIntentService` принимает только валюты `RUB` и `XTR`, всегда ищет
+активный Product по коду `vless_30d` и сохраняет точную коммерческую identity:
+RUB в копейках с provider `yukassa`, Stars как целое число с provider `stars`.
+Перед созданием вызывается injected sale-availability contract. Intent получает
+настраиваемый TTL и после создания не меняет user/product/payload/цену/provider.
+
+`ApprovePaymentIntentService` повторно проверяет exact user, payload, currency,
+amount, provider, TTL и текущую sale availability, затем conditional-переходом
+переводит `CREATED` в `PRECHECKOUT_APPROVED`. Exact повтор уже одобренного
+pre-checkout идемпотентен и не отменяет ранее выданное одобрение при последующей
+потере availability.
+
+`AcceptPaymentReceiptService` не импортирует VPN domain и не выполняет
+fulfillment. В короткой atomic-транзакции он принимает только matching
+`PRECHECKOUT_APPROVED` intent, создаёт `RECEIVED` receipt и переводит intent в
+`PAID`. Одобренный intent принимается после TTL и не зависит от текущего flag,
+цен или нод. Exact replay возвращает ту же receipt; collision charge identity с
+другими immutable полями даёт `PaymentIdentityConflict`.
+
+Если две конкурентные доставки используют один intent с разными charge ID,
+OneToOne-collision перечитывает receipt-победитель по intent и возвращает
+`PaymentIdentityConflict`; raw database error наружу не выходит. Совпадающая
+конкурентная доставка возвращает receipt-победитель как exact replay.
+
+Опциональный injected scheduler регистрируется after commit только как быстрый
+путь. Ошибка регистрации или broker callback не удаляет `RECEIVED`: periodic
+recovery остаётся durable механизмом доставки в single-writer очередь.
+
 ## Сервисы
 
 - **CreatePaymentService** — оркестратор платежа. Ищет пользователя, определяет стратегию (extend/issue), создаёт Payment, отправляет уведомление через SendNotificationService.

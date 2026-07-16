@@ -74,3 +74,16 @@ Django-бэкенд — «мозг» платформы MTPRoto Keys по про
 | 15:00 | Предупреждение за 1 день до истечения |
 | 08:00 | Предупреждение за 1 час до истечения |
 | 09:00 | Удаление истёкших ключей с VDS |
+
+## VLESS VPN: конфигурация продаж
+
+Новые VLESS-продажи включаются только явным `VPN_SALES_ENABLED=1`. Backend
+создаёт invoice и одобряет pre-checkout лишь для стабильного активного Product
+`vless_30d` с положительными ценами RUB и XTR и при наличии exact-synced READY
+ноды contract v1, куда помещается prospective изменение: `+1` для первой
+покупки/реактивации истёкшего доступа и `+0` для renewal активного. TTL intent
+задаётся `VPN_PAYMENT_INTENT_TTL_SECONDS` (по умолчанию 900 секунд).
+
+Feature flag и availability проверяются повторно перед pre-checkout. После его
+одобрения matching successful payment принимается даже после TTL, выключения
+flag или потери нод: durable receipt важнее ускоряющего broker callback.

@@ -17,6 +17,7 @@ __all__ = [
     "VPNRealityFingerprint",
     "VPNRealityFlow",
     "VPNReissueInProgress",
+    "VPNSalesDisabled",
 ]
 
 _EXPORT_MODULES = {
@@ -33,6 +34,7 @@ _EXPORT_MODULES = {
     "VPNAccessNotFound": "apps.vpn.exceptions",
     "VPNCapacityUnavailable": "apps.vpn.exceptions",
     "VPNReissueInProgress": "apps.vpn.exceptions",
+    "VPNSalesDisabled": "apps.vpn.exceptions",
 }
 
 

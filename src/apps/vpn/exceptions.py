@@ -17,3 +17,7 @@ class VPNReissueInProgress(BaseServiceError):
 
 class VPNCapacityUnavailable(BaseServiceError):
     """Сейчас нет доступных VPN-серверов"""
+
+
+class VPNSalesDisabled(BaseServiceError):
+    """Продажи VPN временно приостановлены"""

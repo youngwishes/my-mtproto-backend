@@ -37,3 +37,7 @@ class PaymentIntentExpired(BaseServiceError):
 
 class PaymentIdentityConflict(BaseServiceError):
     """Идентификатор платежа уже связан с другими данными"""
+
+
+class VPNProductNotConfigured(BaseServiceError):
+    """VPN-продукт временно недоступен"""

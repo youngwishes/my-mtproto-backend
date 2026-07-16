@@ -9,6 +9,14 @@ from apps.payments.services.dtos.payment_state_dtos import (
     PaymentIntentData,
     PaymentReceiptData,
 )
+from apps.payments.services.dtos.payment_intent_service_dtos import (
+    AcceptedPaymentReceiptOut,
+    AcceptPaymentReceiptIn,
+    ApprovedPaymentIntentOut,
+    CreatePaymentIntentIn,
+    PaymentIntentOut,
+    PreCheckoutPaymentIntentIn,
+)
 
 __all__ = [
     "CreatePaymentIn",
@@ -18,4 +26,10 @@ __all__ = [
     "CreateGiftCertificateOut",
     "PaymentIntentData",
     "PaymentReceiptData",
+    "ApprovedPaymentIntentOut",
+    "AcceptedPaymentReceiptOut",
+    "AcceptPaymentReceiptIn",
+    "CreatePaymentIntentIn",
+    "PaymentIntentOut",
+    "PreCheckoutPaymentIntentIn",
 ]

@@ -142,3 +142,8 @@ AUTH_USER_MODEL = "users.SystemUser"
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
+
+# VLESS sales fail closed until an operator explicitly enables them.
+VPN_SALES_ENABLED = os.getenv("VPN_SALES_ENABLED") == "1"
+VPN_AGENT_CONTRACT_VERSION = os.getenv("VPN_AGENT_CONTRACT_VERSION", "v1")
+VPN_PAYMENT_INTENT_TTL_SECONDS = int(os.getenv("VPN_PAYMENT_INTENT_TTL_SECONDS", "900"))

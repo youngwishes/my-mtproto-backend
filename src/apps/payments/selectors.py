@@ -46,6 +46,15 @@ def get_payment_receipt_by_identity(
     )
 
 
+def get_payment_receipt_by_intent_id(*, intent_id: int) -> PaymentReceipt | None:
+    """Return the sole durable receipt already accepted for an intent."""
+    return (
+        PaymentReceipt.objects.filter(intent_id=intent_id)
+        .select_related("intent", "user", "product", "payment")
+        .first()
+    )
+
+
 def get_payment_by_identity(*, provider: str, charge_id: str) -> Payment | None:
     """Expose an existing legacy/new Payment before receipt identity acceptance."""
     return (

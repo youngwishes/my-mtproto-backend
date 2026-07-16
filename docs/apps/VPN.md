@@ -89,6 +89,17 @@ ORM-чтения сосредоточены в `selectors.py`: lookup актив
 subscription token, выбор READY/available нод и evidence конкретного доступа.
 Бизнес-сервисы не должны размещать собственные ORM-запросы.
 
+## Доступность новых продаж
+
+`CheckVPNSaleAvailabilityService` работает fail closed: требует включённый
+feature flag и хотя бы одну активную, разрешённую, exact-synced READY-ноду с
+ожидаемой major-версией agent contract. Capacity forecast считает все активные
+неистёкшие `PREPARING`/`READY` accesses. Первая покупка и реактивация истёкшего
+доступа прогнозируют `+1`, а продление уже занимающего snapshot access — `+0`.
+Для contract v1 лимит 5000 entries является более строгим, чем byte limit
+фиксированного access DTO, поэтому переполнение отклоняется до invoice без
+блокировки допустимого renewal.
+
 ## Миграция и rollback
 
 `vpn.0001_initial` — additive expand migration, зависящая только от payment
