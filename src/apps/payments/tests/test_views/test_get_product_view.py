@@ -3,6 +3,7 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from apps.payments.enums import ProductCodeEnum
 from apps.payments.models import Product
 from apps.payments.tests.factories import ProductFactory
 
@@ -11,7 +12,7 @@ class TestGetProductView(APITestCase):
     url: str = reverse("product")
 
     def setUp(self) -> None:
-        self.product = ProductFactory()
+        self.product = ProductFactory(code=ProductCodeEnum.MTPROTO_30D)
 
     def test_get_product_view(self) -> None:
         response = self.client.get(
@@ -40,3 +41,16 @@ class TestGetProductView(APITestCase):
             headers={"Bot-Auth-Token": settings.BOT_AUTH_TOKEN},
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_selects_legacy_product_by_stable_code_not_row_order(self) -> None:
+        Product.objects.all().delete()
+        ProductFactory(code=ProductCodeEnum.VLESS_30D)
+        expected = ProductFactory(code=ProductCodeEnum.MTPROTO_30D)
+
+        response = self.client.get(
+            path=self.url,
+            headers={"Bot-Auth-Token": settings.BOT_AUTH_TOKEN},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()["title"], expected.title)

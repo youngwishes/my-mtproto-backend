@@ -5,7 +5,7 @@ import json
 from django.db import models
 
 from apps.core import ActiveQuerySet, BaseDjangoModel
-from apps.payments.enums import PaymentKindEnum, PaymentProviderEnum
+from apps.payments.enums import PaymentKindEnum, PaymentProviderEnum, ProductCodeEnum
 
 
 class ProductQuerySet(ActiveQuerySet):
@@ -36,6 +36,13 @@ class ProductQuerySet(ActiveQuerySet):
 
 
 class Product(BaseDjangoModel):
+    code = models.CharField(
+        "стабильный код",
+        max_length=32,
+        choices=ProductCodeEnum.choices(),
+        null=True,
+        blank=True,
+    )
     title = models.CharField("название")
     description = models.TextField("описание")
     currency = models.CharField("валюта", default="RUB")
@@ -56,6 +63,13 @@ class Product(BaseDjangoModel):
     class Meta:
         verbose_name = "товар"
         verbose_name_plural = "товары"
+        constraints = [
+            models.UniqueConstraint(
+                fields=("code",),
+                condition=models.Q(code__isnull=False) & ~models.Q(code=""),
+                name="uniq_non_empty_product_code",
+            ),
+        ]
 
 
 class Payment(BaseDjangoModel):
@@ -73,6 +87,14 @@ class Payment(BaseDjangoModel):
         related_name="kassa_payment",
         verbose_name="ключ",
         null=True,
+    )
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.PROTECT,
+        related_name="payments",
+        verbose_name="товар",
+        null=True,
+        blank=True,
     )
     charge_id = models.CharField(
         "ID платежа у провайдера",
@@ -96,9 +118,9 @@ class Payment(BaseDjangoModel):
         verbose_name_plural = "платежи"
         constraints = [
             models.UniqueConstraint(
-                fields=("provider", "charge_id", "kind"),
-                condition=models.Q(kind=PaymentKindEnum.GIFT_CERTIFICATE),
-                name="uniq_gift_certificate_payment_identity",
+                fields=("provider", "charge_id"),
+                condition=~models.Q(charge_id=""),
+                name="uniq_non_empty_payment_identity",
             ),
         ]
 

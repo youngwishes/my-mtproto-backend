@@ -97,6 +97,7 @@
 
 | Поле | Тип | Описание |
 |------|-----|----------|
+| `code` | str? | Стабильный код `mtproto_30d` или `vless_30d`; nullable в expand/rollback window, условно уникален только для непустых значений |
 | `title` | str | Название |
 | `description` | TextField | Описание |
 | `currency` | str | Валюта (default: RUB) |
@@ -116,9 +117,14 @@
 |------|-----|----------|
 | `user` | FK → SystemUser | Кто заплатил |
 | `key` | OneToOne → MTPRotoKey? | За какой ключ (nullable) |
+| `product` | FK → Product? (PROTECT) | Товар; nullable для legacy rows/writers в rollback window |
 | `charge_id` | str | ID платежа от провайдера |
 | `provider` | str | `YUKASSA` или `STARS` |
 | `kind` | str | `SUBSCRIPTION` или `GIFT_CERTIFICATE`; отличает обычную покупку подписки от покупки подарочного сертификата |
+
+Непустая пара `(provider, charge_id)` условно уникальна для всех типов
+платежей. Пустые legacy charge IDs могут повторяться. Expand-миграция не меняет
+nullable OneToOne/SET_NULL контракт `Payment.key`.
 
 ## GiftCertificate (apps/payments)
 

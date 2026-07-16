@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from django.contrib import admin
 from django.utils.html import format_html
 
@@ -8,6 +10,7 @@ from apps.payments.models import GiftCertificate, Payment, Product
 class PaymentAdmin(admin.ModelAdmin):
     list_display = [
         "id",
+        "product",
         "charge_id",
         "telegram_username_link",
         "key",
@@ -15,7 +18,7 @@ class PaymentAdmin(admin.ModelAdmin):
         "kind",
         "created_at",
     ]
-    list_select_related = ["user", "key"]
+    list_select_related = ["user", "key", "product"]
 
     @admin.display(description="Пользователь", ordering="telegram_username")
     def telegram_username_link(self, obj):
@@ -33,6 +36,7 @@ class PaymentAdmin(admin.ModelAdmin):
 class ProductAdmin(admin.ModelAdmin):
     list_display = [
         "id",
+        "code",
         "is_active",
         "title",
         "price",

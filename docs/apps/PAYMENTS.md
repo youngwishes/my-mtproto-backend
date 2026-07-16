@@ -8,8 +8,14 @@
 
 ## Ключевые модели
 
-- **Product** — товар для Telegram Payments API. Хранит цену в рублях и в Stars, данные провайдера (чек для ЮKassa).
-- **Payment** — запись об оплате. Связывает пользователя, ключ, charge_id, провайдер и тип платежа (`SUBSCRIPTION` или `GIFT_CERTIFICATE`).
+- **Product** — товар для Telegram Payments API. Хранит стабильный nullable-код
+  (`mtproto_30d` или `vless_30d`), цену в рублях и в Stars, данные провайдера
+  (чек для ЮKassa). Непустой код условно уникален; бизнес-логика ищет товар
+  только по коду.
+- **Payment** — запись об оплате. Связывает пользователя, nullable Product,
+  legacy MTProto-ключ, charge_id, провайдер и тип платежа (`SUBSCRIPTION` или
+  `GIFT_CERTIFICATE`). Непустая пара `(provider, charge_id)` условно уникальна
+  независимо от типа платежа.
 - **GiftCertificate** — одноразовый код `KEY-XXXX-XXXX` на 30 дней подписки. Покупается отдельно от подписки, действует 1 год до активации, после активации хранит получателя и дату активации.
 
 ## Сервисы
@@ -23,3 +29,27 @@
 
 Зависит от: core (декораторы, исключения), users (поиск пользователя), vds (выдача/продление ключей), notifications (уведомление об оплате).
 От него зависят: бот (вызывает API после успешного платежа и при активации сертификата).
+
+## VLESS expand migration и preflight
+
+Перед expand-миграцией оператор восстанавливает проверяемую SQLite backup-копию
+и запускает read-only команду:
+
+```bash
+python manage.py vless_migration_preflight --backup-path /path/to/restored.sqlite3
+```
+
+Release останавливается, если активных Product не ровно один, существуют
+дублированные непустые payment identity, orphan FK, backup не является читаемой
+целостной SQLite БД или для table rebuild свободно меньше двух размеров текущей
+БД (и абсолютного минимума 8 MiB). Диагностика печатает только PK, code/status и
+имя таблицы; title, цены, charge_id, provider data и путь backup не выводятся.
+Команда ничего не исправляет: неоднозначные данные разрешаются отдельно и
+вручную до повторного запуска.
+
+Миграция присваивает единственному активному legacy Product код `mtproto_30d` и
+связывает с ним существующие Payment. Inactive Product остаются с `code=NULL`.
+На чистой БД без Product миграция допустима, но production preflight всё равно
+блокирует такой rollout. `Product.code` и `Payment.product` остаются nullable на
+весь rollback window: старый writer может создать Payment без product. Поле
+`Payment.key` и его nullable OneToOne/SET_NULL контракт не изменяются.

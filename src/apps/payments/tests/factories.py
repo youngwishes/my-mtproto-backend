@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import factory
 from datetime import timedelta
 
@@ -8,6 +10,7 @@ from apps.payments.models import GiftCertificate, Payment, Product
 
 
 class ProductFactory(factory.django.DjangoModelFactory):
+    code = None
     title = factory.Sequence(function=lambda n: f"title{n}")
     provider_data = factory.Sequence(function=lambda n: '{"key": "value"}')
     description = factory.Sequence(function=lambda n: f"description_{n}")
@@ -22,6 +25,7 @@ class ProductFactory(factory.django.DjangoModelFactory):
 class PaymentFactory(factory.django.DjangoModelFactory):
     user = factory.SubFactory("apps.users.tests.factories.SystemUserFactory")
     key = None
+    product = None
     charge_id = factory.Sequence(lambda n: f"charge_{n}")
     provider = PaymentProviderEnum.YUKASSA
 
