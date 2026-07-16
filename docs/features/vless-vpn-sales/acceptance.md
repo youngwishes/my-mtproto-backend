@@ -1,6 +1,6 @@
 # VLESS VPN sales — acceptance evidence
 
-Статус: `in_progress`
+Статус: `ready_for_product_review`
 
 Backend branch: `codex/vless-vpn-sales`
 
@@ -61,8 +61,45 @@ Rehearsal также подтвердил fail-closed preflight: исходна�
 
 ## R-003 — full verification and product acceptance
 
-Будет заполнено после product-review exact backend SHA и полного acceptance
-прогона AC-001…AC-013.
+Дата: 2026-07-16. Проверки выполнены с default
+`VPN_SALES_ENABLED=0`; внешние payment, Telegram и agent вызовы в suites
+замоканы. Exact backend head и product-review verdict фиксируются immutable
+PR gate, потому что tracked документ не может ссылаться на собственный commit.
+
+| Check | Result |
+|---|---|
+| `make test` | 611/611 passed |
+| `cd bot && uv run pytest -q` | 90/90 passed |
+| Bot Ruff | passed |
+| Cross-repo contract/release tests | 11/11 passed |
+| `makemigrations --check --dry-run` | no changes |
+| Django system check | no issues |
+| Production/local Compose config | passed |
+| Default sales flag, Django/bot/VPN worker | `0` / `0` / `0` in both Compose files |
+| Agent exact SHA/worktree check | matched / clean |
+| Secret, test-node address and diff checks | passed |
+
+### AC traceability
+
+| Acceptance criterion | Evidence |
+|---|---|
+| AC-001 | Bot VPN section and RUB/XTR actions: `bot/tests/test_handlers.py`, `bot/tests/domains/vpn/` |
+| AC-002 | Intent, pre-checkout and successful receipt API/service matrix: `apps.vpn.tests.test_views`, payment intent/receipt suites |
+| AC-003 | URL only after published readiness: publish-readiness, notification and bot client/handler suites |
+| AC-004 | Durable receipt, retry/recovery and delayed publication: payment task, lease recovery, reconcile and readiness suites |
+| AC-005 | No eligible node blocks invoice and pre-checkout: sale availability and API suites |
+| AC-006 | Active renewal adds 30 days and preserves URL: fulfillment and payment application suites |
+| AC-007 | Expired renewal starts from accepted payment time and preserves URL: fulfillment/lifecycle suites |
+| AC-008 | Duplicate/concurrent receipt applies once: receipt identity, lease and single-writer suites |
+| AC-009 | Reissue keeps subscription URL and serves old revision until new readiness: reissue, health, reconcile and subscription suites |
+| AC-010 | Flag off blocks only invoice/pre-checkout; existing lifecycle remains available: API, bot config and Compose contract suites |
+| AC-011 | Refund deactivation removes serving configuration idempotently and preserves audit: refund/lifecycle suites |
+| AC-012 | VPN paths do not mutate MTProto/free/referral/gift state: fulfillment, bot legacy and full regression suites |
+| AC-013 | Both RUB and XTR prices are required before sale: availability, intent and exact invoice DTO suites |
+
+Product acceptance is ready for an independent `product-reviewer` against the
+final candidate SHA. Any finding returns to the originating implementer and
+invalidates this ready state until the full checks are repeated.
 
 ## Publication and smoke
 
