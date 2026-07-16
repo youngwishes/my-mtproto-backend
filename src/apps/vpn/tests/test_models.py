@@ -10,10 +10,17 @@ from django.test import TestCase
 from apps.core.models import BaseDjangoModel
 from apps.payments.tests.factories import PaymentFactory
 from apps.vpn.enums import VPNAccessState, VPNApplyStatus
-from apps.vpn.models import VPNAccess, VPNAccessNodeApply, VPNNode, VPNPurchase
+from apps.vpn.models import (
+    VPNAccess,
+    VPNAccessNodeApply,
+    VPNAccessNodeRevisionEvidence,
+    VPNNode,
+    VPNPurchase,
+)
 from apps.vpn.tests.factories import (
     VPNAccessFactory,
     VPNAccessNodeApplyFactory,
+    VPNAccessNodeRevisionEvidenceFactory,
     VPNNodeFactory,
     VPNPurchaseFactory,
 )
@@ -21,7 +28,13 @@ from apps.vpn.tests.factories import (
 
 class VPNModelStructureTests(TestCase):
     def test_all_domain_models_inherit_base_model(self) -> None:
-        for model in (VPNAccess, VPNPurchase, VPNNode, VPNAccessNodeApply):
+        for model in (
+            VPNAccess,
+            VPNPurchase,
+            VPNNode,
+            VPNAccessNodeApply,
+            VPNAccessNodeRevisionEvidence,
+        ):
             self.assertTrue(issubclass(model, BaseDjangoModel))
 
     def test_private_reality_data_is_not_in_schema(self) -> None:
@@ -30,6 +43,15 @@ class VPNModelStructureTests(TestCase):
         self.assertNotIn("reality_target", fields)
         self.assertNotIn("agent_secret", fields)
         self.assertIn("agent_secret_key", fields)
+
+    def test_apply_evidence_keeps_distinct_access_revisions_per_node(self) -> None:
+        access = VPNAccessFactory()
+        node = VPNNodeFactory()
+        VPNAccessNodeApplyFactory(access=access, node=node, desired_revision=2)
+        VPNAccessNodeRevisionEvidenceFactory(access=access, node=node, revision=1)
+        VPNAccessNodeRevisionEvidenceFactory(access=access, node=node, revision=2)
+        self.assertEqual(node.access_applies.filter(access=access).count(), 1)
+        self.assertEqual(node.revision_evidences.filter(access=access).count(), 2)
 
 
 class VPNAccessTests(TestCase):

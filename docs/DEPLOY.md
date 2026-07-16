@@ -86,3 +86,17 @@ lifetime lock. Поэтому корректный worker остаётся healt
 Playbook требует `vpn-payment-worker` в live ignored group vars и ждёт Docker
 `healthy`; при rollback failed singleton останавливается до восстановления
 предыдущего Compose stack. Не запускай второй singleton вручную.
+
+Для public VPN subscription задай `VPN_SUBSCRIPTION_REDIS_URL`, rate limit и
+window из `.env.example`. В `VPN_SUBSCRIPTION_TRUSTED_PROXY_NETWORKS` перечисляй
+только фактические IPv4/IPv6 CIDR reverse proxy: иначе `X-Forwarded-For`
+игнорируется. Edge Nginx перезаписывает XFF через `$remote_addr`.
+Subscription access log содержит только статический route label, status и
+latency; `$request_uri`, `$uri` и `$args` добавлять нельзя, потому что token —
+bearer credential.
+
+Safe subscription location присутствует в HTTP и HTTPS server block:
+оба перезаписывают входной XFF значением `$remote_addr` и пишут telemetry только
+в `/dev/stdout`, чтобы контейнер не требовал writable log-файл. HTTP location
+только возвращает `308` на тот же path/query по HTTPS и никогда не proxy-ирует
+bearer token в Django по plaintext; subscription отдаёт только HTTPS location.

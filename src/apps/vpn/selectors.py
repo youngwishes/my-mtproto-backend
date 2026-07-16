@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from uuid import UUID
 
 from django.db import transaction
 from django.db.models import Exists, F, OuterRef, Q, QuerySet
@@ -11,9 +12,20 @@ from apps.vpn.dtos import (
     VPNDesiredAccessDTO,
     VPNExactSnapshotDTO,
 )
-from apps.vpn.enums import VPNAccessState, VPNApplyStatus, VPNNodeHealthState
+from apps.vpn.enums import (
+    VPNAccessState,
+    VPNApplyStatus,
+    VPNDataPlaneState,
+    VPNNodeHealthState,
+)
 from apps.vpn.exceptions import VPNAgentContractError, VPNAgentTransportError
-from apps.vpn.models import VPNAccess, VPNAccessNodeApply, VPNNode, VPNPurchase
+from apps.vpn.models import (
+    VPNAccess,
+    VPNAccessNodeApply,
+    VPNAccessNodeRevisionEvidence,
+    VPNNode,
+    VPNPurchase,
+)
 
 
 def get_vpn_access_by_user_id(*, user_id: int) -> VPNAccess | None:
@@ -36,6 +48,116 @@ def get_vpn_purchase_by_payment_id(*, payment_id: int) -> VPNPurchase | None:
 
 def get_vpn_access_by_subscription_token(*, token: str) -> VPNAccess | None:
     return VPNAccess.objects.active().filter(subscription_token=token).first()
+
+
+def get_subscription_nodes(*, access: VPNAccess) -> QuerySet[VPNNode]:
+    """Return ordered nodes with exact evidence for the published credential."""
+    if access.published_revision is None:
+        return VPNNode.objects.none()
+    revision_history = VPNAccessNodeRevisionEvidence.objects.filter(
+        node_id=OuterRef("pk"),
+        access=access,
+        revision=access.published_revision,
+    )
+    return (
+        VPNNode.objects.active()
+        .annotate(has_published_history=Exists(revision_history))
+        .filter(
+            Q(
+                revision_evidences__is_active=True,
+                revision_evidences__is_serving=True,
+                revision_evidences__access=access,
+                revision_evidences__revision=access.published_revision,
+                revision_evidences__applied_revision=access.published_revision,
+                revision_evidences__status=VPNApplyStatus.APPLIED,
+            )
+            | Q(
+                has_published_history=False,
+                access_applies__is_active=True,
+                access_applies__access=access,
+                access_applies__desired_revision=access.published_revision,
+                access_applies__applied_revision=access.published_revision,
+                access_applies__status=VPNApplyStatus.APPLIED,
+            ),
+            is_access_available=True,
+            data_plane_state=VPNDataPlaneState.SERVING_READY,
+        )
+        .distinct()
+        .order_by("number")
+    )
+
+
+def stage_vpn_access_reissue(
+    *, access: VPNAccess, new_uuid: UUID, now: datetime
+) -> bool:
+    return (
+        VPNAccess.objects.active()
+        .filter(
+            pk=access.pk,
+            state=VPNAccessState.READY,
+            state_revision=access.state_revision,
+            desired_revision=access.desired_revision,
+            published_revision=access.desired_revision,
+            expired_at__gt=now,
+            disabled_at__isnull=True,
+        )
+        .update(
+            desired_uuid=new_uuid,
+            desired_revision=F("desired_revision") + 1,
+            state=VPNAccessState.PREPARING,
+            state_revision=F("state_revision") + 1,
+            updated_at=now,
+        )
+        == 1
+    )
+
+
+def get_due_vpn_accesses(*, now: datetime, limit: int = 500) -> QuerySet[VPNAccess]:
+    return VPNAccess.objects.active().filter(
+        expired_at__lte=now,
+        state__in=(VPNAccessState.PREPARING, VPNAccessState.READY),
+    ).order_by("pk")[:limit]
+
+
+def expire_vpn_access_conditionally(*, access: VPNAccess, now: datetime) -> bool:
+    return (
+        VPNAccess.objects.active()
+        .filter(
+            pk=access.pk,
+            state_revision=access.state_revision,
+            expired_at__lte=now,
+            state__in=(VPNAccessState.PREPARING, VPNAccessState.READY),
+        )
+        .update(
+            state=VPNAccessState.EXPIRED,
+            state_revision=F("state_revision") + 1,
+            updated_at=now,
+        )
+        == 1
+    )
+
+
+def deactivate_vpn_refund_conditionally(
+    *, access: VPNAccess, actor_id: int, reason: str, now: datetime
+) -> bool:
+    return (
+        VPNAccess.objects.active()
+        .filter(
+            pk=access.pk,
+            state_revision=access.state_revision,
+            disabled_at__isnull=True,
+        )
+        .exclude(state=VPNAccessState.DISABLED_REFUND)
+        .update(
+            state=VPNAccessState.DISABLED_REFUND,
+            state_revision=F("state_revision") + 1,
+            disabled_at=now,
+            disabled_by_id=actor_id,
+            disabled_reason=reason,
+            updated_at=now,
+        )
+        == 1
+    )
 
 
 def get_active_unexpired_vpn_access_by_user_id(*, user_id: int) -> VPNAccess | None:
@@ -112,6 +234,33 @@ def mark_vpn_snapshot_applies_pending(
                 "is_active": True,
             },
         )
+        history = VPNAccessNodeRevisionEvidence.objects.filter(
+            access_id=access.access_id,
+            node_id=node.pk,
+            revision=access.access_revision,
+        )
+        already_serving_exact = history.filter(
+            is_active=True,
+            is_serving=True,
+            status=VPNApplyStatus.APPLIED,
+            applied_revision=access.access_revision,
+        ).exists()
+        if already_serving_exact:
+            history.update(last_attempt_at=now, updated_at=now)
+        else:
+            VPNAccessNodeRevisionEvidence.objects.update_or_create(
+                access_id=access.access_id,
+                node_id=node.pk,
+                revision=access.access_revision,
+                defaults={
+                    "applied_revision": None,
+                    "status": VPNApplyStatus.PENDING,
+                    "is_serving": False,
+                    "last_attempt_at": now,
+                    "last_error_code": "",
+                    "is_active": True,
+                },
+            )
 
 
 def mark_vpn_node_snapshot_applied(
@@ -147,7 +296,15 @@ def mark_vpn_node_snapshot_applied(
             last_error_code="",
             updated_at=now,
         )
+        VPNAccessNodeRevisionEvidence.objects.filter(node_id=node.pk).exclude(
+            access_id__in=included_access_ids
+        ).update(is_active=False, is_serving=False, updated_at=now)
         for access in snapshot.accesses:
+            is_current_published = VPNAccess.objects.active().filter(
+                pk=access.access_id,
+                state=VPNAccessState.READY,
+                published_revision=access.access_revision,
+            ).exists()
             VPNAccessNodeApply.objects.active().filter(
                 access_id=access.access_id,
                 node_id=node.pk,
@@ -159,6 +316,22 @@ def mark_vpn_node_snapshot_applied(
                 last_error_code="",
                 updated_at=now,
             )
+            VPNAccessNodeRevisionEvidence.objects.active().filter(
+                access_id=access.access_id,
+                node_id=node.pk,
+                revision=access.access_revision,
+            ).update(
+                applied_revision=access.access_revision,
+                status=VPNApplyStatus.APPLIED,
+                is_serving=is_current_published,
+                last_attempt_at=now,
+                last_error_code="",
+                updated_at=now,
+            )
+        VPNNode.objects.active().filter(pk=node.pk).update(
+            data_plane_state=VPNDataPlaneState.SERVING_READY,
+            updated_at=now,
+        )
         return True
 
 
@@ -195,6 +368,16 @@ def mark_vpn_node_snapshot_failed(
             last_error_code=code,
             updated_at=now,
         )
+        VPNAccessNodeRevisionEvidence.objects.active().filter(
+            node_id=node.pk,
+            revision__in=tuple(access.access_revision for access in snapshot.accesses),
+            status=VPNApplyStatus.PENDING,
+        ).update(
+            status=VPNApplyStatus.FAILED,
+            last_attempt_at=now,
+            last_error_code=code,
+            updated_at=now,
+        )
     return changed == 1
 
 
@@ -212,9 +395,15 @@ def record_vpn_node_health(*, node: VPNNode, health: VPNAgentHealthDTO) -> None:
     )
     if health.readiness == "RECOVERY_READY" or not exact:
         fields["health_state"] = VPNNodeHealthState.SYNCING
+        fields["data_plane_state"] = VPNDataPlaneState.UNAVAILABLE
     elif node.health_state == VPNNodeHealthState.READY:
         fields["last_error_code"] = ""
-    VPNNode.objects.active().filter(pk=node.pk).update(**fields)
+    with transaction.atomic():
+        VPNNode.objects.active().filter(pk=node.pk).update(**fields)
+        if health.readiness == "RECOVERY_READY" or not exact:
+            VPNAccessNodeRevisionEvidence.objects.active().filter(
+                node_id=node.pk, is_serving=True
+            ).update(is_serving=False, updated_at=now)
 
 
 def record_vpn_node_health_failure(
@@ -258,15 +447,40 @@ def get_vpn_access_for_delivery(*, access_id: int) -> VPNAccess | None:
 
 def has_eligible_exact_vpn_apply(*, access: VPNAccess) -> bool:
     """Return durable evidence that current desired credential is publishable."""
+    history = (
+        VPNAccessNodeRevisionEvidence.objects.active()
+        .filter(
+            access=access,
+            revision=access.desired_revision,
+            applied_revision=access.desired_revision,
+            status="applied",
+            node__is_active=True,
+            node__is_access_available=True,
+            node__data_plane_state=VPNDataPlaneState.SERVING_READY,
+            node__health_state=VPNNodeHealthState.READY,
+            node__desired_snapshot_revision__gt=0,
+            node__applied_snapshot_revision=F("node__desired_snapshot_revision"),
+            node__applied_snapshot_hash=F("node__desired_snapshot_hash"),
+        )
+        .exclude(node__desired_snapshot_hash="")
+        .exists()
+    )
+    if history:
+        return True
+    if VPNAccessNodeRevisionEvidence.objects.filter(
+        access=access, revision=access.desired_revision
+    ).exists():
+        return False
     return (
         VPNAccessNodeApply.objects.active()
         .filter(
             access=access,
             desired_revision=access.desired_revision,
             applied_revision=access.desired_revision,
-            status="applied",
+            status=VPNApplyStatus.APPLIED,
             node__is_active=True,
             node__is_access_available=True,
+            node__data_plane_state=VPNDataPlaneState.SERVING_READY,
             node__health_state=VPNNodeHealthState.READY,
             node__desired_snapshot_revision__gt=0,
             node__applied_snapshot_revision=F("node__desired_snapshot_revision"),
@@ -280,6 +494,26 @@ def has_eligible_exact_vpn_apply(*, access: VPNAccess) -> bool:
 def publish_vpn_access_conditionally(*, access: VPNAccess) -> bool:
     """Publish current desired pair only while exact eligible evidence exists."""
     eligible_apply = (
+        VPNAccessNodeRevisionEvidence.objects.active()
+        .filter(
+            access_id=OuterRef("pk"),
+            revision=OuterRef("desired_revision"),
+            applied_revision=OuterRef("desired_revision"),
+            status=VPNApplyStatus.APPLIED,
+            node__is_active=True,
+            node__is_access_available=True,
+            node__data_plane_state=VPNDataPlaneState.SERVING_READY,
+            node__health_state=VPNNodeHealthState.READY,
+            node__desired_snapshot_revision__gt=0,
+            node__applied_snapshot_revision=F("node__desired_snapshot_revision"),
+            node__applied_snapshot_hash=F("node__desired_snapshot_hash"),
+        )
+        .exclude(node__desired_snapshot_hash="")
+    )
+    any_history = VPNAccessNodeRevisionEvidence.objects.filter(
+        access_id=OuterRef("pk"), revision=OuterRef("desired_revision")
+    )
+    eligible_legacy = (
         VPNAccessNodeApply.objects.active()
         .filter(
             access_id=OuterRef("pk"),
@@ -288,6 +522,7 @@ def publish_vpn_access_conditionally(*, access: VPNAccess) -> bool:
             status=VPNApplyStatus.APPLIED,
             node__is_active=True,
             node__is_access_available=True,
+            node__data_plane_state=VPNDataPlaneState.SERVING_READY,
             node__health_state=VPNNodeHealthState.READY,
             node__desired_snapshot_revision__gt=0,
             node__applied_snapshot_revision=F("node__desired_snapshot_revision"),
@@ -297,14 +532,21 @@ def publish_vpn_access_conditionally(*, access: VPNAccess) -> bool:
     )
     return (
         VPNAccess.objects.active()
-        .annotate(has_eligible_apply=Exists(eligible_apply))
+        .annotate(
+            has_eligible_apply=Exists(eligible_apply),
+            has_revision_history=Exists(any_history),
+            has_eligible_legacy=Exists(eligible_legacy),
+        )
         .filter(
             pk=access.pk,
             state=VPNAccessState.PREPARING,
             state_revision=access.state_revision,
             desired_uuid=access.desired_uuid,
             desired_revision=access.desired_revision,
-            has_eligible_apply=True,
+        )
+        .filter(
+            Q(has_eligible_apply=True)
+            | Q(has_revision_history=False, has_eligible_legacy=True)
         )
         .update(
             published_uuid=access.desired_uuid,
@@ -314,6 +556,19 @@ def publish_vpn_access_conditionally(*, access: VPNAccess) -> bool:
         )
         == 1
     )
+
+
+def deactivate_superseded_vpn_applies(*, access: VPNAccess) -> None:
+    now = timezone.now()
+    VPNAccessNodeRevisionEvidence.objects.active().filter(access=access).exclude(
+        revision=access.desired_revision
+    ).update(is_serving=False, updated_at=now)
+    VPNAccessNodeRevisionEvidence.objects.active().filter(
+        access=access,
+        revision=access.desired_revision,
+        status=VPNApplyStatus.APPLIED,
+        applied_revision=access.desired_revision,
+    ).update(is_serving=True, updated_at=now)
 
 
 def mark_vpn_ready_notification_sent(*, access_id: int, revision: int) -> bool:

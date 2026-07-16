@@ -4,11 +4,16 @@ from unittest import mock
 
 from django.test import TestCase
 
-from apps.vpn.enums import VPNAccessState, VPNApplyStatus, VPNNodeHealthState
+from apps.vpn.enums import (
+    VPNAccessState,
+    VPNApplyStatus,
+    VPNDataPlaneState,
+    VPNNodeHealthState,
+)
 from apps.vpn.services.publish_readiness import get_publish_vpn_readiness_service
 from apps.vpn.tests.factories import (
     VPNAccessFactory,
-    VPNAccessNodeApplyFactory,
+    VPNAccessNodeRevisionEvidenceFactory,
     VPNNodeFactory,
 )
 
@@ -33,15 +38,16 @@ class PublishVPNReadinessServiceTests(TestCase):
     ) -> None:
         node = VPNNodeFactory(
             health_state=VPNNodeHealthState.READY,
+            data_plane_state=VPNDataPlaneState.SERVING_READY,
             desired_snapshot_revision=4,
             desired_snapshot_hash="a" * 64,
             applied_snapshot_revision=4,
             applied_snapshot_hash="a" * 64,
         )
-        VPNAccessNodeApplyFactory(
+        VPNAccessNodeRevisionEvidenceFactory(
             access=self.access,
             node=node,
-            desired_revision=self.access.desired_revision,
+            revision=self.access.desired_revision,
             applied_revision=self.access.desired_revision,
             status=VPNApplyStatus.APPLIED,
         )
@@ -69,10 +75,10 @@ class PublishVPNReadinessServiceTests(TestCase):
             applied_snapshot_revision=4,
             applied_snapshot_hash="a" * 64,
         )
-        VPNAccessNodeApplyFactory(
+        VPNAccessNodeRevisionEvidenceFactory(
             access=self.access,
             node=node,
-            desired_revision=self.access.desired_revision + 1,
+            revision=self.access.desired_revision + 1,
             applied_revision=self.access.desired_revision + 1,
             status=VPNApplyStatus.APPLIED,
         )

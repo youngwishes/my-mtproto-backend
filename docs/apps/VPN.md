@@ -177,12 +177,26 @@ contract v1 fixtures. `ForecastVPNSnapshotCapacityService` тем же алго�
 
 ## VPNAccessNodeApply
 
-Строка `(access, node)` уникальна и служит evidence доставки конкретной desired
-revision. Статусы: `PENDING`, `APPLIED`, `FAILED`. Для `APPLIED`
+Legacy-строка `(access, node)` остаётся уникальной current-row для rollback
+совместимости и обновляется старым `update_or_create`. Expand-only
+`VPNAccessNodeRevisionEvidence` имеет unique `(access, node, revision)`. Во
+время reissue старая APPLIED history-строка остаётся serving, а новая получает
+отдельный `PENDING`/`FAILED`; это сохраняет старую subscription на
+delayed/failed PUT. Для `APPLIED`
 `applied_revision` обязана точно совпадать с `desired_revision`; безопасный
 `last_error_code` не должен содержать payload или секреты.
+Повторный exact reconcile уже опубликованной revision идемпотентен: он не
+сбрасывает её serving history в `PENDING`.
 
 ## Reconcile, readiness и доставка URL
+
+`BuildVPNSubscriptionService` использует только публичные параметры нод и
+`published_uuid`/`published_revision`, поэтому staged reissue сохраняет прежний
+credential до readiness нового. `ReissueVPNAccessService`,
+`ExpireVPNAccessesService` и `DeactivateVPNRefundService` выполняют optimistic
+conditional updates по `state_revision` без `select_for_update`; refund
+однократно сохраняет actor/reason/time. Потерянный enqueue восстанавливает
+периодический exact reconcile.
 
 Каждая активная нода имеет собственную монотонную snapshot revision. Reconcile
 строит полный exact snapshot. Если уже сохранённые desired revision/hash
@@ -194,8 +208,9 @@ update-ом без `select_for_update()`. Ограниченные повтор�
 
 Успешная фиксация полного snapshot атомарно связывает node READY и apply
 evidence с его точным составом: все отсутствующие в snapshot строки
-`VPNAccessNodeApply` деактивируются и теряют `applied_revision`, включая empty
-snapshot. При следующем появлении того же UUID/revision строка сначала снова
+legacy `VPNAccessNodeApply` деактивируются и теряют `applied_revision`, а все
+history revisions отсутствующего access теряют active/serving, включая empty
+snapshot. При следующем появлении того же UUID/revision history сначала снова
 становится `PENDING` и не может быть использована для публикации до нового
 успешного PUT. До успешного exact removal прежняя published пара и apply
 evidence не стираются, поэтому неудачная попытка удаления не выдаёт ложный
@@ -210,11 +225,27 @@ health, который сообщает точное совпадение revisi
 как безопасные redacted `last_error_code`. Ошибка одной ноды не прерывает обход
 остального fleet.
 
-После exact apply строки `VPNAccessNodeApply` текущей credential revision
+После exact apply history текущей credential revision
 становятся `APPLIED`. `PublishVPNReadinessService` одним conditional update-ом
 переводит `PREPARING` в `READY` и копирует desired UUID/revision в published
 только при наличии хотя бы одной активной, разрешённой, exact-synced READY-ноды.
-Health без apply evidence публикацию не разрешает.
+Health без apply evidence публикацию не разрешает. Переключение published pair и
+деактивация старых revision evidence выполняются одной DB transaction. Exact
+snapshot без access по-прежнему деактивирует все его evidence revisions.
+
+`VPNNode.health_state` описывает management/reconcile candidate и сам по себе не
+отзывает последний рабочий data plane при delayed/failed reissue.
+`VPNNode.data_plane_state` независимо фиксирует `SERVING_READY` либо hard
+`UNAVAILABLE`. Subscription требует active+available node, `SERVING_READY` и
+exact `is_serving` history опубликованной revision; поэтому management
+`UNHEALTHY`/`INCOMPATIBLE`/`OVER_CAPACITY` может безопасно сохранить старую
+ссылку, но подтверждённая data-plane недоступность исключает ноду.
+Аутентифицированный successful health с drift, missing snapshot или
+`RECOVERY_READY` явно сбрасывает data-plane state и serving flags; обычный
+transport failure этого не делает, поскольку состояние data plane не доказано.
+В rollback window new readers могут использовать exact legacy current-row,
+но только если history для published revision ещё нет; это делает writes
+старого binary видимыми без duplicate links и без обхода history evidence.
 
 Health tick сохраняет последний reconcile error при `RECOVERY_READY`, drift и
 для ноды, которая ещё не подтверждена reconcile как READY; это не сбрасывает

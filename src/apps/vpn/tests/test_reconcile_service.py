@@ -26,6 +26,10 @@ from apps.vpn.selectors import record_vpn_node_unexpected_failure
 from apps.vpn.services.health_check import get_health_check_vpn_node_service
 from apps.vpn.services.build_snapshot import get_build_vpn_snapshot_service
 from apps.vpn.tests.factories import VPNAccessFactory, VPNNodeFactory
+from apps.vpn.enums import VPNAccessState
+from apps.vpn.selectors import get_subscription_nodes
+from apps.vpn.services.reissue import ReissueVPNAccessService
+from uuid import uuid4
 
 
 class FakeAgentClient:
@@ -151,6 +155,11 @@ class ReconcileVPNNodeServiceTests(TestCase):
         evidence = self.node.access_applies.get(access=self.access)
         self.assertIsNone(evidence.applied_revision)
         self.assertNotEqual(evidence.status, VPNApplyStatus.APPLIED)
+        self.assertFalse(
+            self.node.revision_evidences.filter(
+                access=self.access, is_serving=True
+            ).exists()
+        )
 
         original_revision = self.access.desired_revision
         self.access.expired_at = timezone.now() + timedelta(days=30)
@@ -214,6 +223,49 @@ class ReconcileVPNNodeServiceTests(TestCase):
                 self.node.refresh_from_db()
                 self.assertEqual(self.node.health_state, expected_state)
                 self.assertEqual(self.node.last_error_code, error.error_code)
+
+    def test_reissue_failure_preserves_old_subscription_then_success_switches_atomically(self) -> None:
+        initial = get_reconcile_vpn_node_service(
+            client=FakeAgentClient(), publish_access=get_publish_vpn_readiness_service()
+        )
+        self.assertTrue(initial(node=self.node))
+        self.access.refresh_from_db()
+        old_uuid = self.access.published_uuid
+
+        ReissueVPNAccessService(schedule_reconcile=mock.Mock(), generate_uuid=uuid4)(access=self.access)
+        self.access.refresh_from_db()
+        self.assertEqual(tuple(get_subscription_nodes(access=self.access)), (self.node,))
+        failed = get_reconcile_vpn_node_service(
+            client=FakeAgentClient(error=VPNAgentTimeout(self.node.pk)),
+            publish_access=get_publish_vpn_readiness_service(),
+        )
+        self.assertFalse(failed(node=self.node))
+        self.access.refresh_from_db()
+        self.assertEqual(self.access.published_uuid, old_uuid)
+        self.assertEqual(tuple(get_subscription_nodes(access=self.access)), (self.node,))
+
+        self.assertTrue(initial(node=self.node))
+        self.access.refresh_from_db()
+        self.assertEqual(self.access.state, VPNAccessState.READY)
+        self.assertNotEqual(self.access.published_uuid, old_uuid)
+        active = self.node.access_applies.active().filter(access=self.access)
+        self.assertEqual(active.count(), 1)
+        self.assertEqual(active.get().applied_revision, self.access.published_revision)
+
+    def test_repeat_exact_current_reconcile_preserves_serving_history(self) -> None:
+        service = get_reconcile_vpn_node_service(
+            client=FakeAgentClient(), publish_access=get_publish_vpn_readiness_service()
+        )
+        self.assertTrue(service(node=self.node))
+        self.access.refresh_from_db()
+        self.node.refresh_from_db()
+        self.assertTrue(service(node=self.node))
+        evidence = self.node.revision_evidences.get(
+            access=self.access, revision=self.access.published_revision
+        )
+        self.assertTrue(evidence.is_serving)
+        self.assertEqual(evidence.status, VPNApplyStatus.APPLIED)
+        self.assertEqual(tuple(get_subscription_nodes(access=self.access)), (self.node,))
 
     def test_repeated_same_failure_emits_one_deduplicated_safe_alert(self) -> None:
         report_failure = mock.Mock()

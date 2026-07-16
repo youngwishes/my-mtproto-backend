@@ -7,6 +7,7 @@ __all__ = [
     "VPNAccess",
     "VPNAccessExpired",
     "VPNAccessNodeApply",
+    "VPNAccessNodeRevisionEvidence",
     "VPNAccessNotFound",
     "VPNAccessState",
     "VPNAgentAuthenticationError",
@@ -21,6 +22,7 @@ __all__ = [
     "VPNAgentUnavailable",
     "VPNFleetUnexpectedError",
     "VPNApplyStatus",
+    "VPNDataPlaneState",
     "VPNCapacityUnavailable",
     "VPNNode",
     "VPNNodeHealthState",
@@ -28,16 +30,20 @@ __all__ = [
     "VPNRealityFingerprint",
     "VPNRealityFlow",
     "VPNReissueInProgress",
+    "VPNReissueConflict",
+    "VPNReissueNotEligible",
     "VPNSalesDisabled",
 ]
 
 _EXPORT_MODULES = {
     "VPNAccess": "apps.vpn.models",
     "VPNAccessNodeApply": "apps.vpn.models",
+    "VPNAccessNodeRevisionEvidence": "apps.vpn.models",
     "VPNNode": "apps.vpn.models",
     "VPNPurchase": "apps.vpn.models",
     "VPNAccessState": "apps.vpn.enums",
     "VPNApplyStatus": "apps.vpn.enums",
+    "VPNDataPlaneState": "apps.vpn.enums",
     "VPNNodeHealthState": "apps.vpn.enums",
     "VPNRealityFingerprint": "apps.vpn.enums",
     "VPNRealityFlow": "apps.vpn.enums",
@@ -56,6 +62,8 @@ _EXPORT_MODULES = {
     "VPNFleetUnexpectedError": "apps.vpn.exceptions",
     "VPNCapacityUnavailable": "apps.vpn.exceptions",
     "VPNReissueInProgress": "apps.vpn.exceptions",
+    "VPNReissueConflict": "apps.vpn.exceptions",
+    "VPNReissueNotEligible": "apps.vpn.exceptions",
     "VPNSalesDisabled": "apps.vpn.exceptions",
 }
 

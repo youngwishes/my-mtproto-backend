@@ -171,6 +171,7 @@ published pair допустима до первой публикации.
 | `agent_secret_key` | str | Только lookup key environment/Ansible; не bearer token |
 | `agent_contract_version` | str | Major contract агента |
 | `health_state` | str | `NEW`, `SYNCING`, `READY`, `UNHEALTHY`, `INCOMPATIBLE`, `OVER_CAPACITY` |
+| `data_plane_state` | str | Независимый serving-state: `SERVING_READY` или `UNAVAILABLE` |
 | `is_access_available` | bool | Ручной допуск ноды к выдаче |
 | `desired_snapshot_revision/hash` | int, str | Желаемый exact snapshot |
 | `applied_snapshot_revision/hash` | int, str | Подтверждённый агентом snapshot |
@@ -187,7 +188,18 @@ X25519 public key хранится только как canonical unpadded URL-sa
 
 Уникальная пара `(access, node)` хранит readiness evidence:
 `desired_revision`, nullable `applied_revision`, статус `PENDING`/`APPLIED`/
-`FAILED`, время попытки и безопасный error code. UUID здесь не дублируется.
+`FAILED`, время попытки и безопасный error code. Это rollback-compatible current
+row для старого runtime; его cardinality не изменяется.
+
+## VPNAccessNodeRevisionEvidence (apps/vpn)
+
+Expand-only история с unique `(access, node, revision)`. Она dual-write
+с legacy current row и хранит отдельные pending/applied/failed revisions плюс
+`is_serving`. Новые subscription/readiness selectors читают историю; в rollback
+window exact legacy current-row используется как fallback только при
+отсутствии history для опубликованной revision. Reverse
+migration удаляет только history/data-plane expand, оставляя coherent legacy
+row для старого runtime.
 
 ## GiftCertificate (apps/payments)
 

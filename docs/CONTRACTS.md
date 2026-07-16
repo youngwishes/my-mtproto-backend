@@ -291,6 +291,33 @@
 
 ---
 
+## GET /api/v1/vpn/subscriptions/&lt;token&gt;/
+
+Публичный read-only endpoint использует стабильный URL-safe token с энтропией
+не менее 256 бит. `200 text/plain` содержит Base64 списка VLESS+REALITY/TCP
+ссылок для ordered active/available/READY нод с exact evidence
+`published_revision`; IPv6 authority заключается в `[]`.
+
+| Состояние | Ответ |
+|---|---|
+| неизвестный/архивный token | `404` |
+| initial credential не опубликован | `503`, `Retry-After: 30` |
+| истёкший или `DISABLED_REFUND` | `200` с пустым телом |
+| shared Redis limit превышен | `429` с `Retry-After` |
+| Redis throttle недоступен | `503` с `Retry-After: 30` |
+
+Все ответы содержат `Cache-Control: private, no-store` и
+`X-Content-Type-Options: nosniff`. GET не пишет в БД и не запускает provision.
+Token не попадает в access logs/Redis key: throttle использует SHA-256 token и
+trusted source IP. Plain HTTP только отвечает `308` на тот же HTTPS URL;
+Django отдаёт subscription только за HTTPS proxy. Logging filter редактирует
+request-derived path/query и уже материализованный `request.GET` до формирования
+AdminEmail technical report.
+
+Compatibility gate декодирует canonical outer Base64, запрещает trailing
+newline/CR и строгим supported-client parser проверяет scheme, UUID, authority,
+ordered query shape и фиксированный REALITY profile каждой строки.
+
 ## Исходящие запросы к VDS
 
 Бэкенд общается с FastAPI-сервисами на VDS через HTTP. Выдача/перевыпуск ключа — это запись в БД + Celery-таск `push_key_to_servers_task`, который фан-аутит секрет на **все здоровые** VDS. Доставка идемпотентна и поддерживает ротацию: POST `/api/users`; если пользователь уже есть (`409`) — секрет ротируется через PATCH (новый перевыпущенный токен замещает старый; PATCH тем же секретом — безопасный no-op).

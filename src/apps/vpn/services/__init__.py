@@ -39,9 +39,31 @@ from apps.vpn.services.send_ready_notification import (
     SendVPNReadyNotificationService,
     get_send_vpn_ready_notification_service,
 )
+from apps.vpn.services.build_subscription import (
+    BuildVPNSubscriptionService,
+    get_build_vpn_subscription_service,
+)
+from apps.vpn.services.deactivate_refund import (
+    DeactivateVPNRefundService,
+    get_deactivate_vpn_refund_service,
+)
+from apps.vpn.services.expire_accesses import (
+    ExpireVPNAccessesService,
+    get_expire_vpn_accesses_service,
+)
+from apps.vpn.services.reissue import (
+    ReissueVPNAccessService,
+    VPNReissueResult,
+    get_reissue_vpn_access_service,
+)
+from apps.vpn.services.validate_subscription import (
+    ValidatedVPNLink,
+    ValidateVPNSubscriptionService,
+)
 
 __all__ = [
     "BuildVPNSnapshotService",
+    "BuildVPNSubscriptionService",
     "CheckVPNSaleAvailabilityService",
     "ForecastVPNSnapshotCapacityService",
     "get_build_vpn_snapshot_service",
@@ -64,4 +86,14 @@ __all__ = [
     "get_reconcile_vpn_node_service",
     "SendVPNReadyNotificationService",
     "get_send_vpn_ready_notification_service",
+    "DeactivateVPNRefundService",
+    "ExpireVPNAccessesService",
+    "ReissueVPNAccessService",
+    "VPNReissueResult",
+    "get_build_vpn_subscription_service",
+    "get_deactivate_vpn_refund_service",
+    "get_expire_vpn_accesses_service",
+    "get_reissue_vpn_access_service",
+    "ValidatedVPNLink",
+    "ValidateVPNSubscriptionService",
 ]

@@ -380,6 +380,7 @@ identity и аудита суммы.
 - `agent_contract_version`;
 - `health_state`: `NEW`, `SYNCING`, `READY`, `UNHEALTHY`, `INCOMPATIBLE`,
   `OVER_CAPACITY`;
+- independent `data_plane_state`: `SERVING_READY`/`UNAVAILABLE`;
 - `is_access_available` — ручной допуск новых и существующих выдач;
 - `desired_snapshot_revision/hash`, `applied_snapshot_revision/hash`;
 - `last_health_at`, `last_error_code`;
@@ -393,12 +394,19 @@ identity и аудита суммы.
 
 ### `VPNAccessNodeApply`
 
-- unique `(access, node)`;
+- legacy unique `(access, node)` current row сохраняет cardinality старого
+  runtime и обновляется dual-write;
 - `desired_revision`, nullable `applied_revision`;
 - `status`: `PENDING`, `APPLIED`, `FAILED`;
 - `last_attempt_at`, безопасный `last_error_code`.
 
-Запись является readiness evidence, а не вторым источником UUID.
+Новая expand-only `VPNAccessNodeRevisionEvidence` имеет unique
+`(access, node, revision)`, отдельные строки applied/pending/failed и
+`is_serving`. Новые readers используют history; reverse migration удаляет её и
+`VPNNode.data_plane_state`, не меняя legacy row/table.
+During rollback window exact legacy row служит fallback только если history для
+published revision отсутствует: так writes старого runtime видны новому,
+но наличие history не может быть обойдено legacy-строкой.
 
 ## Контракт backend ↔ VPN-agent
 
@@ -456,6 +464,8 @@ hash и managed accesses с минимальными правами доступ
   повторного reconcile;
 - после rename, но до HTTP response — повтор той же revision/hash является
   безопасным no-op.
+Повтор exact-current reconcile на центральном backend также не переводит
+уже serving evidence в `PENDING`.
 
 При старте агент восстанавливает сохранённый snapshot в Xray, сверяет hash и
 переходит только в `recovery-ready`: центральный backend всё равно не включает
@@ -474,6 +484,9 @@ Health-check каждые 5 минут проверяет нездоровые �
 `READY` по одному health response: сначала выполняется exact full sync, затем
 сверяются revision/hash. Периодический full reconcile всех READY-нод не реже
 одного раза в час исправляет потерянные tasks и расхождения после рестартов.
+Успешный authenticated health, который подтверждает drift, missing snapshot
+или recovery-ready, сбрасывает `data_plane_state` и serving evidence; transport
+failure не считается доказательством data-plane outage.
 
 Beat-задача истечения переводит доступ в `EXPIRED` атомарным conditional update
 и увеличивает desired snapshot revision нод. Даже если enqueue удаления в
@@ -578,16 +591,20 @@ loopback, link-local или metadata ranges. Перед rollout проверяю
 
 ### Subscription URL и логи
 
-Nginx выделяет subscription location и не пишет request URI/token в access log;
-фиксируются route label, status, latency и hashed token prefix, непригодный для
-восстановления. Django middleware также редактирует путь и никогда не логирует
+Nginx выделяет subscription location и не пишет request URI/token/args в access
+log; фиксируются только статический route label, status и latency. HTTP только
+перенаправляет на HTTPS с `308`, а Django proxy доступен лишь в HTTPS location.
+Django filter редактирует request-derived path/query, включая уже
+материализованный `request.GET`, и logging extras; он не логирует
 `Bot-Auth-Token`, agent Authorization, invoice provider payload, UUID или
 subscription token. Admin показывает token только маскированно.
 
-Публичный endpoint ограничивается shared Redis throttle по
-`SHA-256(token) + trusted source IP`: по умолчанию 30 запросов в минуту с
-коротким burst. Настройка trusted proxy исключает подмену `X-Forwarded-For`.
-Rate-limit failure возвращает `429` и `Retry-After`. Subscription URL не
+Публичный endpoint ограничивается atomic Lua Redis throttle по
+`SHA-256(token) + SHA-256(trusted source IP)`: по умолчанию 30 запросов в минуту.
+TTL устанавливается первым `INCR` в той же операции. Trusted IPv4/IPv6 CIDR и
+right-to-left разбор proxy chain исключают подмену `X-Forwarded-For`; edge
+перезаписывает входной XFF. Rate-limit возвращает `429`, а недоступный Redis
+fail-closed `503`, оба с `Retry-After`. Subscription URL не
 передаётся внешней аналитике.
 
 ## Feature flag

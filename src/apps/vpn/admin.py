@@ -3,7 +3,14 @@ from __future__ import annotations
 from django import forms
 from django.contrib import admin
 
-from apps.vpn.models import VPNAccess, VPNAccessNodeApply, VPNNode, VPNPurchase
+from apps.vpn.models import (
+    VPNAccess,
+    VPNAccessNodeApply,
+    VPNAccessNodeRevisionEvidence,
+    VPNNode,
+    VPNPurchase,
+)
+from apps.vpn.services import get_deactivate_vpn_refund_service
 
 
 class VPNNodeAdminForm(forms.ModelForm):
@@ -34,6 +41,16 @@ class VPNAccessAdmin(admin.ModelAdmin):
     readonly_fields = ("masked_subscription_token", "created_at", "updated_at")
     exclude = ("subscription_token",)
     search_fields = ("user__username", "user__telegram_username")
+    actions = ("deactivate_after_refund",)
+
+    @admin.action(description="Деактивировать после возврата")
+    def deactivate_after_refund(self, request, queryset) -> None:
+        service = get_deactivate_vpn_refund_service()
+        changed = sum(
+            service(access=access, actor=request.user, reason="admin refund")
+            for access in queryset
+        )
+        self.message_user(request, f"Деактивировано VPN-доступов: {changed}")
 
     @admin.display(description="Subscription token")
     def masked_subscription_token(self, obj: VPNAccess) -> str:
@@ -57,11 +74,17 @@ class VPNNodeAdmin(admin.ModelAdmin):
         "number",
         "location",
         "health_state",
+        "data_plane_state",
         "is_access_available",
         "is_active",
     )
     list_editable = ("number", "is_access_available", "is_active")
-    list_filter = ("health_state", "is_access_available", "is_active")
+    list_filter = (
+        "health_state",
+        "data_plane_state",
+        "is_access_available",
+        "is_active",
+    )
 
 
 @admin.register(VPNAccessNodeApply)
@@ -83,6 +106,30 @@ class VPNAccessNodeApplyAdmin(admin.ModelAdmin):
         "desired_revision",
         "applied_revision",
         "status",
+        "last_attempt_at",
+        "last_error_code",
+    )
+
+
+@admin.register(VPNAccessNodeRevisionEvidence)
+class VPNAccessNodeRevisionEvidenceAdmin(admin.ModelAdmin):
+    list_display = (
+        "pk",
+        "access",
+        "node",
+        "revision",
+        "applied_revision",
+        "status",
+        "is_serving",
+    )
+    list_filter = ("status", "is_serving", "is_active")
+    readonly_fields = (
+        "access",
+        "node",
+        "revision",
+        "applied_revision",
+        "status",
+        "is_serving",
         "last_attempt_at",
         "last_error_code",
     )

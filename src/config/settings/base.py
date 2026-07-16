@@ -34,6 +34,18 @@ VPN_SUBSCRIPTION_BASE_URL = os.environ.get(
     "VPN_SUBSCRIPTION_BASE_URL",
     "https://mtprotokeys.ru/api/v1/vpn/subscriptions",
 )
+VPN_SUBSCRIPTION_REDIS_URL = os.environ.get(
+    "VPN_SUBSCRIPTION_REDIS_URL", os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
+)
+VPN_SUBSCRIPTION_RATE_LIMIT = int(os.environ.get("VPN_SUBSCRIPTION_RATE_LIMIT", "30"))
+VPN_SUBSCRIPTION_RATE_WINDOW_SECONDS = int(
+    os.environ.get("VPN_SUBSCRIPTION_RATE_WINDOW_SECONDS", "60")
+)
+VPN_SUBSCRIPTION_TRUSTED_PROXY_NETWORKS = tuple(
+    value.strip()
+    for value in os.environ.get("VPN_SUBSCRIPTION_TRUSTED_PROXY_NETWORKS", "").split(",")
+    if value.strip()
+)
 
 load_dotenv(BASE_DIR.parent / ".env")
 

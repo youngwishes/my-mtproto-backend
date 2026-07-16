@@ -12,6 +12,7 @@ from apps.vpn.selectors import (
     get_vpn_access_for_delivery,
     has_eligible_exact_vpn_apply,
     publish_vpn_access_conditionally,
+    deactivate_superseded_vpn_applies,
 )
 
 
@@ -31,6 +32,7 @@ class PublishVPNReadinessService:
     publish_conditionally: Callable[..., bool]
     register_after_commit: Callable[[Callable[[], None]], None]
     schedule_notification: Callable[..., None]
+    deactivate_superseded: Callable[..., None] = deactivate_superseded_vpn_applies
 
     def __call__(self, *, access_id: int) -> bool:
         with transaction.atomic():
@@ -42,6 +44,7 @@ class PublishVPNReadinessService:
                 or not self.publish_conditionally(access=access)
             ):
                 return False
+            self.deactivate_superseded(access=access)
             self.register_after_commit(
                 partial(
                     self.schedule_notification,

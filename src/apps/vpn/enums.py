@@ -25,6 +25,8 @@ class _ChoicesEnum(enum.StrEnum):
             "failed": "Ошибка",
             "chrome": "Chrome",
             "xtls-rprx-vision": "XTLS Vision",
+            "serving_ready": "Data plane готов",
+            "unavailable": "Data plane недоступен",
         }
         return labels[self.value]
 
@@ -49,6 +51,11 @@ class VPNApplyStatus(_ChoicesEnum):
     PENDING = "pending"
     APPLIED = "applied"
     FAILED = "failed"
+
+
+class VPNDataPlaneState(_ChoicesEnum):
+    SERVING_READY = "serving_ready"
+    UNAVAILABLE = "unavailable"
 
 
 class VPNRealityFingerprint(_ChoicesEnum):

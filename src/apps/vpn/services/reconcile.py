@@ -8,6 +8,7 @@ import time
 from typing import TYPE_CHECKING, final
 
 from django.utils import timezone
+from django.db import transaction
 
 from apps.vpn.dtos import VPNAgentNodeDTO, VPNExactSnapshotDTO
 from apps.vpn.enums import VPNNodeHealthState
@@ -139,10 +140,11 @@ class ReconcileVPNNodeService:
                 state=VPNNodeHealthState.SYNCING,
             )
             return False
-        if not self.mark_applied(node=current_node, snapshot=snapshot, now=self.now()):
-            return False
-        for access in snapshot.accesses:
-            self.publish_access(access_id=access.access_id)
+        with transaction.atomic():
+            if not self.mark_applied(node=current_node, snapshot=snapshot, now=self.now()):
+                return False
+            for access in snapshot.accesses:
+                self.publish_access(access_id=access.access_id)
         return True
 
     def _prepare_snapshot(

@@ -10,6 +10,7 @@ from apps.core import BaseDjangoModel
 from apps.vpn.enums import (
     VPNAccessState,
     VPNApplyStatus,
+    VPNDataPlaneState,
     VPNNodeHealthState,
     VPNRealityFingerprint,
     VPNRealityFlow,
@@ -189,6 +190,12 @@ class VPNNode(BaseDjangoModel):
         default=VPNNodeHealthState.NEW,
     )
     is_access_available = models.BooleanField("доступна для выдачи", default=True)
+    data_plane_state = models.CharField(
+        "состояние data plane",
+        max_length=32,
+        choices=VPNDataPlaneState.choices(),
+        default=VPNDataPlaneState.UNAVAILABLE,
+    )
     desired_snapshot_revision = models.PositiveBigIntegerField(
         "желаемая snapshot revision", default=0
     )
@@ -335,5 +342,45 @@ class VPNAccessNodeApply(BaseDjangoModel):
                     | models.Q(applied_revision=models.F("desired_revision"))
                 ),
                 name="vpn_apply_status_has_exact_revision",
+            ),
+        ]
+
+
+class VPNAccessNodeRevisionEvidence(BaseDjangoModel):
+    """Revision history used by new readers without changing the legacy row."""
+
+    access = models.ForeignKey(
+        VPNAccess, on_delete=models.CASCADE, related_name="revision_evidences"
+    )
+    node = models.ForeignKey(
+        VPNNode, on_delete=models.CASCADE, related_name="revision_evidences"
+    )
+    revision = models.PositiveBigIntegerField()
+    applied_revision = models.PositiveBigIntegerField(null=True, blank=True)
+    status = models.CharField(
+        max_length=16,
+        choices=VPNApplyStatus.choices(),
+        default=VPNApplyStatus.PENDING,
+    )
+    is_serving = models.BooleanField(default=False)
+    last_attempt_at = models.DateTimeField(null=True, blank=True)
+    last_error_code = models.CharField(max_length=64, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("access", "node", "revision"),
+                name="uniq_vpn_access_node_revision_evidence",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(revision__gte=1),
+                name="vpn_revision_evidence_revision_gte_1",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    ~models.Q(status=VPNApplyStatus.APPLIED)
+                    | models.Q(applied_revision=models.F("revision"))
+                ),
+                name="vpn_revision_evidence_applied_exact",
             ),
         ]

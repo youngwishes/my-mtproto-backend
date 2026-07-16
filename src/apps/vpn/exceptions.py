@@ -69,6 +69,14 @@ class VPNReissueInProgress(BaseServiceError):
     """Перевыпуск VPN-доступа уже выполняется"""
 
 
+class VPNReissueConflict(BaseServiceError):
+    """Состояние VPN-доступа изменилось, повторите запрос"""
+
+
+class VPNReissueNotEligible(BaseServiceError):
+    """VPN-доступ пока нельзя перевыпустить"""
+
+
 class VPNCapacityUnavailable(BaseServiceError):
     """Сейчас нет доступных VPN-серверов"""
 
