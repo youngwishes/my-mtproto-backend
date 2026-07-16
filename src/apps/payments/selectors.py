@@ -1,15 +1,77 @@
 from __future__ import annotations
 
-from django.db import connection
-from django.db.models import Count
+from datetime import datetime
 
-from apps.payments.enums import PaymentKindEnum, ProductCodeEnum
-from apps.payments.models import GiftCertificate, Payment, Product
+from django.db import connection
+from django.db.models import Count, Q, QuerySet
+
+from apps.payments.enums import (
+    PaymentKindEnum,
+    PaymentReceiptStatusEnum,
+    ProductCodeEnum,
+)
+from apps.payments.models import (
+    GiftCertificate,
+    Payment,
+    PaymentIntent,
+    PaymentReceipt,
+    Product,
+)
 
 
 def get_active_product_by_code(*, code: ProductCodeEnum) -> Product | None:
     """Return the active product matching an exact stable code."""
     return Product.objects.active().filter(code=code).first()
+
+
+def get_payment_intent_by_payload(*, invoice_payload: str) -> PaymentIntent | None:
+    """Return an intent only for an exact unpredictable invoice payload."""
+    return (
+        PaymentIntent.objects.filter(invoice_payload=invoice_payload)
+        .select_related("user", "product")
+        .first()
+    )
+
+
+def get_payment_receipt_by_identity(
+    *,
+    provider: str,
+    charge_id: str,
+) -> PaymentReceipt | None:
+    """Return the durable receipt for an exact provider payment identity."""
+    return (
+        PaymentReceipt.objects.filter(provider=provider, charge_id=charge_id)
+        .select_related("intent", "user", "product", "payment")
+        .first()
+    )
+
+
+def get_payment_by_identity(*, provider: str, charge_id: str) -> Payment | None:
+    """Expose an existing legacy/new Payment before receipt identity acceptance."""
+    return (
+        Payment.objects.filter(provider=provider, charge_id=charge_id)
+        .select_related("user", "product")
+        .first()
+    )
+
+
+def get_recoverable_payment_receipts(
+    *,
+    due_at: datetime,
+    stale_before: datetime,
+) -> QuerySet[PaymentReceipt]:
+    """Return received, due retry and stale leased receipts for recovery."""
+    return PaymentReceipt.objects.filter(
+        Q(status=PaymentReceiptStatusEnum.RECEIVED)
+        | Q(
+            status=PaymentReceiptStatusEnum.RETRY,
+            next_attempt_at__lte=due_at,
+        )
+        | Q(
+            status=PaymentReceiptStatusEnum.PROCESSING,
+            processing_started_at__lte=stale_before,
+        )
+    ).order_by("accepted_at", "pk")
 
 
 def get_product_preflight_rows() -> list[tuple[int, str | None, bool]]:

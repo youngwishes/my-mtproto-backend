@@ -126,6 +126,69 @@
 платежей. Пустые legacy charge IDs могут повторяться. Expand-миграция не меняет
 nullable OneToOne/SET_NULL контракт `Payment.key`.
 
+---
+
+## VPNAccess (apps/vpn)
+
+Один стабильный VPN-доступ пользователя. `subscription_token` и desired UUID
+создаются один раз; продление меняет срок, а reissue меняет desired UUID и
+revision, не меняя token.
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `user` | OneToOne → SystemUser | Владелец; не более одного доступа на пользователя |
+| `subscription_token` | str (unique) | URL-safe token минимум с 256 битами энтропии |
+| `desired_uuid`, `desired_revision` | UUID, int | Текущий desired credential |
+| `published_uuid`, `published_revision` | UUID?, int? | Credential, подтверждённый хотя бы одной нодой |
+| `expired_at` | DateTime | Оплаченный срок |
+| `state` | str | `PREPARING`, `READY`, `EXPIRED`, `DISABLED_REFUND` |
+| `state_revision` | int | Revision для optimistic updates |
+| `ready_notification_revision` | int | Последняя успешно уведомлённая revision |
+| `disabled_at`, `disabled_reason`, `disabled_by` | audit? | Обязательный audit состояния `DISABLED_REFUND` |
+
+Для `READY` published UUID и revision обязаны точно совпадать с desired UUID и
+revision. `PREPARING` допускает staged reissue с новым desired credential и
+предыдущим published credential, только если published revision строго меньше
+desired. При равных revisions UUID обязаны совпадать в любом state; null
+published pair допустима до первой публикации.
+
+## VPNPurchase (apps/vpn)
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `payment` | OneToOne → Payment (PROTECT) | Один Payment выполняет не более одного VPN fulfillment |
+| `access` | FK → VPNAccess (PROTECT) | Продлеваемый доступ |
+| `period_days` | PositiveSmallInt | Купленный период, default 30 |
+| `expired_at_after` | DateTime | Итоговый срок после применения |
+
+## VPNNode (apps/vpn)
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `name`, `number` | str, int (unique) | Идентификатор и порядок ноды |
+| `location`, `host`, `port` | str, str, int | Публичная локация и authority; `(host, port)` unique |
+| `agent_base_url` | HTTPS URL | Внешний management origin через host nginx |
+| `agent_secret_key` | str | Только lookup key environment/Ansible; не bearer token |
+| `agent_contract_version` | str | Major contract агента |
+| `health_state` | str | `NEW`, `SYNCING`, `READY`, `UNHEALTHY`, `INCOMPATIBLE`, `OVER_CAPACITY` |
+| `is_access_available` | bool | Ручной допуск ноды к выдаче |
+| `desired_snapshot_revision/hash` | int, str | Желаемый exact snapshot |
+| `applied_snapshot_revision/hash` | int, str | Подтверждённый агентом snapshot |
+| `last_health_at`, `last_error_code` | audit? | Безопасное состояние health-check |
+| `reality_public_key`, `reality_short_id`, `reality_server_name` | str | Только публичные REALITY client parameters |
+| `reality_fingerprint`, `reality_flow` | str | Фиксированные `chrome`, `xtls-rprx-vision` |
+
+Private REALITY key, REALITY target и bearer token агента в schema отсутствуют.
+X25519 public key хранится только как canonical unpadded URL-safe Base64 от 32
+байт. `READY` требует exact nonzero desired/applied snapshot revision и
+совпадающие непустые hashes; остальные health states допускают staged drift.
+
+## VPNAccessNodeApply (apps/vpn)
+
+Уникальная пара `(access, node)` хранит readiness evidence:
+`desired_revision`, nullable `applied_revision`, статус `PENDING`/`APPLIED`/
+`FAILED`, время попытки и безопасный error code. UUID здесь не дублируется.
+
 ## GiftCertificate (apps/payments)
 
 Одноразовый подарочный сертификат на 30 дней подписки.

@@ -17,6 +17,53 @@
   `GIFT_CERTIFICATE`). Непустая пара `(provider, charge_id)` условно уникальна
   независимо от типа платежа.
 - **GiftCertificate** — одноразовый код `KEY-XXXX-XXXX` на 30 дней подписки. Покупается отдельно от подписки, действует 1 год до активации, после активации хранит получателя и дату активации.
+- **PaymentIntent** — короткоживущее durable-намерение на оплату с уникальным
+  случайным `invoice_payload`: ровно 64 lowercase hex-символа (256 бит
+  энтропии). Пользователь, Product, сумма, валюта, provider, payload и срок
+  действия неизменяемы после создания.
+- **PaymentReceipt** — durable-квитанция успешного платежа с уникальной парой
+  `(provider, charge_id)`. Хранит только проверяемые поля identity и аудита,
+  состояние retry/lease и nullable-связь с применённым Payment; raw provider
+  payload не сохраняется.
+
+## PaymentIntent state machine
+
+| Состояние | Допустимый следующий статус | Семантика |
+|---|---|---|
+| `CREATED` | `PRECHECKOUT_APPROVED`, `EXPIRED`, `CANCELLED` | После `expires_at` pre-checkout и successful payment не принимаются. |
+| `PRECHECKOUT_APPROVED` (`APPROVED`) | `PAID` | TTL, выключение продаж и потеря нод больше не блокируют matching successful payment. |
+| `PAID` | — | Intent связан не более чем с одной durable-квитанцией. |
+| `EXPIRED` | — | Terminal-состояние не одобренного вовремя intent. |
+| `CANCELLED` | — | Terminal-состояние отменённого до оплаты intent. |
+
+## PaymentReceipt state machine
+
+| Состояние | Допустимый следующий статус | Семантика |
+|---|---|---|
+| `RECEIVED` | `PROCESSING` | Платёж принят и выбирается recovery независимо от состояния broker/нод. |
+| `PROCESSING` | `APPLIED`, `RETRY` | Всегда содержит одновременно `lease_id` и `processing_started_at`; завершить обработку может только владелец exact актуального lease. |
+| `RETRY` | `PROCESSING` | Не содержит lease и всегда содержит `next_attempt_at`; число попыток и безопасный `last_error_code` сохраняются. |
+| `APPLIED` | — | Nullable ранее `payment` заполнен применённым Payment; повтор не создаёт новую покупку. |
+
+Beat recovery выбирает все `RECEIVED`, наступившие `RETRY` и `PROCESSING` со
+старым `processing_started_at`. Stale recovery атомарно очищает старый lease и
+переводит receipt в `RETRY`; умерший или запоздавший worker после этого не может
+завершить обработку со старым `lease_id`.
+
+Изменяемые state/lease/retry/payment-поля записываются только через conditional
+domain API. Обычные model `save()`, QuerySet `update()` и `bulk_update()` не
+могут обходить state machine или менять immutable identity. DB constraints
+дополнительно запрещают несогласованные PROCESSING/RETRY/APPLIED строки.
+
+Exact повтор `(provider, charge_id)` считается
+идемпотентным только при совпадении intent, пользователя, Product, валюты, суммы
+и provider identity. Любое отличие при той же identity —
+`PaymentIdentityConflict`; такая доставка не применяется повторно.
+Перед созданием receipt проверяется identity не только в PaymentReceipt, но и в
+legacy `Payment`: существующий не связанный receipt-ом Payment считается явным
+collision, потому что legacy-схема не хранит достаточно immutable данных для
+безопасного доказательства exact replay. При применении receipt nullable-связь
+с Payment заполняется только если provider/charge/user/product совпадают.
 
 ## Сервисы
 

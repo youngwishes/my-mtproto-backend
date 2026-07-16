@@ -34,3 +34,38 @@ class PaymentKindEnum(enum.StrEnum):
             (cls.SUBSCRIPTION, "Подписка"),
             (cls.GIFT_CERTIFICATE, "Подарочный сертификат"),
         ]
+
+
+class PaymentIntentStatusEnum(enum.StrEnum):
+    CREATED = "created"
+    APPROVED = "precheckout_approved"
+    PRECHECKOUT_APPROVED = APPROVED
+    PAID = "paid"
+    EXPIRED = "expired"
+    CANCELLED = "cancelled"
+
+    @classmethod
+    def choices(cls) -> list[tuple[str, str]]:
+        return [
+            (cls.CREATED, "Создан"),
+            (cls.APPROVED, "Pre-checkout одобрен"),
+            (cls.PAID, "Оплачен"),
+            (cls.EXPIRED, "Истёк"),
+            (cls.CANCELLED, "Отменён"),
+        ]
+
+
+class PaymentReceiptStatusEnum(enum.StrEnum):
+    RECEIVED = "received"
+    PROCESSING = "processing"
+    RETRY = "retry"
+    APPLIED = "applied"
+
+    @classmethod
+    def choices(cls) -> list[tuple[str, str]]:
+        return [
+            (cls.RECEIVED, "Получен"),
+            (cls.PROCESSING, "Обрабатывается"),
+            (cls.RETRY, "Ожидает повтора"),
+            (cls.APPLIED, "Применён"),
+        ]
