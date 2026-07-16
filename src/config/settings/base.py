@@ -18,6 +18,56 @@ from dotenv import load_dotenv
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
+VPN_PAYMENT_WRITER_LOCK_PATH = os.environ.get(
+    "VPN_PAYMENT_WRITER_LOCK_PATH",
+    str(BASE_DIR / "data" / "vpn-payment-writer.lock"),
+)
+VPN_PAYMENT_WORKER_OWNER_LOCK_PATH = os.environ.get(
+    "VPN_PAYMENT_WORKER_OWNER_LOCK_PATH",
+    str(BASE_DIR / "data" / "vpn-payment-worker.owner.lock"),
+)
+VPN_PAYMENT_WORKER_OWNER_PID_PATH = os.environ.get(
+    "VPN_PAYMENT_WORKER_OWNER_PID_PATH",
+    str(BASE_DIR / "data" / "vpn-payment-worker.owner.pid"),
+)
+VPN_PAYMENT_RETRY_BASE_SECONDS = int(
+    os.environ.get("VPN_PAYMENT_RETRY_BASE_SECONDS", "30")
+)
+VPN_PAYMENT_RETRY_MAX_SECONDS = int(
+    os.environ.get("VPN_PAYMENT_RETRY_MAX_SECONDS", "3600")
+)
+VPN_PAYMENT_RETRY_JITTER_SECONDS = float(
+    os.environ.get("VPN_PAYMENT_RETRY_JITTER_SECONDS", "5")
+)
+VPN_SUBSCRIPTION_BASE_URL = os.environ.get(
+    "VPN_SUBSCRIPTION_BASE_URL",
+    "https://mtprotokeys.ru/api/v1/vpn/subscriptions",
+)
+VPN_SUBSCRIPTION_REDIS_URL = os.environ.get(
+    "VPN_SUBSCRIPTION_REDIS_URL", os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
+)
+VPN_SUBSCRIPTION_RATE_LIMIT = int(os.environ.get("VPN_SUBSCRIPTION_RATE_LIMIT", "30"))
+VPN_SUBSCRIPTION_RATE_WINDOW_SECONDS = int(
+    os.environ.get("VPN_SUBSCRIPTION_RATE_WINDOW_SECONDS", "60")
+)
+VPN_SUBSCRIPTION_TRUSTED_PROXY_NETWORKS = tuple(
+    value.strip()
+    for value in os.environ.get("VPN_SUBSCRIPTION_TRUSTED_PROXY_NETWORKS", "").split(",")
+    if value.strip()
+)
+VPN_OBSERVABILITY_STALE_RECEIPT_SECONDS = int(
+    os.environ.get("VPN_OBSERVABILITY_STALE_RECEIPT_SECONDS", "300")
+)
+VPN_OBSERVABILITY_DRIFT_SECONDS = int(
+    os.environ.get("VPN_OBSERVABILITY_DRIFT_SECONDS", "900")
+)
+VPN_OBSERVABILITY_AUTH_TLS_SECONDS = int(
+    os.environ.get("VPN_OBSERVABILITY_AUTH_TLS_SECONDS", "900")
+)
+VPN_OBSERVABILITY_ALERT_DEDUPE_SECONDS = int(
+    os.environ.get("VPN_OBSERVABILITY_ALERT_DEDUPE_SECONDS", "3600")
+)
+
 load_dotenv(BASE_DIR.parent / ".env")
 
 
@@ -52,6 +102,7 @@ INSTALLED_APPS = [
     "apps.vds",
     "apps.music",
     "apps.payments",
+    "apps.vpn",
     "apps.notifications",
     "rest_framework",
 ]
@@ -141,3 +192,28 @@ AUTH_USER_MODEL = "users.SystemUser"
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
+
+# VLESS sales fail closed until an operator explicitly enables them.
+VPN_SALES_ENABLED = os.getenv("VPN_SALES_ENABLED") == "1"
+VPN_AGENT_CONTRACT_VERSION = os.getenv("VPN_AGENT_CONTRACT_VERSION", "v1")
+VPN_AGENT_SNAPSHOT_SCHEMA_VERSION = os.getenv(
+    "VPN_AGENT_SNAPSHOT_SCHEMA_VERSION", "1.0"
+)
+VPN_AGENT_EXPECTED_SHA = os.getenv(
+    "VPN_AGENT_EXPECTED_SHA", "20ae654fc460163fe80aa82051ea9bb22f6d664a"
+)
+VPN_AGENT_EXPECTED_XRAY_VERSION = os.getenv(
+    "VPN_AGENT_EXPECTED_XRAY_VERSION", "26.7.11"
+)
+VPN_AGENT_EXPECTED_XRAY_IMAGE_DIGEST = os.getenv(
+    "VPN_AGENT_EXPECTED_XRAY_IMAGE_DIGEST",
+    "sha256:a1644183accdb0b5be967093fe34be756fd5de15fe2ee0206e842ae17350967f",
+)
+VPN_AGENT_MAX_RESPONSE_BYTES = int(os.getenv("VPN_AGENT_MAX_RESPONSE_BYTES", "65536"))
+VPN_AGENT_CONNECT_TIMEOUT_SECONDS = float(
+    os.getenv("VPN_AGENT_CONNECT_TIMEOUT_SECONDS", "2.0")
+)
+VPN_AGENT_READ_TIMEOUT_SECONDS = float(
+    os.getenv("VPN_AGENT_READ_TIMEOUT_SECONDS", "10.0")
+)
+VPN_PAYMENT_INTENT_TTL_SECONDS = int(os.getenv("VPN_PAYMENT_INTENT_TTL_SECONDS", "900"))

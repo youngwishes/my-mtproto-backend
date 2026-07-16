@@ -24,7 +24,7 @@ telemt (MTProto-прокси)
 
 **Telegram Bot** (`bot/`) — Aiogram 3.x, polling-режим. Принимает команды от пользователя, обрабатывает платежи. Общается с бэкендом через REST API с заголовком `Bot-Auth-Token`.
 
-**Django Backend** (`src/`) — Django 6 + DRF. Бизнес-логика, управление ключами, платежи, рефералы. БД — SQLite. Фоновые задачи через Celery + Redis.
+**Django Backend** (`src/`) — Django 6 + DRF. Бизнес-логика, управление ключами, платежи, рефералы. БД — SQLite. Фоновые задачи через Celery + Redis. VPN receipts применяет отдельный worker очереди `vpn_payment_fulfillment` с concurrency/prefetch 1; default worker явно слушает только `celery`.
 
 **VDS Instance** — FastAPI-сервис на каждом VDS-сервере. Принимает команды от Django и управляет прокси-сервером telemt.
 
@@ -63,7 +63,8 @@ src/
 │   ├── notifications/           # Шаблоны уведомлений, рассылки
 │   ├── users/                   # SystemUser, бесплатные ссылки, рефералы
 │   ├── vds/                     # VDSInstance, MTPRotoKey, инфра-сервисы, Celery-задачи
-│   ├── payments/                # Product, Payment, YuKassa/Stars
+│   ├── payments/                # Product, intent/receipt, Payment, YuKassa/Stars
+│   ├── vpn/                     # VLESS accesses, purchases, nodes, fulfillment
 │   └── music/                   # Заглушка для FakeTLS-маскировки (не трогать, бизнес-логики нет)
 └── manage.py
 
@@ -108,6 +109,30 @@ apps/core/
 def get_first_free_link_service() -> FirstFreeLinkService:
     return FirstFreeLinkService()
 ```
+
+### Payment/VPN transaction boundary
+
+`apps/payments` владеет durable receipt и единственной транзакцией его
+применения. Payment-orchestrator зависит только от своего
+`VPNPaymentFulfillment` protocol/DTO и не импортирует `apps.vpn`. Обратное
+направление разрешено: vpn-owned composition root инъектирует concrete
+fulfillment в payment service. В одной SQLite-транзакции выполняются
+conditional lease claim, создание Payment, создание/продление VPNAccess,
+VPNPurchase и переход receipt в `APPLIED`; `select_for_update()` не считается
+гарантией для этого пути. Ускоряющая доставка credential регистрируется after
+commit, а её отказ покрывается periodic recovery.
+
+Concrete consumer также принадлежит `apps.vpn`: тонкая Celery-задача вызывает
+vpn-owned composition root. На всё время receipt-транзакции worker удерживает
+exclusive `flock` в общем host mount `./data`; Beat раз в минуту через payment
+selector повторно ставит `RECEIVED`, наступившие `RETRY` и stale `PROCESSING`.
+Потеря broker enqueue не меняет durable receipt, поэтому следующий проход Beat
+восстанавливает работу без обратного импорта `payments -> vpn`.
+
+Отдельный lifetime `flock` получает wrapper до запуска singleton Celery worker.
+Дублирующий worker не начинает serving, а healthcheck проверяет PID/command
+владельца и lifetime lock, не конкурируя с transaction lock. Deploy ждёт Docker
+`healthy` и отдельно проверяет, что live ignored Ansible vars требуют singleton.
 
 ### Ежедневная выдача бесплатных периодов
 

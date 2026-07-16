@@ -56,6 +56,25 @@ async def test_post_raises_apierror_with_backend_message_on_error_status(
 
 
 @respx.mock
+async def test_post_reads_vpn_error_dto_message(client: BackendClient):
+    respx.post(f"{BASE}/api/v1/x/").mock(
+        return_value=httpx.Response(
+            503,
+            json={
+                "code": "vpn_capacity_unavailable",
+                "message": "Сейчас нет доступных VPN-серверов",
+                "detail": {},
+            },
+        )
+    )
+
+    with pytest.raises(APIError) as exc_info:
+        await client.post("/api/v1/x/", data={}, telegram_id="42")
+
+    assert exc_info.value.message == "Сейчас нет доступных VPN-серверов"
+
+
+@respx.mock
 async def test_post_falls_back_to_docstring_when_error_body_not_json(
     client: BackendClient,
 ):

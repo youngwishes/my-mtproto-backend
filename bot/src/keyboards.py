@@ -20,6 +20,7 @@ def main_menu(boost_callback_data: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="⚡️ Ускорить Telegram", callback_data=boost_callback_data, style="success")],
+            [InlineKeyboardButton(text="🛡 VLESS VPN", callback_data="vpn", style="primary")],
             [InlineKeyboardButton(text="🎁 Подарить подписку", callback_data="gift_certificate", style="primary")],
             [_MY_SERVERS],
             [InlineKeyboardButton(text="🤝 Реферальный кабинет", callback_data="referral")],
@@ -30,6 +31,56 @@ def main_menu(boost_callback_data: str) -> InlineKeyboardMarkup:
             ],
         ]
     )
+
+
+def vpn(
+    *,
+    status: str,
+    sales_enabled: bool,
+    subscription_url: str | None = None,
+) -> InlineKeyboardMarkup:
+    keyboard: list[list[InlineKeyboardButton]] = []
+    if subscription_url is not None:
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    text="🔗 Получить VPN-подписку",
+                    url=subscription_url,
+                    style="success",
+                )
+            ]
+        )
+    if status == "READY":
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    text="🔄 Перевыпустить VPN-доступ",
+                    callback_data="vpn_reissue",
+                    style="primary",
+                )
+            ]
+        )
+    if sales_enabled and status in {"NOT_PURCHASED", "READY", "EXPIRED"}:
+        keyboard.extend(
+            [
+                [
+                    InlineKeyboardButton(
+                        text="💳 Купить за рубли",
+                        callback_data="vpn_pay_rub",
+                        style="primary",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text="⭐ Купить за Stars",
+                        callback_data="vpn_pay_stars",
+                        style="primary",
+                    )
+                ],
+            ]
+        )
+    keyboard.append([_BACK])
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
 def key_generated() -> InlineKeyboardMarkup:

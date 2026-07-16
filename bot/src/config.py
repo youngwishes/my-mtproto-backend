@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     my_telegram_id: int
     bot_auth_token: str
     provider_token: str
+    vpn_sales_enabled: bool = False
 
 
 @lru_cache

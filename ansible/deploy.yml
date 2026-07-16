@@ -10,6 +10,14 @@
           - deploy_revision is match('^[0-9a-f]{40}$')
         fail_msg: "Pass the full Git commit SHA via -e deploy_revision=<sha>."
 
+    - name: Require live deploy vars to include VPN payment singleton
+      ansible.builtin.assert:
+        that:
+          - "'vpn-payment-worker' in deploy_required_services"
+        fail_msg: >-
+          Add vpn-payment-worker to deploy_required_services in the live ignored
+          ansible/group_vars/mtproto_keys.yml before deploying this revision.
+
   tasks:
     - name: Install deployment dependencies
       ansible.builtin.apt:
@@ -143,10 +151,37 @@
             update: true
             force: false
 
+        - name: Stop previous VPN payment singleton before replacement
+          ansible.builtin.command:
+            cmd: >-
+              docker compose -f docker-compose.yml -p {{ deploy_project_name }}
+              stop vpn-payment-worker
+            chdir: "{{ deploy_root }}"
+          register: deploy_stop_vpn_payment_worker
+          changed_when: deploy_stop_vpn_payment_worker.rc == 0
+          failed_when: >-
+            deploy_stop_vpn_payment_worker.rc != 0 and
+            'no such service' not in
+            (deploy_stop_vpn_payment_worker.stderr | default('') | lower)
+
         - name: Deploy docker compose stack
           ansible.builtin.command:
             cmd: "docker compose -f docker-compose.yml -p {{ deploy_project_name }} up -d --build --remove-orphans"
             chdir: "{{ deploy_root }}"
+
+        - name: Wait for VPN payment singleton readiness
+          ansible.builtin.command:
+            argv:
+              - docker
+              - inspect
+              - vpn-payment-worker
+          register: deploy_vpn_payment_worker_health
+          changed_when: false
+          retries: 20
+          delay: 3
+          until: >-
+            (deploy_vpn_payment_worker_health.stdout | from_json |
+            first).State.Health.Status == 'healthy'
 
         - name: Wait for application over HTTPS
           ansible.builtin.uri:
@@ -175,6 +210,15 @@
               Required services are not running: {{ deploy_required_services |
               difference(deploy_running_services.stdout_lines) | join(', ') }}
       rescue:
+        - name: Stop failed VPN payment singleton before rollback
+          ansible.builtin.command:
+            cmd: >-
+              docker compose -f docker-compose.yml -p {{ deploy_project_name }}
+              stop vpn-payment-worker
+            chdir: "{{ deploy_root }}"
+          changed_when: false
+          failed_when: false
+
         - name: Rollback Git revision
           ansible.builtin.git:
             repo: "{{ deploy_repository }}"

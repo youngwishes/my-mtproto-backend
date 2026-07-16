@@ -5,6 +5,7 @@ from src.domains.free_trial import FreeTrialClient
 from src.domains.links import LinksClient
 from src.domains.payments import PaymentsClient
 from src.domains.referrals import ReferralsClient
+from src.domains.vpn import VPNClient
 
 
 def test_build_dependencies_wires_every_client():
@@ -15,6 +16,7 @@ def test_build_dependencies_wires_every_client():
     assert isinstance(deps.links, LinksClient)
     assert isinstance(deps.referrals, ReferralsClient)
     assert isinstance(deps.payments, PaymentsClient)
+    assert isinstance(deps.vpn, VPNClient)
 
 
 def test_build_dependencies_shares_a_single_backend():
@@ -23,6 +25,7 @@ def test_build_dependencies_shares_a_single_backend():
     assert deps.links.backend is deps.free_trial.backend
     assert deps.referrals.backend is deps.payments.backend
     assert deps.links.backend is deps.payments.backend
+    assert deps.vpn.backend is deps.payments.backend
 
 
 def test_build_dependencies_reads_config():
@@ -32,3 +35,5 @@ def test_build_dependencies_reads_config():
     assert backend.base_url == "http://backend"
     assert backend.auth_token == "test-auth"
     assert deps.payments.provider_token == "test-provider"
+    assert deps.vpn.provider_token == "test-provider"
+    assert deps.vpn.sales_enabled is False

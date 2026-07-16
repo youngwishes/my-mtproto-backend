@@ -1,0 +1,28 @@
+{
+  "provenance": {
+    "project": "2dust/v2rayN",
+    "release": "7.24.0",
+    "commit": "5dd5b258690f93414692b30580f58b9650200ddd",
+    "source_path": "v2rayN/ServiceLib/Handler/Fmt/VLESSFmt.cs",
+    "source_sha256": "db41efd8d68c975697053a0583e4841d91e8f191c6f15d3bebd5b4de5986f636",
+    "license": "GPL-3.0-only",
+    "license_sha256": "c93d1d90b1111eae8bbc9824405d60186e0cc5f3e643d9feb3fa66e7629e7f17",
+    "repository": "https://github.com/2dust/v2rayN"
+  },
+  "accepted_uri": "vless://aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa@[2001:db8::7]:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=www.example.com&fp=chrome&pbk=UEnA5W5Lk_7-ywBVKfM8kS4DFwQ6F6-y9vDSS2rQYF8&sid=0123456789abcdef&type=tcp#Test%20%2F%20IPv6",
+  "resolved": {
+    "config_type": "VLESS",
+    "address": "2001:db8::7",
+    "port": 443,
+    "password": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    "remarks": "Test / IPv6",
+    "encryption": "none",
+    "flow": "xtls-rprx-vision",
+    "security": "reality",
+    "sni": "www.example.com",
+    "fingerprint": "chrome",
+    "public_key": "UEnA5W5Lk_7-ywBVKfM8kS4DFwQ6F6-y9vDSS2rQYF8",
+    "short_id": "0123456789abcdef",
+    "network": "tcp"
+  }
+}

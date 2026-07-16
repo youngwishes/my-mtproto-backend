@@ -73,6 +73,7 @@ class BackendClient:
         if response is None:
             return None
         try:
-            return response.json().get("error")
+            body = response.json()
+            return body.get("message") or body.get("error")
         except Exception:
             return None

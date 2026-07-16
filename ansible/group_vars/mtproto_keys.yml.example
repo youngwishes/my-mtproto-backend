@@ -21,6 +21,7 @@ deploy_required_services:
   - nginx
   - redis
   - celery-worker
+  - vpn-payment-worker
   - celery-beat
   - flower
   - litestream

@@ -17,6 +17,7 @@ from src.domains.free_trial import FreeTrialClient
 from src.domains.links import LinksClient
 from src.domains.payments import PaymentsClient
 from src.domains.referrals import ReferralsClient
+from src.domains.vpn import VPNClient
 
 
 @final
@@ -26,6 +27,7 @@ class Dependencies:
     links: LinksClient
     referrals: ReferralsClient
     payments: PaymentsClient
+    vpn: VPNClient
 
 
 def build_dependencies() -> Dependencies:
@@ -38,5 +40,10 @@ def build_dependencies() -> Dependencies:
         referrals=ReferralsClient(backend=backend),
         payments=PaymentsClient(
             backend=backend, provider_token=settings.provider_token
+        ),
+        vpn=VPNClient(
+            backend=backend,
+            provider_token=settings.provider_token,
+            sales_enabled=settings.vpn_sales_enabled,
         ),
     )

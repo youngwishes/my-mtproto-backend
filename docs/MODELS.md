@@ -97,6 +97,7 @@
 
 | Поле | Тип | Описание |
 |------|-----|----------|
+| `code` | str? | Стабильный код `mtproto_30d` или `vless_30d`; nullable в expand/rollback window, условно уникален только для непустых значений |
 | `title` | str | Название |
 | `description` | TextField | Описание |
 | `currency` | str | Валюта (default: RUB) |
@@ -116,9 +117,115 @@
 |------|-----|----------|
 | `user` | FK → SystemUser | Кто заплатил |
 | `key` | OneToOne → MTPRotoKey? | За какой ключ (nullable) |
+| `product` | FK → Product? (PROTECT) | Товар; nullable для legacy rows/writers в rollback window |
 | `charge_id` | str | ID платежа от провайдера |
 | `provider` | str | `YUKASSA` или `STARS` |
 | `kind` | str | `SUBSCRIPTION` или `GIFT_CERTIFICATE`; отличает обычную покупку подписки от покупки подарочного сертификата |
+
+Непустая пара `(provider, charge_id)` условно уникальна для всех типов
+платежей. Пустые legacy charge IDs могут повторяться. Expand-миграция не меняет
+nullable OneToOne/SET_NULL контракт `Payment.key`.
+
+`PaymentReceipt.applied_at` фиксируется только successful PROCESSING→APPLIED
+transition и не меняется последующими audit updates. Вместе с immutable
+`accepted_at` он задаёт exact apply latency. В rollback window old-writer может
+оставить поле NULL; observability collector тогда использует `updated_at` как
+conservative per-row approximation для APPLIED receipt.
+
+`PaymentReceipt.ready_at` хранит readiness именно этой покупки. Для active
+renewal уже READY доступа он равен `applied_at`; для первой покупки и expired
+reactivation устанавливается один раз при следующем PREPARING→READY. Runtime
+обновляет только newest pending receipt и не переписывает предыдущие покупки.
+Expand backfill и post-expand old-writer fallback используют conservative
+`updated_at` approximation, ограниченную APPLIED receipt с READY access.
+
+---
+
+## VPNAccess (apps/vpn)
+
+Один стабильный VPN-доступ пользователя. `subscription_token` и desired UUID
+создаются один раз; продление меняет срок, а reissue меняет desired UUID и
+revision, не меняя token.
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `user` | OneToOne → SystemUser | Владелец; не более одного доступа на пользователя |
+| `subscription_token` | str (unique) | URL-safe token минимум с 256 битами энтропии |
+| `desired_uuid`, `desired_revision` | UUID, int | Текущий desired credential |
+| `published_uuid`, `published_revision` | UUID?, int? | Credential, подтверждённый хотя бы одной нодой |
+| `expired_at` | DateTime | Оплаченный срок |
+| `state` | str | `PREPARING`, `READY`, `EXPIRED`, `DISABLED_REFUND` |
+| `state_revision` | int | Revision для optimistic updates |
+| `ready_notification_revision` | int | Последняя успешно уведомлённая revision |
+| `first_ready_at` | DateTime? | Первый successful PREPARING→READY; immutable observability timestamp |
+| `disabled_at`, `disabled_reason`, `disabled_by` | audit? | Обязательный audit состояния `DISABLED_REFUND` |
+
+Для `READY` published UUID и revision обязаны точно совпадать с desired UUID и
+revision. `PREPARING` допускает staged reissue с новым desired credential и
+предыдущим published credential, только если published revision строго меньше
+desired. При равных revisions UUID обязаны совпадать в любом state; null
+published pair допустима до первой публикации.
+`first_ready_at` остаётся access-level audit первого успешного перехода, но не
+используется для per-purchase readiness latency.
+
+## VPNPurchase (apps/vpn)
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `payment` | OneToOne → Payment (PROTECT) | Один Payment выполняет не более одного VPN fulfillment |
+| `access` | FK → VPNAccess (PROTECT) | Продлеваемый доступ |
+| `period_days` | PositiveSmallInt | Купленный период, default 30 |
+| `expired_at_after` | DateTime | Итоговый срок после применения |
+| `refunded_at` | DateTime? | Время подтверждённого оператором refund |
+| `refunded_by` | FK → SystemUser (PROTECT)? | Оператор, подтвердивший refund |
+| `refund_reason` | str | Неизменяемая причина; непустая только вместе с полным refund audit |
+
+Три refund-поля nullable для expand-миграции, но DB constraint разрешает только
+все три `NULL` либо заполненные `refunded_at`, `refunded_by` и явно non-NULL,
+непустой `refund_reason`. Возврат привязан к конкретной покупке и не
+переписывается повторным действием.
+
+## VPNNode (apps/vpn)
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `name`, `number` | str, int (unique) | Идентификатор и порядок ноды |
+| `location`, `host`, `port` | str, str, int | Публичная локация и authority; `(host, port)` unique |
+| `agent_base_url` | HTTPS URL | Внешний management origin через host nginx |
+| `agent_secret_key` | str | Только lookup key environment/Ansible; не bearer token |
+| `agent_contract_version` | str | Major contract агента |
+| `health_state` | str | `NEW`, `SYNCING`, `READY`, `UNHEALTHY`, `INCOMPATIBLE`, `OVER_CAPACITY` |
+| `data_plane_state` | str | Независимый serving-state: `SERVING_READY` или `UNAVAILABLE` |
+| `is_access_available` | bool | Ручной допуск ноды к выдаче |
+| `desired_snapshot_revision/hash` | int, str | Желаемый exact snapshot |
+| `applied_snapshot_revision/hash` | int, str | Подтверждённый агентом snapshot |
+| `last_health_at`, `last_error_code` | audit? | Безопасное состояние health-check |
+| `last_error_started_at` | DateTime? | Onset непрерывного текущего error code |
+| `revision_drift_started_at` | DateTime? | Onset непрерывного desired/applied mismatch |
+| `reality_public_key`, `reality_short_id`, `reality_server_name` | str | Только публичные REALITY client parameters |
+| `reality_fingerprint`, `reality_flow` | str | Фиксированные `chrome`, `xtls-rprx-vision` |
+
+Private REALITY key, REALITY target и bearer token агента в schema отсутствуют.
+X25519 public key хранится только как canonical unpadded URL-safe Base64 от 32
+байт. `READY` требует exact nonzero desired/applied snapshot revision и
+совпадающие непустые hashes; остальные health states допускают staged drift.
+
+## VPNAccessNodeApply (apps/vpn)
+
+Уникальная пара `(access, node)` хранит readiness evidence:
+`desired_revision`, nullable `applied_revision`, статус `PENDING`/`APPLIED`/
+`FAILED`, время попытки и безопасный error code. Это rollback-compatible current
+row для старого runtime; его cardinality не изменяется.
+
+## VPNAccessNodeRevisionEvidence (apps/vpn)
+
+Expand-only история с unique `(access, node, revision)`. Она dual-write
+с legacy current row и хранит отдельные pending/applied/failed revisions плюс
+`is_serving`. Новые subscription/readiness selectors читают историю; в rollback
+window exact legacy current-row используется как fallback только при
+отсутствии history для опубликованной revision. Reverse
+migration удаляет только history/data-plane expand, оставляя coherent legacy
+row для старого runtime.
 
 ## GiftCertificate (apps/payments)
 
