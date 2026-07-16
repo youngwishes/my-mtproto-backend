@@ -90,9 +90,16 @@ wiring выполняют только module-level factory functions. Celery ta
 inventory и воспроизводимый deploy по полному commit SHA. Он не является
 поддиректорией центрального Django-приложения.
 
-На каждой ноде агент управляет ровно одним выделенным VLESS + REALITY over TCP
-inbound. Версия Xray и digest образа закрепляются в репозитории агента; upgrade
-Xray является отдельным проверяемым изменением.
+На каждой обслуживающей ноде агент управляет одной неделимой парой выделенных
+inbound:
+
+- `PRIMARY_REALITY` — VLESS + REALITY + Vision over TCP;
+- `FALLBACK_WS_TLS` — VLESS + WebSocket за TLS/CDN origin.
+
+Один exact UUID-set применяется к обоим inbound. Агент не сообщает success и не
+становится `READY`, если применился только один transport. Версия Xray и digest
+образа закрепляются в репозитории агента; upgrade Xray является отдельным
+проверяемым изменением.
 
 ## Потоки данных
 
@@ -103,9 +110,10 @@ Xray является отдельным проверяемым изменени
 - `VPN_SALES_ENABLED=True`;
 - существует один активный `Product(code="vless_30d")` с валидными
   рублёвой и Stars-ценой;
-- существует хотя бы одна активная нода в состоянии `READY`, разрешённая для
-  новых доступов, совместимая с agent contract и не превышающая лимит snapshot
-  после добавления ещё одного доступа.
+- существует хотя бы одна активная нода с одновременно подтверждёнными
+  `PRIMARY_REALITY` и `FALLBACK_WS_TLS`, в aggregate-состоянии `READY`,
+  разрешённая для новых доступов, совместимая с agent contract и не превышающая
+  лимит snapshot после добавления ещё одного доступа.
 
 При запросе invoice backend повторяет эту проверку и создаёт короткоживущий
 `PaymentIntent` с криптографически случайным непредсказуемым `invoice_payload`,
@@ -252,8 +260,11 @@ broker после DB commit
 
 При первой покупке `published_uuid` отсутствует, поэтому URL пользователю ещё
 не отправляется. Успешный ответ агента на exact snapshot фиксируется в
-`VPNAccessNodeApply`. Когда хотя бы одна доступная нода подтверждает текущую
-desired revision, сервис атомарно публикует её. Только после этого ставится
+`VPNAccessNodeApply` только после того, как один UUID-set применён к обоим
+managed inbound, а health подтверждает одинаковые revision/hash и готовность
+обоих transport. Когда хотя бы одна доступная нода имеет такое evidence для
+текущей desired revision и обе независимые transport-проверки этой конфигурации
+успешны, сервис атомарно публикует revision целиком. Только после этого ставится
 durable задача уведомления с URL.
 
 Публикация revision и факт отправки уведомления разделены. Beat выбирает READY
@@ -265,11 +276,13 @@ durable задача уведомления с URL.
 at-least-once семантику.
 
 Reissue создаёт новый `desired_uuid` и увеличивает revision, не меняя token или
-срок. До первого подтверждения subscription endpoint продолжает отдавать
-предыдущий `published_uuid`, поэтому стабильная URL не становится временно
-нерабочей. После первого подтверждения публикуется новый UUID. Остальные ноды
-получают его асинхронно; нода с ошибкой исключается из новой подписки до
-успешного reconcile. Повторный reissue во время незавершённого reissue
+срок. До подтверждения полной новой пары subscription endpoint продолжает
+отдавать предыдущий `published_uuid`, поэтому стабильная URL не становится
+временно нерабочей и не выдаёт смесь старого primary с новым fallback. После
+первого подтверждения обоих transport на одной ноде новый UUID публикуется
+одной conditional DB-операцией. Остальные ноды получают его асинхронно; нода с
+частичным или ошибочным применением целиком исключается из новой subscription
+до успешного reconcile. Повторный reissue во время незавершённого reissue
 отклоняется `409 VPNReissueInProgress`; новый UUID не создаётся.
 
 Готовность reissue после одной ноды не обещает мгновенного отзыва старого UUID
@@ -279,7 +292,8 @@ Reissue создаёт новый `desired_uuid` и увеличивает revis
 runbook. Полный отзыв на всём fleet имеет eventual, а не синхронную семантику.
 
 Первая готовность и готовность reissue означают «актуальная revision применена
-хотя бы на одной выдаваемой ноде», а не «весь fleet синхронизирован».
+к обоим transport хотя бы на одной выдаваемой ноде», а не «весь fleet
+синхронизирован».
 
 ### Subscription URL
 
@@ -288,20 +302,33 @@ URL имеет вид `GET /api/v1/vpn/subscriptions/<token>/`; token генер
 меняется при продлении или reissue.
 
 Ответ для активного READY-доступа — `200 text/plain; charset=utf-8`, Base64 от
-UTF-8 списка с одним percent-encoded `vless://` URI на строку. URI строит один
-доменный generator, а порядок задаёт `VPNNode.number`. В список попадают только
-активные, разрешённые и `READY` ноды, для которых подтверждена
-`published_revision` этого доступа.
+UTF-8 списка percent-encoded `vless://` URI по одному на строку. Один доменный
+generator для каждой включённой ноды всегда строит два профиля в порядке
+`PRIMARY_REALITY`, затем `FALLBACK_WS_TLS`; ноды сортируются по
+`VPNNode.number`. Поэтому для `N` нод ответ детерминированно содержит `2 × N`
+ссылок. В список попадает только атомарная пара активной, разрешённой ноды,
+которая имеет serving evidence опубликованной revision и подтверждённые оба
+transport. Частичная пара не выдаётся.
 
-Профиль MVP фиксирован и не допускает transport negotiation:
+Основной профиль:
 
 ```text
-vless://<published_uuid>@<host>:<port>?encryption=none&flow=xtls-rprx-vision&security=reality&sni=<sni>&fp=chrome&pbk=<public-key>&sid=<short-id>&type=tcp#<location>
+vless://<published_uuid>@<primary-host>:<primary-port>?encryption=none&flow=xtls-rprx-vision&security=reality&sni=<reality-sni>&fp=chrome&pbk=<public-key>&sid=<short-id>&type=tcp#<location>%20%E2%80%94%20Основной
 ```
 
-Authority корректно обрамляет IPv6 квадратными скобками; все query values и
-fragment кодируются стандартным URL encoder. Приватный REALITY key и target в
-URI не попадают.
+Резервный профиль:
+
+```text
+vless://<published_uuid>@<cdn-host>:<cdn-port>?encryption=none&security=tls&sni=<cdn-sni>&fp=chrome&host=<ws-host>&path=<ws-path>&type=ws#<location>%20%E2%80%94%20Резервный
+```
+
+`cdn-host` — публичный provider-neutral CDN hostname, а не origin address.
+`cdn-port` в MVP равен `443`; отдельные `cdn-sni` и WebSocket `Host` допускают
+конфигурации провайдера, где они различаются. Authority корректно обрамляет IPv6
+квадратными скобками; query values, path и fragment кодируются стандартным URL
+encoder. Приватные REALITY key/target, CDN-origin hostname и origin credential
+в URI не попадают. Клиент вручную выбирает резервный профиль; backend не
+реализует transport negotiation или автоматический failover.
 
 Если initial access ещё не опубликован, endpoint возвращает `503` с
 `Retry-After`, но URL не отправляется пользователю. Истёкший или
@@ -407,24 +434,44 @@ identity и аудита суммы.
 ### `VPNNode`
 
 - unique `name` и `number`;
-- пользовательские `location`, публичные `host`, `port`;
+- пользовательская `location`, публичные primary `host`, `port`;
+- публичные fallback `cdn_host`, фиксированный `cdn_port=443`, `cdn_sni`,
+  `ws_host`, `ws_path`;
 - HTTPS `agent_base_url` host-nginx management endpoint; backend никогда не
   обращается напрямую к контейнерному адресу агента;
 - `agent_secret_key` — имя секрета в environment/Ansible, не сам token;
 - `agent_contract_version`;
 - `health_state`: `NEW`, `SYNCING`, `READY`, `UNHEALTHY`, `INCOMPATIBLE`,
   `OVER_CAPACITY`;
-- independent `data_plane_state`: `SERVING_READY`/`UNAVAILABLE`;
+- `primary_data_plane_state` и `fallback_data_plane_state`:
+  `SERVING_READY`/`UNAVAILABLE`, а также отдельные bounded error code,
+  `last_verified_at` и hash проверенной несекретной transport-конфигурации;
+- aggregate `data_plane_state`: `SERVING_READY` только если оба transport
+  `SERVING_READY` для текущих config hashes, иначе `UNAVAILABLE`;
 - `is_access_available` — ручной допуск новых и существующих выдач;
 - `desired_snapshot_revision/hash`, `applied_snapshot_revision/hash`;
 - `last_health_at`, `last_error_code`;
 - REALITY client parameters: public key, short id, server name, fingerprint,
   flow.
 
-Уникальны `number` и публичный `(host, port)`. Model/admin validation до
-сохранения проверяет DNS/IPv4/IPv6 authority, port, X25519 public key, short-id
-как hex допустимой длины, SNI как hostname и разрешённые enum fingerprint/flow.
-Приватный REALITY key и REALITY target в центральной БД не хранятся.
+Уникальны `number`, primary `(host, port)` и fallback route
+`(cdn_host, cdn_port, ws_host, ws_path)`: один CDN hostname можно разделить
+между нодами по разным path. Model/admin
+validation до сохранения проверяет DNS/IPv4/IPv6 authority, port, X25519 public
+key, short-id как hex допустимой длины, SNI/Host как hostname, абсолютный
+WebSocket path без query/fragment и разрешённые enum fingerprint/flow. Изменение
+любого публичного параметра transport меняет его config hash и немедленно
+сбрасывает соответствующее serving evidence до нового smoke. Приватный REALITY
+key/target, CDN provider credential и origin hostname в центральной БД не
+хранятся.
+
+Отдельная `VPNNodeEndpoint`/`VPNTransportEndpoint` таблица в MVP не создаётся.
+Типов ровно два, они обязательны для каждой ноды и не имеют независимого
+жизненного цикла: нода публикуется только парой. Поля на `VPNNode` дают меньше
+joins, constraints и migration/rollback surface. Нормализованная endpoint-модель
+станет оправданной только при отдельном утверждённом требовании на произвольное
+число transport или независимое включение endpoint. JSONField также отклонён:
+он ослабляет schema/DB validation и усложняет детерминированные selectors.
 
 ### `VPNAccessNodeApply`
 
@@ -442,19 +489,35 @@ During rollback window exact legacy row служит fallback только ес�
 published revision отсутствует: так writes старого runtime видны новому,
 но наличие history не может быть обойдено legacy-строкой.
 
+Cardinality evidence не расширяется до `(access, node, transport, revision)`.
+Одна строка означает только «эта revision атомарно применена к обоим managed
+inbound этой ноды». Per-transport runtime/smoke evidence принадлежит самой
+ноде, а не каждому UUID; дублировать его для каждого доступа означало бы
+создать большое производное состояние без новой информации. `is_serving=True`
+допустим только при обоих transport states `SERVING_READY` и aggregate
+`data_plane_state=SERVING_READY`.
+
 ## Контракт backend ↔ VPN-agent
 
-Контракт имеет major-версию `v1`. Backend передаёт и проверяет contract version;
+Single-inbound contract `v1` недостаточен: старый agent мог бы вернуть `READY`,
+ничего не зная о fallback. Dual-transport release вводит contract major `v2`;
+snapshot payload schema остаётся `1.0`, потому что desired access-set и его
+canonicalization не меняются. Backend передаёт и проверяет contract version;
 health агента возвращает `contract_version`, agent commit SHA, Xray version,
-readiness и applied snapshot revision/hash.
+aggregate readiness и обязательный объект `transports` с ровно двумя ключами
+`PRIMARY_REALITY` и `FALLBACK_WS_TLS`. Для каждого transport возвращаются
+runtime readiness, applied snapshot revision/hash и несекретный config hash.
+Aggregate `READY` разрешён только при `READY` обоих transport, одинаковом exact
+snapshot и ожидаемых config hashes.
 
 Endpoints:
 
-- `GET /api/v1/health` — runtime/Xray readiness и contract version;
-- `GET /api/v1/snapshot` — только текущие applied revision/hash/schema;
-- `PUT /api/v1/snapshot` с
+- `GET /api/v2/health` — aggregate и per-transport runtime/Xray readiness;
+- `GET /api/v2/snapshot` — общий durable applied revision/hash/schema только
+  для согласованной пары плюс per-transport metadata без UUID;
+- `PUT /api/v2/snapshot` с
   `{schema_version, snapshot_revision, snapshot_hash, accesses[]}` — привести
-  только выделенный managed inbound к точному snapshot.
+  оба выделенных managed inbound к одному точному snapshot.
 
 Incremental mutation endpoints отсутствуют. Любое добавление, reissue,
 истечение, refund deletion или изменение fleet формирует следующую монотонную
@@ -475,6 +538,15 @@ canonical JSON без transport metadata. Revision монотонна для к�
 - неизвестную major schema/contract version отклоняет `426
   incompatible_contract`.
 
+Перед mutation agent валидирует оба runtime-конфига. Он подготавливает новую
+полную конфигурацию, применяет её к обоим inbound и проверяет оба. Если второй
+transport не применился, agent восстанавливает последнюю durable полную пару;
+при невозможности доказать rollback возвращает безопасную ошибку, оба transport
+становятся `NOT_READY`, а backend отзывает aggregate serving evidence после
+authenticated health. HTTP `200 applied/no_op` запрещён при частичном успехе.
+Одинаковая revision/hash на двух transport — часть v2 invariant, а не два
+независимых snapshot.
+
 Backend никогда не разбивает exact snapshot на независимо применяемые partial
 snapshots. Он проверяет размер заранее. При overflow нода становится
 `OVER_CAPACITY`, исключается из выдачи и создаётся один alert. Новая продажа
@@ -485,10 +557,11 @@ snapshot проектируется отдельно, если текущего 
 ### Atomic persistence и crash recovery агента
 
 Агент валидирует весь запрос до изменения состояния, применяет exact desired set
-только к managed inbound, проверяет принятие Xray и затем пишет локальный
-snapshot через temporary file, `fsync` и atomic rename. Только после этого
-возвращается success. Локальный файл содержит contract/schema version, revision,
-hash и managed accesses с минимальными правами доступа.
+к обоим managed inbound, проверяет принятие обоих Xray transport и затем пишет
+единый локальный snapshot через temporary file, `fsync` и atomic rename. Только
+после этого возвращается success. Локальный файл содержит contract/schema
+version, revision, hash, оба transport config hashes и managed accesses с
+минимальными правами доступа.
 
 Сценарии падения:
 
@@ -501,10 +574,17 @@ hash и managed accesses с минимальными правами доступ
 Повтор exact-current reconcile на центральном backend также не переводит
 уже serving evidence в `PENDING`.
 
-При старте агент восстанавливает сохранённый snapshot в Xray, сверяет hash и
-переходит только в `recovery-ready`: центральный backend всё равно не включает
-ноду в пользовательскую подписку, пока health и reconcile не подтвердят
-совпадение с текущим desired snapshot.
+При старте агент восстанавливает сохранённый snapshot в оба inbound, сверяет их
+hash и переходит только в `recovery-ready`: центральный backend всё равно не
+включает ноду в пользовательскую подписку, пока health/reconcile и transport
+evidence не подтвердят совпадение с текущим desired snapshot и конфигурацией.
+
+Agent health подтверждает локальный runtime, но не притворяется внешним клиентом:
+он не может доказать путь через CDN или проблемную мобильную сеть изнутри origin.
+Внешний smoke runner/ручной release gate записывает в backend только bounded
+результат, transport config hash и время проверки; UUID, URL и payload в evidence
+не сохраняются. Так локальная health-проверка и end-to-end serving evidence не
+смешиваются.
 
 ## Reconcile, expiration и возврат
 
@@ -518,12 +598,15 @@ evidence остаются в существующей subscription до authenti
 первая или никогда не подтверждённая нода в subscription не включается.
 
 Health-check каждые 5 минут проверяет нездоровые и новые ноды. Нода не становится
-`READY` по одному health response: сначала выполняется exact full sync, затем
-сверяются revision/hash. Периодический full reconcile всех READY-нод не реже
-одного раза в час исправляет потерянные tasks и расхождения после рестартов.
-Успешный authenticated health, который подтверждает drift, missing snapshot
-или recovery-ready, сбрасывает `data_plane_state` и serving evidence; transport
-failure не считается доказательством data-plane outage.
+`READY` по одному aggregate health response: сначала выполняется exact full sync,
+затем по каждому transport сверяются revision/hash/config hash и наличие
+актуального внешнего smoke evidence. Периодический full reconcile всех READY-нод
+не реже одного раза в час исправляет потерянные tasks и расхождения после
+рестартов. Успешный authenticated health, который для любого transport
+подтверждает drift, missing snapshot, config mismatch или recovery-ready,
+сбрасывает состояние этого transport, aggregate `data_plane_state` и serving
+flags всей пары; management timeout/TLS failure не считается доказательством
+data-plane outage.
 
 Beat-задача истечения переводит доступ в `EXPIRED` атомарным conditional update
 и увеличивает desired snapshot revision нод. Даже если enqueue удаления в
@@ -636,11 +719,51 @@ certificate verification и firewall rules MVP.
 
 Приватный REALITY key остаётся только на ноде. REALITY target задаётся в
 versioned Ansible-конфигурации агента, а не через Django admin. Разрешены только
-оператором проверенные внешние TLS 1.3 targets на 443, не принадлежащие private,
-loopback, link-local или metadata ranges. Перед rollout проверяются доступность,
-соответствие SNI/сертификата, отсутствие перенаправления во внутреннюю сеть и
-правовые/эксплуатационные риски. Target health мониторится; смена target/Xray
-параметров проходит как отдельный agent release.
+оператором проверенные внешние TLS 1.3 targets на 443. Safety-этап сначала
+нормализует target/SNI, запрещает credentials/path/query/fragment, резолвит все
+A/AAAA и отклоняет любой private, loopback, link-local, multicast, unspecified,
+reserved или metadata address. Проверка повторяет resolution непосредственно
+перед rollout, чтобы не полагаться на устаревший DNS-результат.
+
+После safety gate совместимость проверяет закреплённый release-бинарник Xray
+его штатной TLS/REALITY compatibility-командой. Успех Xray является
+authoritative compatibility result; собственная проверка не предъявляет более
+строгих требований к certificate chain, ALPN или форме handshake и не может
+отклонить подтверждённую Xray пару. Неуспех/timeout Xray fail-closed отклоняет
+rollout. Версия Xray, target/SNI и результат команды входят в release evidence
+без private key. Target health мониторится; смена target/SNI/Xray параметров —
+конфигурационный rollout с новым config hash, preflight и external smoke до
+публикации.
+
+### WebSocket/TLS за CDN
+
+Fallback data path provider-neutral:
+
+```text
+VPN client -- TLS:443/WebSocket --> CDN edge
+           -- TLS/WebSocket --> origin nginx --> managed Xray WS inbound
+```
+
+Subscription содержит только публичный CDN hostname. Origin hostname/address,
+credential и provider API token не попадают в backend или клиентскую ссылку и
+хранятся в Ansible Vault/environment ноды. CDN обязан поддерживать WebSocket,
+TLS до origin, сохранение path/Host и внедрение отдельного origin-auth secret.
+Origin nginx принимает fallback только при одновременном выполнении двух
+условий: source входит в актуальный опубликованный CDN provider allowlist и
+constant-time проверен секретный заголовок, добавляемый edge. Прямой public
+доступ к WS listener от иных адресов firewall отклоняет; заголовок клиента CDN
+удаляет и формирует заново. Обновление provider ranges выполняется versioned
+deploy с fail-closed validation и rollback-файлом предыдущего набора.
+
+Origin использует отдельный валидный TLS certificate и SNI; `verify` между CDN
+и origin обязателен. Management API остаётся на отдельном HTTPS vhost/path,
+bearer token и backend IPv4 allowlist: CDN ranges никогда не получают доступ к
+management plane, а backend allowlist не открывает WS origin. Rate limits,
+buffering и idle timeout origin не должны обрывать долгоживущий WebSocket.
+
+Конкретный CDN vendor и способ автоматизации его zone/rules — deploy choice,
+если он удовлетворяет этому capability contract. Multi-CDN, автоматический
+provider failover и управление CDN из Django не входят в MVP.
 
 ### Subscription URL и логи
 
@@ -718,15 +841,44 @@ table rebuild. Перед deploy Litestream/SQLite backup и restore check об�
 во время schema migration новые платежные handlers ещё не включены feature
 flag.
 
+Dual-transport изменение поверх уже развёрнутого single-transport MVP также
+идёт expand/activate/contract, без синхронного table rewrite с включёнными
+продажами:
+
+1. expand-release добавляет nullable fallback public fields, два transport-state,
+   config hashes/timestamps/error codes; старые readers продолжают выдавать
+   только подтверждённый primary;
+2. оператор заполняет fallback config, deploy fail-closed проверяет CDN/origin,
+   а dual-inbound agent bootstrap временно поддерживает v1 и v2; v1 health
+   сообщает `READY` только при одинаковом snapshot в обоих inbound;
+3. exact snapshot/reconcile и оба external smoke создают новое evidence; поля
+   не backfill-ятся из старого aggregate `SERVING_READY`, потому что оно ничего
+   не доказывает о fallback;
+4. activation-release переключает selectors/subscription на v2 и `2 × N` только
+   после preflight, подтверждающего хотя бы одну полную пару; новые продажи до
+   этого остаются выключенными;
+5. удаление v1 compatibility и старого aggregate-write допускается отдельным
+   contract-release после audit fleet и rollback window.
+
+Rollback activation-release возвращает старые readers без reverse migration,
+но только пока agent bootstrap продолжает v1. Он может временно убрать fallback
+из subscription, поэтому это аварийный rollback пользовательского улучшения,
+но не отключает основной уже оплаченный доступ. Если доказан сбой любого
+transport после activation, штатное безопасное действие — выключить новые
+продажи и исключить всю пару проблемной ноды; публиковать половину пары новым
+runtime запрещено. CDN/provider secrets и origin rules откатываются только к
+последней проверенной versioned конфигурации.
+
 ## Cross-repo release и deploy
 
 Оба репозитория публикуют полный reviewed commit SHA. Release evidence содержит:
 
 - backend SHA и agent SHA;
-- agent contract/schema major version;
+- agent contract v2 и snapshot schema version;
 - pinned Xray version/image digest;
 - поддерживаемую backend↔agent compatibility matrix;
-- результаты agent contract, Android/iOS import и connection smoke tests.
+- transport config hashes, CDN/origin deployment revision;
+- результаты agent contract и iPhone/Happ primary/fallback connection smoke.
 
 Первое исправление management transport на direct bridge выпускается в два
 неразделимых этапа. Сначала отдельный bootstrap SHA с описанной выше topology
@@ -747,26 +899,31 @@ final SHA обязано отдельно содержать bootstrap SHA, ус
 и успешный forward redeploy; branch names и плавающие image tags не заменяют ни
 один SHA gate.
 
-Backend для MVP принимает только agent contract v1. Несовместимый agent получает
+Activation-release принимает только agent contract v2. Несовместимый agent получает
 `INCOMPATIBLE`, не участвует в новых продажах/readiness/публикации и не получает
 mutation calls. Management contract failure сам по себе не доказывает остановку
 Xray: ранее подтверждённые `SERVING_READY` + `is_serving` ссылки сохраняются в
 существующей subscription до authenticated snapshot disproof. Первая или ранее
 не подтверждённая incompatible-нода в subscription не включается. Изменения
-contract сначала добавляются backward-compatible на agent, затем на backend;
-удаление старой версии — только отдельным release после fleet audit.
+Dual-transport contract сначала добавляется на agent как совместимый v1 view и
+v2, затем backend переключается на v2; удаление v1 — только отдельным release
+после fleet audit.
 
 Последовательность rollout:
 
-1. создать `my-vless-vds-instance`, закрепить Xray и проверить agent contract;
-2. развернуть agent/Xray на нодах с закрытым firewall и продажами off;
+1. обновить `my-vless-vds-instance`, закрепить Xray и проверить dual-inbound
+   contract v2 и временный v1 compatibility view;
+2. развернуть agent/Xray, CDN и origin restrictions на нодах с закрытым
+   firewall и продажами off;
 3. выполнить backend preflight/backup, применить expand migrations и развернуть
    backend/bot с `VPN_SALES_ENABLED=False`;
-4. создать VPN Product и VPNNode, проверить TLS, contract, REALITY validation,
-   snapshot capacity и initial empty reconcile;
-5. подтвердить минимум две READY-ноды в разных пользовательских локациях, затем
-   импортировать одну production-like subscription в закреплённые оператором
-   поддерживаемые актуальные версии Android- и iOS-клиента, выполнить соединение;
+4. создать/расширить VPNNode, проверить management TLS, contract v2, REALITY
+   Xray-preflight, CDN→origin restriction, snapshot capacity и empty reconcile;
+5. подтвердить минимум одну полную READY-пару и импортировать production-like
+   subscription в закреплённую версию Happ на iPhone: primary проверить через
+   внешнюю/Wi-Fi сеть, fallback — через мобильную сеть, на которой primary
+   воспроизводимо нестабилен; выполнить не менее пяти последовательных
+   ping/page-load попыток каждого сценария без тайм-аутов;
 6. запустить sandbox или контролируемую реальную оплату, проверить receipt,
    readiness notification, продление, reissue и refund deactivation;
 7. включить продажи.
@@ -792,24 +949,34 @@ Rollback:
 - отключение subscription/reconcile уже оплативших пользователей не является
   допустимым rollback.
 
+Android и расширенная матрица операторов — отдельная приёмка после MVP и не
+блокируют activation. Фактические версии iOS/Happ, сеть и результаты
+обязательного smoke фиксируются в release evidence.
+
 ## Наблюдаемость и alerting
 
 Структурированные метрики/логи без секретов:
 
 - receipts по status, возраст oldest RECEIVED/RETRY, attempts и lease recovery;
 - latency от receipt accepted_at до APPLIED и от APPLIED до первой READY revision;
-- число PREPARING accesses и ready nodes;
-- per-node health, desired/applied revision mismatch и snapshot age;
+- число PREPARING accesses и полных ready node pairs;
+- per-node и per-transport runtime/serving state, config hash mismatch,
+  timestamp последнего successful smoke, desired/applied revision mismatch и
+  snapshot age;
+- CDN→origin handshake/WebSocket success/failure и rejected non-CDN origin
+  attempts без host/path/header values;
 - delivery/reconcile success/failure, overflow/incompatible counters;
 - readiness notification success/failure;
 - subscription status/latency/429 без raw token;
 - refund deactivation audit.
 
 Alerts дедуплицируются по stable resource/error code. Обязательны alerts на
-stale receipt, отсутствие READY-нод, incompatible agent, snapshot overflow,
-длительный revision drift, repeated auth/TLS failure и невозможность отправить
-ready notification. UUID, URLs, tokens, Authorization и full agent payload в
-логах/alerts отсутствуют.
+stale receipt, отсутствие полных READY-пар, partial transport readiness,
+устаревший/несовпадающий config evidence, incompatible agent, snapshot overflow,
+длительный revision drift, repeated management/origin auth/TLS failure и
+невозможность отправить ready notification. UUID, URLs, paths, hostnames,
+tokens, Authorization/origin headers и full agent payload в логах/alerts
+отсутствуют.
 
 ## Failure behavior
 
@@ -822,6 +989,9 @@ ready notification. UUID, URLs, tokens, Authorization и full agent payload в
 | Два singleton containers запущены одновременно | Только владелец host `flock` применяет receipts; второй not-ready |
 | Повтор successful payment | Existing receipt/result, срок не меняется |
 | Одна нода не применила UUID | Нода исключена, другие продолжают; recovery full sync |
+| Один transport не применил UUID | HTTP success запрещён; agent откатывает полную пару, нода целиком исключена |
+| Один transport runtime/smoke не готов | В subscription нет обоих профилей ноды; новые продажи используют только другие полные пары |
+| CDN недоступен или origin restriction drift | Fallback `UNAVAILABLE`, aggregate pair недоступна, alert; primary отдельно не публикуется новым runtime |
 | Agent ответ потерян после snapshot apply | Retry той же revision/hash — no-op |
 | Snapshot partial/crash | Агент not-ready, восстанавливает atomic local snapshot, затем reconcile |
 | Snapshot превышает лимит | Нода OVER_CAPACITY, partial apply запрещён, alert |
@@ -849,6 +1019,10 @@ ready notification. UUID, URLs, tokens, Authorization и full agent payload в
 - notification только после первой current revision snapshot apply;
 - Beat восстанавливает потерянный notification enqueue; marker только после send;
 - stable token при renewal/reissue, old published UUID до readiness;
+- `2 × N` links в порядке node number → primary/fallback, одинаковый UUID и
+  уникальные понятные названия;
+- node-pair atomic inclusion, один transport failure исключает оба URI;
+- reissue сохраняет старую полную пару до подтверждения новой полной пары;
 - refund deactivation и отсутствие изменений MTProto/referral/gift state;
 - all-nodes-down invoice/pre-checkout block, successful-payment bypass flag/down;
 - expiration и reconcile восстанавливаются без fragile enqueue marker;
@@ -862,18 +1036,25 @@ ready notification. UUID, URLs, tokens, Authorization и full agent payload в
 - состояния NOT_PURCHASED/PREPARING/READY/EXPIRED/DISABLED;
 - bot немедленно подтверждает receipt и отдельно отправляет URL при readiness;
 - feature flag не ломает existing status/subscription/reissue;
-- Base64/URI percent encoding, IPv6 authority, порядок и фильтрация нод;
+- Base64/URI percent encoding, IPv6 authority, WS path/Host/SNI, порядок и
+  фильтрация нод;
 - unknown/preparing/expired/disabled token responses и no-store headers;
 - Nginx/Django logging redaction, trusted-IP Redis throttle и `429`.
 
 ### Agent/contract
 
 - отсутствие incremental mutation endpoints;
-- exact snapshot add/replace/remove только managed inbound;
+- exact snapshot add/replace/remove атомарно в обоих managed inbound;
 - canonical hash и правила stale/conflicting revision;
 - reject invalid/oversize payload до Xray mutation;
 - atomic file persistence и три crash points;
-- restart restore до ready, Xray API error и pinned-version compatibility;
+- partial second-inbound failure/rollback, restart restore обоих inbound до
+  ready, Xray API error и pinned-version compatibility;
+- health v2 требует ровно два transport, одинаковые revision/hash и config hash;
+- REALITY public-address safety до pinned-Xray compatibility check; custom
+  heuristic не может отменить успешный Xray result;
+- CDN full-path smoke, provider allowlist + injected origin secret, запрет
+  прямого origin и отделение CDN path от management allowlist;
 - HTTPS auth, per-node token isolation и staged rotation;
 - backend consumer-driven contract tests запускаются также в agent CI.
 
@@ -883,17 +1064,18 @@ ready notification. UUID, URLs, tokens, Authorization и full agent payload в
 - production Compose/Ansible syntax checks обоих репозиториев;
 - backup/restore и migration duration evidence;
 - exact compatibility pair SHA;
-- production-like Android/iOS import и реальное соединение;
+- production-like iPhone/Happ import; пять стабильных primary проверок через
+  external/Wi-Fi и пять fallback проверок через affected mobile network;
 - smoke: invoice, payment, delayed readiness, renewal, reissue, node recovery,
   refund deactivation и flag off.
 
 ## Документация
 
 При реализации обновляются `docs/BUSINESS.md`, `docs/ARCHITECTURE.md`,
-`docs/CONTRACTS.md`, `docs/MODELS.md`, `docs/apps/PAYMENTS.md`; добавляются
-`docs/apps/VPN.md`, agent API/deploy/runbook в `my-vless-vds-instance` и
-cross-repo release checklist. Конкретные коммерческие цены и секреты в git не
-фиксируются.
+`docs/CONTRACTS.md`, `docs/MODELS.md`, `docs/apps/PAYMENTS.md`, `docs/apps/VPN.md`,
+consumer contract copies OpenAPI/schema, agent API/deploy/runbook в
+`my-vless-vds-instance` и cross-repo release checklist. Конкретные коммерческие
+цены, origin addresses и секреты в git не фиксируются.
 
 ## Трассировка требований
 
@@ -907,11 +1089,17 @@ cross-repo release checklist. Конкретные коммерческие це
 | BR-013, BR-014; AC-005 | Двойная availability check; accepted receipt не зависит от нод |
 | BR-015; AC-010 | Ограниченная семантика `VPN_SALES_ENABLED` |
 | BR-016; AC-011 | Audited idempotent refund deactivation и exact removal |
+| BR-019, BR-020, BR-022; AC-014 | Обязательная пара transport, один UUID/lifecycle, детерминированные `2 × N` URI |
+| BR-021; AC-002, AC-003, AC-004, AC-005, AC-015 | Aggregate readiness и атомарное включение node pair |
+| BR-023; AC-009, AC-016 | Exact snapshot в оба inbound и публикация полной revision без смешивания |
+| BR-024; AC-019 | Public-address safety gate и authoritative pinned-Xray preflight |
+| AC-017, AC-018 | Раздельные external smoke gates для primary Wi-Fi/external и fallback affected mobile |
 
 ## Архитектурный gate
 
-Архитектура закрывает утверждённые BR/AC без изменения non-goals. До
-implementation обязательны два согласованных плана: центральный backend+bot и
-`my-vless-vds-instance`, с checkpoint на agent contract v1, compatibility pair,
-миграционный preflight и порядок rollout. Реализация не начинается, пока оба
-плана не прошли архитектурное ревью.
+Архитектура закрывает утверждённые BR/AC без изменения non-goals; блокирующих
+противоречий не обнаружено. До implementation обязательны два согласованных
+плана: центральный backend+bot и `my-vless-vds-instance`, с checkpoint на agent
+contract v2, временный v1 compatibility view, CDN/origin security, compatibility
+pair, migration preflight и порядок rollout. По решению пользователя
+implementation и подготовка этих планов сейчас отложены.
