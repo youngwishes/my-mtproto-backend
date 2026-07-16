@@ -18,6 +18,19 @@ from dotenv import load_dotenv
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
+VPN_PAYMENT_WRITER_LOCK_PATH = os.environ.get(
+    "VPN_PAYMENT_WRITER_LOCK_PATH",
+    str(BASE_DIR / "data" / "vpn-payment-writer.lock"),
+)
+VPN_PAYMENT_WORKER_OWNER_LOCK_PATH = os.environ.get(
+    "VPN_PAYMENT_WORKER_OWNER_LOCK_PATH",
+    str(BASE_DIR / "data" / "vpn-payment-worker.owner.lock"),
+)
+VPN_PAYMENT_WORKER_OWNER_PID_PATH = os.environ.get(
+    "VPN_PAYMENT_WORKER_OWNER_PID_PATH",
+    str(BASE_DIR / "data" / "vpn-payment-worker.owner.pid"),
+)
+
 load_dotenv(BASE_DIR.parent / ".env")
 
 

@@ -41,7 +41,7 @@ services:
   celery-worker:
     container_name: celery-worker
     build: .
-    command: celery -A config worker --loglevel=info
+    command: celery -A config worker --loglevel=info -Q celery
     volumes:
       - ./data:/app/data
     depends_on:
@@ -49,6 +49,35 @@ services:
     env_file:
       - .env
     restart: unless-stopped
+    networks:
+      - backend
+
+  vpn-payment-worker:
+    container_name: vpn-payment-worker
+    build: .
+    command: >-
+      python -m apps.vpn.worker_entrypoint
+      --lock-path /app/data/vpn-payment-worker.owner.lock
+      --pid-path /app/data/vpn-payment-worker.owner.pid --
+      celery -A config worker --loglevel=info -Q vpn_payment_fulfillment
+      --concurrency=1 --prefetch-multiplier=1
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      - redis
+    env_file:
+      - .env
+    environment:
+      VPN_PAYMENT_WRITER_LOCK_PATH: /app/data/vpn-payment-writer.lock
+      VPN_PAYMENT_WORKER_OWNER_LOCK_PATH: /app/data/vpn-payment-worker.owner.lock
+      VPN_PAYMENT_WORKER_OWNER_PID_PATH: /app/data/vpn-payment-worker.owner.pid
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "manage.py", "check_vpn_payment_writer_lock"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     networks:
       - backend
 

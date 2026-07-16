@@ -73,3 +73,16 @@ Playbook сам запускает миграции через entrypoint Django
 состояние всех Compose-сервисов. При ошибке он возвращает предыдущий код и
 контейнеры. Уже применённые миграции БД автоматически не откатываются; перед
 ручным откатом проверь их совместимость и состояние backup в Litestream.
+
+Перед общим `docker compose up` playbook отдельно останавливает старый
+`vpn-payment-worker`, затем запускает единственный новый worker очереди
+`vpn_payment_fulfillment`. Он монтирует тот же `./data`, что и Django/SQLite, и
+до старта Celery получает lifetime lock
+`/app/data/vpn-payment-worker.owner.lock`. Дублирующий процесс завершается, не
+начав слушать очередь. Отдельный transaction lock
+`/app/data/vpn-payment-writer.lock` удерживается только при применении receipt;
+healthcheck его не трогает, а проверяет owner PID, command identity и занятость
+lifetime lock. Поэтому корректный worker остаётся healthy во время транзакции.
+Playbook требует `vpn-payment-worker` в live ignored group vars и ждёт Docker
+`healthy`; при rollback failed singleton останавливается до восстановления
+предыдущего Compose stack. Не запускай второй singleton вручную.

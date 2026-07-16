@@ -64,7 +64,29 @@ Composition root находится в `apps.vpn.factories.payment_receipts`: д
 направление импорта — `vpn -> payments`. Он инъектирует concrete fulfillment в
 payment orchestrator. Delivery scheduler передаётся контрактом и регистрируется
 только after commit; его отказ не отменяет покупку, поскольку periodic reconcile
-остаётся durable recovery. Runnable task/очередь появляются отдельно в B-009.
+остаётся durable recovery.
+
+Runnable consumer также принадлежит `apps.vpn`. Тонкая задача
+`apps.vpn.apply_payment_receipt` маршрутизируется только в очередь
+`vpn_payment_fulfillment`; отдельный Compose worker запускается с concurrency и
+prefetch 1 и монтирует общий `./data`. Перед claim и до конца receipt transaction
+он удерживает non-blocking exclusive `flock` файла
+`/app/data/vpn-payment-writer.lock`. Default worker явно слушает только очередь
+`celery`, поэтому concrete fulfillment не может выполняться конкурентно там.
+
+До запуска Celery wrapper отдельно получает lifetime owner lock
+`/app/data/vpn-payment-worker.owner.lock` и сохраняет PID владельца. Второй idle
+worker не может начать слушать очередь и завершается. Healthcheck проверяет live
+PID, command identity dedicated queue и то, что lifetime lock действительно
+занят; transaction lock он не получает, поэтому активное применение receipt не
+делает законного владельца unhealthy. При выходе worker ОС освобождает оба lock.
+
+Celery Beat раз в минуту вызывает vpn-owned recovery service. Он ограниченной
+партией выбирает через payment selector `RECEIVED`, наступившие `RETRY` и stale
+`PROCESSING`, условно освобождает stale lease и ставит receipt в singleton queue
+с jitter до пяти секунд. Ошибка broker не меняет durable receipt: следующая
+итерация Beat снова выберет его. Deploy останавливает старый singleton до запуска
+нового и ждёт healthcheck lifetime-владельца.
 
 ## VPNNode
 
