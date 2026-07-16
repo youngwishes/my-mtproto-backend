@@ -12,13 +12,11 @@ from apps.vpn.selectors import (
     get_active_unexpired_vpn_access_by_user_id,
     has_compatible_ready_vpn_node_with_capacity,
 )
+from apps.vpn.services.build_snapshot import SNAPSHOT_V1_MAX_ENTRIES
 
 if TYPE_CHECKING:
     from apps.users.models import SystemUser
     from apps.vpn.models import VPNAccess
-
-SNAPSHOT_V1_MAX_ENTRIES = 5_000
-
 
 @final
 @dataclass(kw_only=True, slots=True, frozen=True)

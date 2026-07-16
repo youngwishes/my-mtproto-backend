@@ -59,7 +59,7 @@ def validate_https_base_url(value: str) -> None:
         or parsed.password
         or parsed.query
         or parsed.fragment
-        or parsed.path not in ("", "/")
+        or parsed.path
         or parsed_port is None and ":" in parsed.netloc.rsplit("]", 1)[-1]
     ):
         raise ValidationError("Agent base URL должен быть HTTPS origin без credentials и пути.")

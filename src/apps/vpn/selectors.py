@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from django.db.models import F, QuerySet
 from django.utils import timezone
 
+from apps.vpn.dtos import VPNDesiredAccessDTO
 from apps.vpn.enums import VPNAccessState, VPNNodeHealthState
 from apps.vpn.models import VPNAccess, VPNAccessNodeApply, VPNNode, VPNPurchase
 
@@ -50,6 +53,32 @@ def get_ready_available_vpn_nodes() -> QuerySet[VPNNode]:
 
 def get_access_node_applies(*, access: VPNAccess) -> QuerySet[VPNAccessNodeApply]:
     return VPNAccessNodeApply.objects.active().filter(access=access).select_related("node")
+
+
+def get_desired_vpn_snapshot_accesses(
+    *, at: datetime | None = None
+) -> tuple[VPNDesiredAccessDTO, ...]:
+    """Return desired credentials; expiry and deactivation are represented by absence."""
+    effective_at = at or timezone.now()
+    rows = (
+        VPNAccess.objects.active()
+        .filter(
+            expired_at__gt=effective_at,
+            disabled_at__isnull=True,
+            state__in=(VPNAccessState.PREPARING, VPNAccessState.READY),
+        )
+        .order_by("pk")
+        .values_list("pk", "desired_uuid", "desired_revision", "user_id")
+    )
+    return tuple(
+        VPNDesiredAccessDTO(
+            access_id=access_id,
+            uuid=desired_uuid,
+            access_revision=desired_revision,
+            customer_id=customer_id,
+        )
+        for access_id, desired_uuid, desired_revision, customer_id in rows
+    )
 
 
 def has_compatible_ready_vpn_node_with_capacity(

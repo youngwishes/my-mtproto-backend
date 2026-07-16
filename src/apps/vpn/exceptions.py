@@ -1,6 +1,53 @@
 from __future__ import annotations
 
-from apps.core.exceptions import BaseServiceError
+from typing import ClassVar
+
+from apps.core.exceptions import BaseInfraError, BaseServiceError
+
+
+class VPNAgentTransportError(BaseInfraError):
+    """VPN-agent временно недоступен"""
+
+    error_code: ClassVar[str] = "agent_transport_error"
+
+    def __init__(self, node_id: int) -> None:
+        super().__init__(node_id, message=self.__doc__, error_code=self.error_code)
+
+
+class VPNAgentTimeout(VPNAgentTransportError):
+    error_code = "agent_timeout"
+
+
+class VPNAgentTLSFailure(VPNAgentTransportError):
+    error_code = "agent_tls_failure"
+
+
+class VPNAgentAuthenticationError(VPNAgentTransportError):
+    error_code = "agent_unauthorized"
+
+
+class VPNAgentContractError(VPNAgentTransportError):
+    error_code = "incompatible_contract"
+
+
+class VPNAgentStaleRevision(VPNAgentTransportError):
+    error_code = "stale_revision"
+
+
+class VPNAgentRevisionConflict(VPNAgentTransportError):
+    error_code = "revision_conflict"
+
+
+class VPNAgentSnapshotOverflow(VPNAgentTransportError):
+    error_code = "snapshot_too_large"
+
+
+class VPNAgentProtocolError(VPNAgentTransportError):
+    error_code = "agent_protocol_error"
+
+
+class VPNAgentUnavailable(VPNAgentTransportError):
+    error_code = "agent_unavailable"
 
 
 class VPNAccessNotFound(BaseServiceError):

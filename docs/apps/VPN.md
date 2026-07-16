@@ -120,6 +120,61 @@ staged reconcile.
 Приватный REALITY key, REALITY target и bearer token агента в центральной БД не
 хранятся. Admin-form явно отклоняет попытку передать private key или target.
 
+## HTTPS transport агента
+
+`VPNAgentTransport` — frozen infrastructure dependency с инъектированными
+`requests.Session`, timeout-конфигурацией и resolver секрета. Для каждого
+запроса resolver заново читает token по `VPNNode.agent_secret_key`: token не
+кэшируется в DTO или модели, ноды не делят credential, а переключение
+environment current → next начинает действовать без перезапуска transport.
+
+Transport принимает только точный HTTPS origin без trailing slash,
+credentials/path/query/fragment; explicit port разрешён. Он всегда передаёт
+`verify=True`, connect/read timeout, bearer header и
+`X-Agent-Contract-Version`. Redirects отключены для GET и PUT: любой 3xx
+становится безопасной protocol error, а snapshot не пересылается на новый
+origin. Plaintext fallback отсутствует.
+
+Перед каждым PUT transport выполняет authenticated health preflight и сверяет
+contract/schema вместе с reviewed release identity. Для A-010 gate это agent
+SHA `20ae654fc460163fe80aa82051ea9bb22f6d664a`, Xray `26.7.11` и digest
+`sha256:a1644183accdb0b5be967093fe34be756fd5de15fe2ee0206e842ae17350967f`.
+Любое отличие или ответ `426` запрещает mutation. Смена разрешённой release pair
+является явным versioned config change после review/test deploy, а не
+автоматическим принятием нового health.
+
+Ответ читается stream-ом не более `VPN_AGENT_MAX_RESPONSE_BYTES` (default 64
+KiB), независимо от наличия или правдивости `Content-Length`. Success и error
+принимают только `application/json` с необязательным UTF-8 charset. Missing/
+wrong content type, invalid JSON и overflow становятся redacted protocol error.
+`401`, `409 stale_revision`, `409 revision_conflict`, `413
+snapshot_too_large`, `426`, timeout и TLS failure преобразуются в фиксированные
+infra error codes. Remote body, Authorization, UUID и resolver exception не
+входят в error message/context или exception chain.
+
+Настройки: `VPN_AGENT_CONNECT_TIMEOUT_SECONDS`,
+`VPN_AGENT_READ_TIMEOUT_SECONDS`, `VPN_AGENT_SNAPSHOT_SCHEMA_VERSION`,
+`VPN_AGENT_EXPECTED_SHA`, `VPN_AGENT_EXPECTED_XRAY_VERSION`,
+`VPN_AGENT_EXPECTED_XRAY_IMAGE_DIGEST`, `VPN_AGENT_MAX_RESPONSE_BYTES`. Token
+задаётся отдельной environment/Ansible переменной с именем из `agent_secret_key`;
+значение не документируется и не коммитится.
+
+## Canonical exact snapshot
+
+Selector snapshot выбирает только `is_active`, неистёкшие, не отключённые
+`PREPARING`/`READY` accesses и передаёт desired UUID/revision. Published UUID,
+subscription token, customer id и другие private/transport поля в payload не
+попадают. Истечение, refund и архивирование представлены отсутствием access в
+следующем полном snapshot; incremental/chunk mutation не формируется.
+
+`BuildVPNSnapshotService` сортирует доступы по numeric `access_id`, сериализует
+hash input как UTF-8 JSON с recursive lexicographic keys и compact separators,
+без BOM/newline, и вычисляет lowercase SHA-256. Результат byte-identical общим
+contract v1 fixtures. `ForecastVPNSnapshotCapacityService` тем же алгоритмом
+считает точные entries и canonical bytes до HTTP. Prospective credential того
+же customer заменяет текущий элемент (renew/reissue = `+0`), а новый customer
+добавляет один; оба лимита проверяются включительно на границе.
+
 ## VPNAccessNodeApply
 
 Строка `(access, node)` уникальна и служит evidence доставки конкретной desired

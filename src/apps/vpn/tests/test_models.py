@@ -190,6 +190,15 @@ class VPNNodeValidationTests(TestCase):
         self.assert_invalid(agent_base_url="http://agent.example.com")
         self.assert_invalid(agent_secret_key="actual-secret-token-value")
 
+    def test_agent_url_is_exact_origin_without_trailing_slash(self) -> None:
+        for value in (
+            "https://agent.example.com/",
+            "https://agent.example.com//",
+            "https://agent.example.com/path",
+        ):
+            with self.subTest(value=value):
+                self.assert_invalid(agent_base_url=value)
+
     def test_validates_port(self) -> None:
         self.assert_invalid(port=0)
         self.assert_invalid(port=65536)
