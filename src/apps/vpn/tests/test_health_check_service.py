@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import uuid
 from unittest import mock
 
 from django.test import TestCase
+from django.utils import timezone
 
 from apps.vpn.dtos import VPNAgentHealthDTO
 from apps.vpn.enums import VPNApplyStatus, VPNDataPlaneState, VPNNodeHealthState
@@ -117,7 +119,53 @@ class HealthCheckVPNNodeServiceTests(TestCase):
         node.refresh_from_db()
         self.assertEqual(node.last_error_code, "snapshot_not_exact")
 
-    def test_successful_management_health_with_drift_revokes_serving_eligibility(self) -> None:
+    def test_staged_desired_snapshot_keeps_confirmed_published_snapshot_serving(
+        self,
+    ) -> None:
+        access = VPNAccessFactory(
+            state="preparing",
+            desired_revision=2,
+            desired_uuid=uuid.uuid4(),
+            published_uuid=uuid.uuid4(),
+            published_revision=1,
+        )
+        node = VPNNodeFactory(
+            health_state=VPNNodeHealthState.SYNCING,
+            data_plane_state=VPNDataPlaneState.SERVING_READY,
+            desired_snapshot_revision=3,
+            desired_snapshot_hash="a" * 64,
+            applied_snapshot_revision=2,
+            applied_snapshot_hash="d" * 64,
+        )
+        evidence = VPNAccessNodeRevisionEvidenceFactory(
+            access=access,
+            node=node,
+            revision=1,
+            applied_revision=1,
+            status=VPNApplyStatus.APPLIED,
+            is_serving=True,
+        )
+        health = VPNAgentHealthDTO(
+            contract_version="v1",
+            schema_version="1.0",
+            agent_sha="b" * 40,
+            xray_version="1",
+            xray_image_digest=f"sha256:{'c' * 64}",
+            readiness="READY",
+            applied_snapshot_revision=2,
+            applied_snapshot_hash="d" * 64,
+        )
+
+        get_health_check_vpn_node_service(get_health=lambda *, node: health)(node=node)
+
+        node.refresh_from_db()
+        evidence.refresh_from_db()
+        self.assertEqual(node.health_state, VPNNodeHealthState.SYNCING)
+        self.assertEqual(node.data_plane_state, VPNDataPlaneState.SERVING_READY)
+        self.assertTrue(evidence.is_serving)
+        self.assertIsNotNone(node.revision_drift_started_at)
+
+    def test_unconfirmed_snapshot_drift_revokes_serving_eligibility(self) -> None:
         access = VPNAccessFactory()
         node = VPNNodeFactory(
             health_state=VPNNodeHealthState.READY,
@@ -147,6 +195,63 @@ class HealthCheckVPNNodeServiceTests(TestCase):
         )
 
         get_health_check_vpn_node_service(get_health=lambda *, node: health)(node=node)
+
+        node.refresh_from_db()
+        evidence.refresh_from_db()
+        self.assertEqual(node.data_plane_state, VPNDataPlaneState.UNAVAILABLE)
+        self.assertFalse(evidence.is_serving)
+
+    def test_authenticated_drift_clears_transport_failure_onset(self) -> None:
+        node = VPNNodeFactory(
+            health_state=VPNNodeHealthState.UNHEALTHY,
+            data_plane_state=VPNDataPlaneState.UNAVAILABLE,
+            desired_snapshot_revision=3,
+            desired_snapshot_hash="a" * 64,
+            applied_snapshot_revision=2,
+            applied_snapshot_hash="d" * 64,
+            last_error_code="agent_unauthorized",
+            last_error_started_at=timezone.now(),
+        )
+        health = VPNAgentHealthDTO(
+            contract_version="v1",
+            schema_version="1.0",
+            agent_sha="b" * 40,
+            xray_version="1",
+            xray_image_digest=f"sha256:{'c' * 64}",
+            readiness="READY",
+            applied_snapshot_revision=2,
+            applied_snapshot_hash="d" * 64,
+        )
+
+        get_health_check_vpn_node_service(get_health=lambda *, node: health)(node=node)
+
+        node.refresh_from_db()
+        self.assertEqual(node.last_error_code, "")
+        self.assertIsNone(node.last_error_started_at)
+        self.assertIsNotNone(node.revision_drift_started_at)
+
+    def test_transport_failure_revokes_serving_eligibility(self) -> None:
+        access = VPNAccessFactory()
+        node = VPNNodeFactory(
+            health_state=VPNNodeHealthState.READY,
+            data_plane_state=VPNDataPlaneState.SERVING_READY,
+            desired_snapshot_revision=3,
+            desired_snapshot_hash="a" * 64,
+            applied_snapshot_revision=3,
+            applied_snapshot_hash="a" * 64,
+        )
+        evidence = VPNAccessNodeRevisionEvidenceFactory(
+            access=access,
+            node=node,
+            revision=1,
+            applied_revision=1,
+            status=VPNApplyStatus.APPLIED,
+            is_serving=True,
+        )
+
+        get_health_check_vpn_node_service(
+            get_health=mock.Mock(side_effect=VPNAgentTimeout(node.pk))
+        )(node=node)
 
         node.refresh_from_db()
         evidence.refresh_from_db()

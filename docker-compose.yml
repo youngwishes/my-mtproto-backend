@@ -1,3 +1,6 @@
+x-vpn-sales-environment: &vpn-sales-environment
+  VPN_SALES_ENABLED: "${VPN_SALES_ENABLED:-0}"
+
 services:
   django:
     build: .
@@ -8,6 +11,8 @@ services:
       - ./data:/app/data
     env_file:
       - .env
+    environment:
+      <<: *vpn-sales-environment
     expose:
       - 8000
     networks:
@@ -99,7 +104,10 @@ services:
   flower:
     build: .
     container_name: flower
-    command: celery -A config flower --port=5555 --basic_auth=${FLOWER_USER}:${FLOWER_PASSWORD}
+    command: >-
+      celery -A config flower --port=5555
+      --basic_auth=${FLOWER_USER}:${FLOWER_PASSWORD}
+      --persistent=True --db=/app/data/flower.db --max_tasks=10000
     expose:
       - 5555
     depends_on:
@@ -135,6 +143,8 @@ services:
     container_name: telegram-bot
     env_file:
       - ./bot/.env
+    environment:
+      <<: *vpn-sales-environment
     restart: unless-stopped
     networks:
       - backend

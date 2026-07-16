@@ -12,6 +12,7 @@ from apps.vpn.infra.subscription_throttle import (
     RedisVPNSubscriptionThrottle,
     get_subscription_throttle,
 )
+from apps.vpn.infra.alert_dedupe import get_vpn_alert_dedupe
 
 __all__ = [
     "FileSingleWriterLock",
@@ -19,6 +20,7 @@ __all__ = [
     "VPNAgentTransportConfig",
     "VPNPaymentWorkerHealthCheck",
     "get_vpn_agent_transport",
+    "get_vpn_alert_dedupe",
     "read_process_command",
     "RedisVPNSubscriptionThrottle",
     "get_subscription_throttle",

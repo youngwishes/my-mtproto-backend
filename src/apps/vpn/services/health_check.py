@@ -30,7 +30,7 @@ def _noop_report_failure(*, node_id: int, error_code: str) -> None:
 def _report_failure(*, node_id: int, error_code: str) -> None:
     logger.warning(
         "vpn_node_health_failed",
-        extra={"node_id": node_id, "error_code": error_code},
+        extra={"error_code": error_code},
     )
 
 

@@ -13,7 +13,7 @@ from apps.users.models import SystemUser
 
 class VPNRevisionEvidenceExpandMigrationTest(TransactionTestCase):
     migrate_from = ("vpn", "0001_initial")
-    migrate_to = ("vpn", "0002_revision_evidence_expand")
+    migrate_to = ("vpn", "0004_access_first_ready_at")
 
     def setUp(self) -> None:
         super().setUp()
@@ -56,6 +56,7 @@ class VPNRevisionEvidenceExpandMigrationTest(TransactionTestCase):
             desired_snapshot_hash="a" * 64,
             applied_snapshot_revision=1,
             applied_snapshot_hash="a" * 64,
+            last_error_code="agent_tls_failure",
             reality_public_key="UEnA5W5Lk_7-ywBVKfM8kS4DFwQ6F6-y9vDSS2rQYF8",
             reality_short_id="abcd",
             reality_server_name="example.com",
@@ -76,9 +77,13 @@ class VPNRevisionEvidenceExpandMigrationTest(TransactionTestCase):
         new_apps = self.executor.loader.project_state([self.migrate_to]).apps
         history = new_apps.get_model("vpn", "VPNAccessNodeRevisionEvidence")
         self.assertTrue(history.objects.get(revision=1).is_serving)
-        self.assertEqual(
-            new_apps.get_model("vpn", "VPNNode").objects.get(pk=node.pk).data_plane_state,
-            "serving_ready",
+        migrated_node = new_apps.get_model("vpn", "VPNNode").objects.get(pk=node.pk)
+        self.assertEqual(migrated_node.data_plane_state, "serving_ready")
+        self.assertIsNotNone(migrated_node.last_error_started_at)
+        self.assertIsNotNone(
+            new_apps.get_model("vpn", "VPNAccess")
+            .objects.get(pk=access.pk)
+            .first_ready_at
         )
 
         old_apply_model.objects.update_or_create(

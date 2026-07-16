@@ -17,6 +17,7 @@ CELERY_TASK_ROUTES = {
     "apps.vpn.expire_accesses": {"queue": "celery"},
     "apps.vpn.send_ready_notification": {"queue": "celery"},
     "apps.vpn.recover_ready_notifications": {"queue": "celery"},
+    "apps.vpn.collect_observability": {"queue": "celery"},
 }
 
 CELERY_BEAT_SCHEDULE = {
@@ -58,6 +59,10 @@ CELERY_BEAT_SCHEDULE = {
     },
     "recover-vpn-ready-notifications": {
         "task": "apps.vpn.recover_ready_notifications",
+        "schedule": timedelta(minutes=1),
+    },
+    "collect-vpn-observability": {
+        "task": "apps.vpn.collect_observability",
         "schedule": timedelta(minutes=1),
     },
 }

@@ -80,7 +80,14 @@ class SendVPNReadyNotificationServiceTests(TestCase):
         )
 
     @mock.patch("apps.vpn.tasks.notifications._enqueue_notification")
-    def test_broker_failure_leaves_work_selectable(self, enqueue: mock.Mock) -> None:
+    @mock.patch("apps.vpn.tasks.notifications.get_safe_vpn_alert_service")
+    @mock.patch("apps.vpn.tasks.notifications.emit_vpn_metric")
+    def test_broker_failure_leaves_work_selectable_and_emits_safe_failure(
+        self,
+        emit_metric: mock.Mock,
+        alert_factory: mock.Mock,
+        enqueue: mock.Mock,
+    ) -> None:
         enqueue.side_effect = RuntimeError("broker down")
 
         recovered = recover_vpn_ready_notifications_task.run()
@@ -88,3 +95,10 @@ class SendVPNReadyNotificationServiceTests(TestCase):
         self.assertEqual(recovered, 0)
         self.access.refresh_from_db()
         self.assertEqual(self.access.ready_notification_revision, 0)
+        metric = emit_metric.call_args.args[0]
+        self.assertEqual(
+            (metric.name, metric.value),
+            ("vpn_notification_delivery_failure_total", 1),
+        )
+        alert = alert_factory.return_value.call_args.kwargs["alert"]
+        self.assertEqual(alert.error_code, "notification_failure")

@@ -61,7 +61,7 @@ def _noop_publish_access(*, access_id: int) -> bool:
 def _report_failure(*, node_id: int, error_code: str) -> None:
     logger.warning(
         "vpn_node_reconcile_failed",
-        extra={"node_id": node_id, "error_code": error_code},
+        extra={"error_code": error_code},
     )
 
 

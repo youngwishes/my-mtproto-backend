@@ -38,13 +38,11 @@ def build_production_logging() -> dict[str, object]:
         },
         "django.request": {
             "handlers": ["console", "mail_admins"],
-            "filters": ["redact_subscription_path"],
             "level": "ERROR",
             "propagate": False,
         },
         "django.server": {
             "handlers": ["console", "mail_admins"],
-            "filters": ["redact_subscription_path"],
             "level": "ERROR",
             "propagate": False,
         },

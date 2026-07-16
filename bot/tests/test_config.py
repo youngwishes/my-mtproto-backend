@@ -33,6 +33,17 @@ def test_settings_loads_and_coerces_from_environment(env):
     assert settings.my_telegram_id == 777  # coerced to int
     assert settings.bot_auth_token == "auth"
     assert settings.provider_token == "prov"
+    assert settings.vpn_sales_enabled is False
+
+
+def test_settings_reads_vpn_sales_feature_flag(env):
+    for key, value in ENV.items():
+        env.setenv(key, value)
+    env.setenv("VPN_SALES_ENABLED", "1")
+
+    settings = Settings(_env_file=None)
+
+    assert settings.vpn_sales_enabled is True
 
 
 def test_settings_raises_when_required_var_missing(env):

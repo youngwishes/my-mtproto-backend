@@ -55,3 +55,9 @@ local runs, a `.env` file (git-ignored, excluded from the Docker image).
 
 Required: `TELEGRAM_BOT_TOKEN`, `API_URL`, `BOT_AUTH_TOKEN`, `MY_TELEGRAM_ID`
 (int), `PROVIDER_TOKEN`.
+
+Copy `.env.example` to `.env` and replace its placeholders. Bot secrets remain
+in `bot/.env`. `VPN_SALES_ENABLED` is deliberately absent there: the canonical
+value lives in the repository root `.env`, and both production and local
+Compose files inject that same value into the backend and bot. Its fail-closed
+default is `0`; enable VPN sale controls only by changing the root value.

@@ -6,10 +6,35 @@ from apps.vpn.selectors import get_pending_vpn_ready_notifications
 from apps.vpn.services.send_ready_notification import (
     get_send_vpn_ready_notification_service,
 )
+from apps.vpn.observability import (
+    VPNAlert,
+    VPNMetric,
+    emit_vpn_metric,
+    get_safe_vpn_alert_service,
+)
 
 
 def _enqueue_notification(*, access_id: int, revision: int) -> None:
     send_vpn_ready_notification_task.delay(access_id=access_id, revision=revision)
+
+
+def _report_notification_failure(*, access_id: int) -> None:
+    try:
+        emit_vpn_metric(
+            VPNMetric(name="vpn_notification_delivery_failure_total", value=1)
+        )
+    except Exception:
+        pass
+    try:
+        get_safe_vpn_alert_service()(
+            alert=VPNAlert(
+                resource_kind="notification",
+                resource_id=access_id,
+                error_code="notification_failure",
+            )
+        )
+    except Exception:
+        pass
 
 
 @shared_task(
@@ -21,10 +46,22 @@ def _enqueue_notification(*, access_id: int, revision: int) -> None:
     max_retries=5,
 )
 def send_vpn_ready_notification_task(self, *, access_id: int, revision: int) -> bool:
-    return get_send_vpn_ready_notification_service()(
-        access_id=access_id,
-        revision=revision,
-    )
+    try:
+        delivered = get_send_vpn_ready_notification_service()(
+            access_id=access_id,
+            revision=revision,
+        )
+        if delivered:
+            try:
+                emit_vpn_metric(
+                    VPNMetric(name="vpn_notification_delivery_success_total", value=1)
+                )
+            except Exception:
+                pass
+        return delivered
+    except Exception:
+        _report_notification_failure(access_id=access_id)
+        raise RuntimeError("vpn_notification_failure") from None
 
 
 @shared_task(name="apps.vpn.recover_ready_notifications")
@@ -37,6 +74,7 @@ def recover_vpn_ready_notifications_task() -> int:
                 revision=access.published_revision,
             )
         except Exception:
+            _report_notification_failure(access_id=access.pk)
             continue
         enqueued += 1
     return enqueued

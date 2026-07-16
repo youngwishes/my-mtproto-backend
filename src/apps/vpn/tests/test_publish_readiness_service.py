@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from unittest import mock
+from datetime import timedelta
 
 from django.test import TestCase
+from django.utils import timezone
 
 from apps.vpn.enums import (
     VPNAccessState,
@@ -11,6 +13,7 @@ from apps.vpn.enums import (
     VPNNodeHealthState,
 )
 from apps.vpn.services.publish_readiness import get_publish_vpn_readiness_service
+from apps.vpn.models import VPNAccess
 from apps.vpn.tests.factories import (
     VPNAccessFactory,
     VPNAccessNodeRevisionEvidenceFactory,
@@ -22,6 +25,7 @@ class PublishVPNReadinessServiceTests(TestCase):
     def setUp(self) -> None:
         self.access = VPNAccessFactory(state=VPNAccessState.PREPARING)
         self.schedule_notification = mock.Mock()
+        self.mark_receipt_ready = mock.Mock()
 
     def test_no_matching_node_does_not_publish_or_notify(self) -> None:
         get_publish_vpn_readiness_service(
@@ -54,7 +58,8 @@ class PublishVPNReadinessServiceTests(TestCase):
 
         with self.captureOnCommitCallbacks(execute=True):
             published = get_publish_vpn_readiness_service(
-                schedule_notification=self.schedule_notification
+                schedule_notification=self.schedule_notification,
+                mark_receipt_ready=self.mark_receipt_ready,
             )(access_id=self.access.pk)
 
         self.access.refresh_from_db()
@@ -66,6 +71,37 @@ class PublishVPNReadinessServiceTests(TestCase):
             access_id=self.access.pk,
             revision=self.access.desired_revision,
         )
+        self.mark_receipt_ready.assert_called_once_with(
+            access_id=self.access.pk,
+            ready_at=mock.ANY,
+        )
+
+    def test_first_ready_transition_timestamp_survives_later_updates(self) -> None:
+        first_ready_at = timezone.now() - timedelta(minutes=5)
+        node = VPNNodeFactory(
+            health_state=VPNNodeHealthState.READY,
+            data_plane_state=VPNDataPlaneState.SERVING_READY,
+            desired_snapshot_revision=4,
+            desired_snapshot_hash="a" * 64,
+            applied_snapshot_revision=4,
+            applied_snapshot_hash="a" * 64,
+        )
+        VPNAccessNodeRevisionEvidenceFactory(
+            access=self.access,
+            node=node,
+            revision=self.access.desired_revision,
+            applied_revision=self.access.desired_revision,
+            status=VPNApplyStatus.APPLIED,
+        )
+
+        with mock.patch("apps.vpn.selectors.timezone.now", return_value=first_ready_at):
+            get_publish_vpn_readiness_service()(access_id=self.access.pk)
+        VPNAccess.objects.filter(pk=self.access.pk).update(
+            updated_at=first_ready_at + timedelta(hours=1)
+        )
+        self.access.refresh_from_db()
+
+        self.assertEqual(self.access.first_ready_at, first_ready_at)
 
     def test_old_or_wrong_revision_is_ignored(self) -> None:
         node = VPNNodeFactory(

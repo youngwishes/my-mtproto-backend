@@ -159,10 +159,13 @@ class ApplyPaymentReceiptService:
                     accepted_at=receipt.accepted_at,
                 )
             )
+            applied_at = self.now()
             if not self.mark_applied(
                 receipt_id=receipt.pk,
                 lease_id=lease_id,
                 payment=payment,
+                applied_at=applied_at,
+                ready_at=applied_at if fulfilled.is_ready else None,
             ):
                 raise PaymentReceiptLeaseUnavailable(receipt_id)
             return AppliedPaymentReceiptOut(

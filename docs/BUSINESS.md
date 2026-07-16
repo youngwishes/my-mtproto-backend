@@ -84,6 +84,27 @@ Django-бэкенд — «мозг» платформы MTPRoto Keys по про
 покупки/реактивации истёкшего доступа и `+0` для renewal активного. TTL intent
 задаётся `VPN_PAYMENT_INTENT_TTL_SECONDS` (по умолчанию 900 секунд).
 
+Единственный deployment source для `VPN_SALES_ENABLED` — корневой `.env`.
+Compose передаёт это же значение backend и Telegram-боту, поэтому API-gate и
+видимость кнопок включаются согласованно в рамках одного deploy. Переменная не
+дублируется в `bot/.env`; при отсутствии значения обе стороны используют
+fail-closed default `False`.
+
 Feature flag и availability проверяются повторно перед pre-checkout. После его
 одобрения matching successful payment принимается даже после TTL, выключения
 flag или потери нод: durable receipt важнее ускоряющего broker callback.
+
+В главном меню бот всегда показывает отдельный раздел «VLESS VPN», чтобы уже
+купленный доступ оставался доступен при выключенных продажах. Внутри раздела
+бот отображает backend-состояние `NOT_PURCHASED`, `PREPARING`, `READY`,
+`EXPIRED` или `DISABLED`. Кнопки новой покупки и продления за RUB/Stars видимы
+только при `VPN_SALES_ENABLED=1`; просмотр готовой subscription URL, ожидание
+подготовки и перевыпуск от этого flag не зависят.
+
+Invoice получает от backend случайный payload и передаёт его Telegram без
+изменений. Pre-checkout и successful payment маршрутизируются по payload, а не
+по тексту invoice или валюте продукта. После принятия successful payment бот
+сразу отвечает «Оплата принята, доступ готовится». Subscription URL в этом
+ответе отсутствует: backend отправляет её отдельным уведомлением после
+подтверждённого перехода доступа в `READY`. VPN-покупка не вызывает MTProto,
+gift, free-trial или referral handlers.

@@ -36,6 +36,7 @@ class RecoverPaymentReceiptsServiceTest(TestCase):
             jitter_seconds=lambda: 2.5,
             stale_after=timedelta(minutes=5),
             batch_size=100,
+            report_lease_recovery=Mock(),
         )
 
         result = service()
@@ -45,6 +46,7 @@ class RecoverPaymentReceiptsServiceTest(TestCase):
         self.assertEqual(stale.last_error_code, "stale_lease")
         self.assertEqual(stale.next_attempt_at, now)
         self.assertEqual(result, 3)
+        service.report_lease_recovery.assert_called_once_with()
         self.assertEqual(
             enqueue.call_args_list,
             [

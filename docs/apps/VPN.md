@@ -219,8 +219,14 @@ evidence не стираются, поэтому неудачная попытк
 Нода становится `READY` только после успешного `PUT` и отдельного post-apply
 health, который сообщает точное совпадение revision/hash и readiness `READY`.
 Обычный пяти-минутный health check никогда не повышает ноду в `READY` и не
-переписывает applied evidence. `RECOVERY_READY` переводит ноду в `SYNCING` и
-требует следующий полный `PUT`. Несовместимый contract и overflow дают
+переписывает applied evidence. Во время staged reissue успешный `READY`, который
+точно подтверждает всё ещё applied/published старый snapshot, сохраняет
+`SERVING_READY` и его serving evidence, одновременно оставляя management state
+`SYNCING` и drift к desired. Serving отзывается только если health не подтверждает
+applied snapshot, сообщает `RECOVERY_READY` либо transport/auth/TLS недоступен.
+Любой authenticated TLS health response очищает прежний auth/TLS onset, даже
+если desired ещё drifted. `RECOVERY_READY` требует следующий полный `PUT`.
+Несовместимый contract и overflow дают
 `INCOMPATIBLE` и `OVER_CAPACITY`; stale/conflict/transport failure сохраняются
 как безопасные redacted `last_error_code`. Ошибка одной ноды не прерывает обход
 остального fleet.
@@ -289,3 +295,62 @@ expand `0006_vless_payment_expand`, поэтому не связана с пар
 PaymentIntent/PaymentReceipt. При rollback к коду без VPN таблицы сохраняются:
 их удаление не является частью автоматического rollback, чтобы не потерять
 покупки и доступы.
+
+## Наблюдаемость и alerts
+
+Beat каждую минуту запускает `apps.vpn.collect_observability`. Имена `vpn_metric`
+с суффиксом `_current` являются gauges текущего DB state; `_total` — per-event
+increments для суммирования log collector. Набор включает receipt state/age,
+apply/readiness latency, fleet readiness, reconcile delivery success/failure,
+notification delivery success/failure, subscription request/429 и stale lease
+recovery. Имена имеют закрытый allowlist и не используют labels или IDs.
+
+Receipt aggregation выполняется двумя bounded SQL queries: одна aggregate row и
+не более 100 numeric IDs для внутренних alert dedupe keys. Apply latency —
+`PaymentReceipt.accepted_at → applied_at`, readiness latency — per-receipt
+`applied_at → ready_at`. Active renewal уже READY доступа получает
+`ready_at = applied_at`; первая покупка и expired reactivation остаются pending,
+а readiness transition заполняет только newest APPLIED receipt этого доступа.
+Старые receipts при последующих переходах не переписываются.
+Для новых writers эти transition timestamps exact и не зависят от последующего
+`updated_at`. Во время rollback window старый процесс после expand может создать
+терминальную строку с NULL в новом поле. Collector поэтому вычисляет per-row
+`Coalesce(applied_at, updated_at)` и
+`Coalesce(ready_at, max(effective applied_at, VPNAccess.updated_at))` только для
+APPLIED receipts с READY access.
+Fallback является conservative approximation для old-writer, не запускает
+repair scan и не исключает такую строку из latency.
+
+Continuous drift хранит onset в `revision_drift_started_at`, текущая bounded
+ошибка — в паре `last_error_code`/`last_error_started_at`. Одинаковые polls
+сохраняют onset, смена code начинает новый интервал, exact/authenticated recovery
+сбрасывает его. Threshold никогда не выводится из изменяемого `last_health_at`.
+
+Пороговые настройки:
+
+| Переменная | Default | Назначение |
+|---|---:|---|
+| `VPN_OBSERVABILITY_STALE_RECEIPT_SECONDS` | 300 | возраст unapplied receipt до `stale_receipt` |
+| `VPN_OBSERVABILITY_DRIFT_SECONDS` | 900 | длительность revision mismatch до `revision_drift` |
+| `VPN_OBSERVABILITY_AUTH_TLS_SECONDS` | 900 | длительность auth/TLS failure до alert |
+| `VPN_OBSERVABILITY_ALERT_DEDUPE_SECONDS` | 3600 | TTL stable resource/error dedupe key |
+
+Alert log содержит только `resource_kind` и bounded `error_code`. Numeric DB id
+используется только внутри Redis dedupe key и наружу не логируется. При
+недоступном Redis или logging sink telemetry работает fail-open: domain task не
+ломается, durable state остаётся source of truth, следующий Beat scan повторяет
+попытку. Запрещено добавлять в metric/alert/log UUID, subscription token/raw
+URI, provider payload, `Authorization` или полный snapshot.
+
+Logging filter возвращает отдельный sanitized `LogRecord` каждому handler и
+копирует request-derived/structured data: live request, исходное exception и
+общий record не изменяются. Fail-closed aliases закрывают token/auth/headers,
+body/payload/provider data, snapshot и URI/URL, включая nested dict/list.
+Произвольные traceback locals не сериализуются и не являются поддерживаемой
+surface; задачи выбрасывают только bounded exceptions.
+
+Миграции backfill используют `updated_at` лишь как conservative approximation
+для legacy APPLIED/READY и текущих error/drift rows. New-writer transition/onset
+timestamps exact; post-expand old-writer rows используют описанный выше bounded
+SQL fallback до завершения rollback window. Reverse удаляет nullable
+observability columns без изменения domain rows.

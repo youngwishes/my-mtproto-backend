@@ -60,6 +60,7 @@ class FulfillPurchaseService:
                 return VPNPaymentFulfillmentOut(
                     access_id=existing_purchase.access_id,
                     purchase_id=existing_purchase.pk,
+                    is_ready=existing_purchase.access.state == VPNAccessState.READY,
                 )
 
             access = self.get_access(user_id=purchase.user_id)
@@ -98,6 +99,7 @@ class FulfillPurchaseService:
             return VPNPaymentFulfillmentOut(
                 access_id=access.pk,
                 purchase_id=purchase_audit.pk,
+                is_ready=access.state == VPNAccessState.READY,
             )
 
 

@@ -1,6 +1,6 @@
 from aiogram import Router
 
-from src.handlers import free_trial, links, payments, referrals, start
+from src.handlers import free_trial, links, payments, referrals, start, vpn
 
 router = Router()
 router.include_routers(
@@ -8,6 +8,7 @@ router.include_routers(
     free_trial.router,
     links.router,
     referrals.router,
+    vpn.router,
     payments.router,
 )
 

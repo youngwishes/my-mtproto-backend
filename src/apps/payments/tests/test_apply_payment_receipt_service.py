@@ -37,7 +37,11 @@ class ApplyPaymentReceiptServiceTest(TestCase):
         )
         self.lease_id = uuid.uuid4()
         self.fulfill = Mock(
-            return_value=VPNPaymentFulfillmentOut(access_id=11, purchase_id=12)
+            return_value=VPNPaymentFulfillmentOut(
+                access_id=11,
+                purchase_id=12,
+                is_ready=True,
+            )
         )
         self.service = get_apply_payment_receipt_service(
             fulfill_purchase=self.fulfill,
@@ -51,6 +55,8 @@ class ApplyPaymentReceiptServiceTest(TestCase):
         payment = Payment.objects.get(pk=result.payment_id)
         self.receipt.refresh_from_db()
         self.assertEqual(self.receipt.status, PaymentReceiptStatusEnum.APPLIED)
+        self.assertEqual(self.receipt.applied_at, self.now)
+        self.assertEqual(self.receipt.ready_at, self.now)
         self.assertEqual(self.receipt.payment, payment)
         self.assertEqual(payment.user, self.receipt.user)
         self.assertEqual(payment.product, self.receipt.product)
@@ -68,6 +74,19 @@ class ApplyPaymentReceiptServiceTest(TestCase):
         self.assertEqual(result.access_id, 11)
         self.assertEqual(result.purchase_id, 12)
         self.assertFalse(result.is_replay)
+
+    def test_preparing_fulfillment_leaves_receipt_readiness_pending(self) -> None:
+        self.fulfill.return_value = VPNPaymentFulfillmentOut(
+            access_id=11,
+            purchase_id=12,
+            is_ready=False,
+        )
+
+        self.service(receipt_id=self.receipt.pk, lease_id=self.lease_id)
+
+        self.receipt.refresh_from_db()
+        self.assertEqual(self.receipt.applied_at, self.now)
+        self.assertIsNone(self.receipt.ready_at)
 
     def test_applied_receipt_is_an_exact_replay_without_second_charge(self) -> None:
         first = self.service(receipt_id=self.receipt.pk, lease_id=self.lease_id)
@@ -103,7 +122,11 @@ class ApplyPaymentReceiptServiceTest(TestCase):
             PaymentReceipt.objects.filter(pk=self.receipt.pk)._safe_update(
                 lease_id=uuid.uuid4()
             )
-            return VPNPaymentFulfillmentOut(access_id=11, purchase_id=12)
+            return VPNPaymentFulfillmentOut(
+                access_id=11,
+                purchase_id=12,
+                is_ready=False,
+            )
 
         service = get_apply_payment_receipt_service(
             fulfill_purchase=invalidate_lease,

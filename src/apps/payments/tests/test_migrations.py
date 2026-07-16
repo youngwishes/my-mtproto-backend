@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import io
 import sqlite3
+import uuid
+from datetime import timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
@@ -13,6 +15,7 @@ from django.db import IntegrityError, connection
 from django.db.models import SET_NULL
 from django.db.migrations.executor import MigrationExecutor
 from django.test import TransactionTestCase
+from django.utils import timezone
 
 from apps.payments.selectors import get_product_preflight_rows
 from apps.users.models import SystemUser
@@ -248,3 +251,194 @@ class PaymentsExpandMigrationTest(TransactionTestCase):
         )
         self.assertIsNone(migrated.product_id)
         self.assertIsNone(migrated.key_id)
+
+
+class PaymentReceiptAppliedAtMigrationTest(TransactionTestCase):
+    migrate_from = ("payments", "0007_paymentintent_paymentreceipt")
+    migrate_to = ("payments", "0009_receipt_ready_at")
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.executor = MigrationExecutor(connection)
+        self.executor.migrate([self.migrate_from])
+        self.old_apps = self.executor.loader.project_state([self.migrate_from]).apps
+
+    def tearDown(self) -> None:
+        MigrationExecutor(connection).migrate(
+            [self.migrate_to, ("vpn", "0004_access_first_ready_at")]
+        )
+        super().tearDown()
+
+    def test_forward_backfills_terminal_timestamp_and_reverse_preserves_receipt(
+        self,
+    ) -> None:
+        user = SystemUser.objects.create(username="receipt-migration-user")
+        Product = self.old_apps.get_model("payments", "Product")
+        PaymentIntent = self.old_apps.get_model("payments", "PaymentIntent")
+        Payment = self.old_apps.get_model("payments", "Payment")
+        PaymentReceipt = self.old_apps.get_model("payments", "PaymentReceipt")
+        product = Product.objects.create(
+            code="vless_30d",
+            title="VLESS",
+            description="VLESS",
+            currency="RUB",
+            provider_data="{}",
+            price="99.00",
+            stars_price=80,
+        )
+        intent = PaymentIntent.objects.create(
+            user_id=user.pk,
+            product_id=product.pk,
+            invoice_payload="a" * 64,
+            currency="RUB",
+            amount=9900,
+            provider="yukassa",
+            expires_at=timezone.now() + timedelta(minutes=15),
+            status="paid",
+        )
+        payment = Payment.objects.create(
+            user_id=user.pk,
+            product_id=product.pk,
+            charge_id="receipt-migration-charge",
+            provider="yukassa",
+            kind="subscription",
+        )
+        receipt = PaymentReceipt.objects.create(
+            intent_id=intent.pk,
+            user_id=user.pk,
+            product_id=product.pk,
+            provider="yukassa",
+            charge_id=payment.charge_id,
+            currency="RUB",
+            amount=9900,
+            status="applied",
+            payment_id=payment.pk,
+        )
+        historical_vpn_apps = self.executor.loader.project_state(
+            [("vpn", "0004_access_first_ready_at")]
+        ).apps
+        access_model = historical_vpn_apps.get_model("vpn", "VPNAccess")
+        purchase_model = historical_vpn_apps.get_model("vpn", "VPNPurchase")
+        credential = uuid.uuid4()
+        access = access_model.objects.create(
+            user_id=user.pk,
+            subscription_token="y" * 43,
+            desired_uuid=credential,
+            desired_revision=1,
+            published_uuid=credential,
+            published_revision=1,
+            expired_at=timezone.now() + timedelta(days=30),
+            state="ready",
+            state_revision=1,
+            first_ready_at=timezone.now(),
+        )
+        purchase_model.objects.create(
+            payment_id=payment.pk,
+            access_id=access.pk,
+            period_days=30,
+            expired_at_after=access.expired_at,
+        )
+
+        executor = MigrationExecutor(connection)
+        executor.migrate([self.migrate_to])
+        new_apps = executor.loader.project_state([self.migrate_to]).apps
+        migrated = new_apps.get_model("payments", "PaymentReceipt").objects.get(
+            pk=receipt.pk
+        )
+        self.assertEqual(migrated.applied_at, migrated.updated_at)
+        self.assertIsNotNone(migrated.ready_at)
+        self.assertGreaterEqual(migrated.ready_at, migrated.applied_at)
+
+        now = timezone.now()
+        post_expand_user = SystemUser.objects.create(
+            username="post-expand-receipt-migration-user"
+        )
+        post_expand_intent = PaymentIntent.objects.create(
+            user_id=post_expand_user.pk,
+            product_id=product.pk,
+            invoice_payload="b" * 64,
+            currency="RUB",
+            amount=9900,
+            provider="yukassa",
+            expires_at=now + timedelta(minutes=15),
+            status="paid",
+        )
+        post_expand_payment = Payment.objects.create(
+            user_id=post_expand_user.pk,
+            product_id=product.pk,
+            charge_id="post-expand-old-writer",
+            provider="yukassa",
+            kind="subscription",
+        )
+        post_expand_receipt = PaymentReceipt.objects.create(
+            intent_id=post_expand_intent.pk,
+            user_id=post_expand_user.pk,
+            product_id=product.pk,
+            provider="yukassa",
+            charge_id=post_expand_payment.charge_id,
+            currency="RUB",
+            amount=9900,
+            status="applied",
+            payment_id=post_expand_payment.pk,
+        )
+        PaymentReceipt.objects.filter(pk=post_expand_receipt.pk).update(
+            accepted_at=now - timedelta(minutes=10),
+            updated_at=now - timedelta(minutes=7),
+        )
+        historical_vpn_apps = executor.loader.project_state(
+            [("vpn", "0003_observability_onsets")]
+        ).apps
+        old_access_model = historical_vpn_apps.get_model("vpn", "VPNAccess")
+        old_purchase_model = historical_vpn_apps.get_model("vpn", "VPNPurchase")
+        credential = uuid.uuid4()
+        post_expand_access = old_access_model.objects.create(
+            user_id=post_expand_user.pk,
+            subscription_token="z" * 43,
+            desired_uuid=credential,
+            desired_revision=1,
+            published_uuid=credential,
+            published_revision=1,
+            expired_at=now + timedelta(days=30),
+            state="ready",
+            state_revision=1,
+        )
+        old_access_model.objects.filter(pk=post_expand_access.pk).update(
+            updated_at=now - timedelta(minutes=2)
+        )
+        old_purchase_model.objects.create(
+            payment_id=post_expand_payment.pk,
+            access_id=post_expand_access.pk,
+            period_days=30,
+            expired_at_after=now + timedelta(days=30),
+        )
+
+        current_receipt = new_apps.get_model("payments", "PaymentReceipt").objects.get(
+            pk=post_expand_receipt.pk
+        )
+        current_access = MigrationExecutor(connection).loader.project_state(
+            [("vpn", "0004_access_first_ready_at")]
+        ).apps.get_model("vpn", "VPNAccess").objects.get(pk=post_expand_access.pk)
+        self.assertIsNone(current_receipt.applied_at)
+        self.assertIsNone(current_receipt.ready_at)
+        self.assertIsNone(current_access.first_ready_at)
+        from apps.vpn.observability import get_vpn_observation
+
+        values = {
+            metric.name: metric.value
+            for metric in get_vpn_observation(at=now).metrics
+        }
+        self.assertEqual(values["vpn_receipts_applied_current"], 2)
+        self.assertEqual(values["vpn_receipt_apply_latency_seconds"], 180)
+        self.assertEqual(values["vpn_readiness_latency_seconds"], 300)
+
+        reverse = MigrationExecutor(connection)
+        reverse.migrate(
+            [self.migrate_from, ("vpn", "0003_observability_onsets")]
+        )
+        reversed_apps = reverse.loader.project_state([self.migrate_from]).apps
+        self.assertEqual(
+            reversed_apps.get_model("payments", "PaymentReceipt")
+            .objects.filter(pk__in=(receipt.pk, post_expand_receipt.pk))
+            .count(),
+            2,
+        )

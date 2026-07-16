@@ -14,7 +14,9 @@ from apps.payments.selectors import (
     get_payment_by_identity,
     get_payment_receipt_by_identity,
     get_recoverable_payment_receipts,
+    mark_latest_vpn_receipt_ready,
 )
+from apps.vpn.tests.factories import VPNAccessFactory, VPNPurchaseFactory
 from apps.payments.tests.factories import (
     PaymentFactory,
     PaymentIntentFactory,
@@ -52,6 +54,35 @@ class PaymentIntentSelectorsTest(TestCase):
 
 
 class PaymentReceiptSelectorsTest(TestCase):
+    def test_readiness_marks_only_newest_pending_receipt_for_access(self) -> None:
+        now = timezone.now()
+        access = VPNAccessFactory()
+        product = ProductFactory(code=ProductCodeEnum.VLESS_30D)
+        receipts = []
+        for minutes in (10, 5):
+            payment = PaymentFactory(user=access.user, product=product)
+            receipt = PaymentReceiptFactory(
+                intent=PaymentIntentFactory(user=access.user, product=product),
+                user=access.user,
+                product=product,
+                payment=payment,
+                status=PaymentReceiptStatusEnum.APPLIED,
+                applied_at=now - timedelta(minutes=minutes),
+            )
+            PaymentReceipt.objects.filter(pk=receipt.pk)._safe_update(
+                accepted_at=now - timedelta(minutes=minutes + 1)
+            )
+            VPNPurchaseFactory(payment=payment, access=access)
+            receipts.append(receipt)
+
+        changed = mark_latest_vpn_receipt_ready(access_id=access.pk, ready_at=now)
+
+        self.assertTrue(changed)
+        for receipt in receipts:
+            receipt.refresh_from_db()
+        self.assertIsNone(receipts[0].ready_at)
+        self.assertEqual(receipts[1].ready_at, now)
+
     def test_returns_receipt_by_exact_provider_identity(self) -> None:
         expected = PaymentReceiptFactory()
 

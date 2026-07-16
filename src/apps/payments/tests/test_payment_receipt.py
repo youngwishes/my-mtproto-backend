@@ -127,6 +127,35 @@ class PaymentReceiptTest(TestCase):
 
         self.assertFalse(applied)
 
+    def test_applied_transition_persists_immutable_transition_timestamp(self) -> None:
+        lease_id = uuid.uuid4()
+        applied_at = timezone.now() - timedelta(minutes=5)
+        receipt = PaymentReceiptFactory(
+            status=PaymentReceiptStatusEnum.PROCESSING,
+            lease_id=lease_id,
+            processing_started_at=applied_at - timedelta(seconds=1),
+        )
+        payment = PaymentFactory(
+            user=receipt.user,
+            product=receipt.product,
+            provider=receipt.provider,
+            charge_id=receipt.charge_id,
+        )
+
+        applied = PaymentReceipt.objects.mark_applied(
+            receipt_id=receipt.pk,
+            lease_id=lease_id,
+            payment=payment,
+            applied_at=applied_at,
+        )
+        PaymentReceipt.objects.filter(pk=receipt.pk)._safe_update(
+            updated_at=applied_at + timedelta(hours=1)
+        )
+        receipt.refresh_from_db()
+
+        self.assertTrue(applied)
+        self.assertEqual(receipt.applied_at, applied_at)
+
     def test_processing_requires_lease_and_timestamp_in_full_clean(self) -> None:
         receipt = PaymentReceiptFactory()
         receipt.status = PaymentReceiptStatusEnum.PROCESSING

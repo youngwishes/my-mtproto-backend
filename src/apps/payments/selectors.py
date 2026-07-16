@@ -3,7 +3,9 @@ from __future__ import annotations
 from datetime import datetime
 
 from django.db import connection
+from django.db import models
 from django.db.models import Count, Q, QuerySet
+from django.db.models.functions import Coalesce, Greatest
 
 from apps.payments.enums import (
     PaymentKindEnum,
@@ -90,6 +92,98 @@ def get_recoverable_payment_receipts(
             processing_started_at__lte=stale_before,
         )
     ).order_by("accepted_at", "pk")
+
+
+def get_vpn_receipt_observability_summary(
+    *,
+    at: datetime,
+    stale_before: datetime,
+    alert_limit: int = 100,
+) -> dict[str, object]:
+    """Aggregate historical receipts in SQL and bound alert cardinality."""
+    receipts = PaymentReceipt.objects.filter(
+        product__code=ProductCodeEnum.VLESS_30D
+    ).annotate(
+        effective_applied_at=Coalesce("applied_at", "updated_at"),
+    ).annotate(
+        effective_ready_at=Coalesce(
+            "ready_at",
+            Greatest(
+                "effective_applied_at",
+                "payment__vpn_purchase__access__updated_at",
+            ),
+        )
+    )
+    unapplied = ~Q(status=PaymentReceiptStatusEnum.APPLIED)
+    apply_duration = models.ExpressionWrapper(
+        models.F("effective_applied_at") - models.F("accepted_at"),
+        output_field=models.DurationField(),
+    )
+    readiness_duration = models.ExpressionWrapper(
+        models.F("effective_ready_at") - models.F("effective_applied_at"),
+        output_field=models.DurationField(),
+    )
+    summary = receipts.aggregate(
+        received_count=Count(
+            "pk", filter=Q(status=PaymentReceiptStatusEnum.RECEIVED)
+        ),
+        processing_count=Count(
+            "pk", filter=Q(status=PaymentReceiptStatusEnum.PROCESSING)
+        ),
+        retry_count=Count("pk", filter=Q(status=PaymentReceiptStatusEnum.RETRY)),
+        applied_count=Count(
+            "pk", filter=Q(status=PaymentReceiptStatusEnum.APPLIED)
+        ),
+        attempts_sum=Coalesce(models.Sum("attempt_count"), 0),
+        oldest_unapplied_at=models.Min("accepted_at", filter=unapplied),
+        stale_count=Count(
+            "pk", filter=unapplied & Q(accepted_at__lte=stale_before)
+        ),
+        max_apply_duration=models.Max(
+            apply_duration,
+            filter=Q(status=PaymentReceiptStatusEnum.APPLIED),
+        ),
+        max_readiness_duration=models.Max(
+            readiness_duration,
+            filter=Q(
+                status=PaymentReceiptStatusEnum.APPLIED,
+                ready_at__isnull=False,
+            )
+            | Q(
+                status=PaymentReceiptStatusEnum.APPLIED,
+                ready_at__isnull=True,
+                payment__vpn_purchase__access__state="ready",
+                payment__vpn_purchase__access__updated_at__isnull=False,
+            ),
+        ),
+    )
+    summary["stale_receipt_ids"] = tuple(
+        receipts.filter(unapplied, accepted_at__lte=stale_before)
+        .order_by("accepted_at", "pk")
+        .values_list("pk", flat=True)[:alert_limit]
+    )
+    return summary
+
+
+def mark_latest_vpn_receipt_ready(*, access_id: int, ready_at: datetime) -> bool:
+    """Mark only the newest applied receipt waiting on this access transition."""
+    receipt_id = (
+        PaymentReceipt.objects.filter(
+            status=PaymentReceiptStatusEnum.APPLIED,
+            ready_at__isnull=True,
+            payment__vpn_purchase__access_id=access_id,
+        )
+        .order_by("-accepted_at", "-pk")
+        .values_list("pk", flat=True)
+        .first()
+    )
+    if receipt_id is None:
+        return False
+    return bool(
+        PaymentReceipt.objects.filter(pk=receipt_id, ready_at__isnull=True)._safe_update(
+            ready_at=ready_at
+        )
+    )
 
 
 def get_product_preflight_rows() -> list[tuple[int, str | None, bool]]:

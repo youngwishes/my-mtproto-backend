@@ -100,3 +100,39 @@ Safe subscription location присутствует в HTTP и HTTPS server bloc
 в `/dev/stdout`, чтобы контейнер не требовал writable log-файл. HTTP location
 только возвращает `308` на тот же path/query по HTTPS и никогда не proxy-ирует
 bearer token в Django по plaintext; subscription отдаёт только HTTPS location.
+
+## VPN observability runbook
+
+Flower хранит ограниченную историю до 10 000 задач в
+`/app/data/flower.db`; UI остаётся за Basic Auth и доступен только через Nginx.
+Проверяй ежеминутную `apps.vpn.collect_observability`, reconcile/health и
+notification tasks. Logs содержат `vpn_metric`/`vpn_alert` events без resource
+identifier и секретов. Redis используется только для alert dedupe; его сбой не
+должен останавливать payment/reconcile/notification business paths.
+В dashboard суммируй только `_total` events; `_current` отображай как gauges.
+Проверь reconcile delivery и notification success/failure totals, lease recovery
+total и отсутствие labels/IDs. Receipt collector выполняет одну SQL aggregation
+и выбирает максимум 100 stale candidates за tick.
+
+| Alert code | Проверка и действие оператора |
+|---|---|
+| `stale_receipt` | Проверить singleton worker/Beat/Redis, затем RECEIVED/RETRY/PROCESSING age; receipt вручную не удалять. |
+| `no_ready_node` | Не включать продажи; проверить health, exact revision/hash и data plane хотя бы двух нод. |
+| `incompatible_contract` | Сверить backend/agent SHA и compatibility matrix; mutation не повторять до совместимого agent. |
+| `snapshot_too_large` | Оставить ноду вне выдачи, проверить entry/byte capacity и добавить capacity до включения продаж. |
+| `revision_drift` | Сверить desired/applied revision/hash и full reconcile; partial/manual snapshot запрещён. |
+| `agent_unauthorized` | Проверить lookup key/secret и management allowlist без вывода Authorization. |
+| `agent_tls_failure` | Проверить DNS, certificate chain/SAN/expiry и системное время; TLS verification не отключать. |
+| `notification_failure` | Проверить Telegram/broker; marker не продвигать вручную, Beat обеспечит at-least-once retry. |
+
+Пороги задаются четырьмя `VPN_OBSERVABILITY_*` переменными из `.env.example`.
+Изменение порога должно сохранять bounded cardinality и не добавлять URI,
+UUID/token, provider payload, Authorization или snapshot body в logs/alerts.
+Drift/auth/TLS thresholds считаются от persisted onset fields, не от
+`last_health_at`. После expand migrations legacy timestamps backfilled из
+`updated_at` как conservative approximation; проверь их до включения alerts.
+Пока старый backend может писать после expand, NULL `applied_at`/receipt
+`ready_at` не теряется: collector использует bounded per-row fallback к
+`updated_at` только
+для APPLIED/READY. Это приблизительное время old-writer; новые writers пишут
+exact transition timestamp. Отдельного repair scan в rollout нет.

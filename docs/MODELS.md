@@ -126,6 +126,19 @@
 платежей. Пустые legacy charge IDs могут повторяться. Expand-миграция не меняет
 nullable OneToOne/SET_NULL контракт `Payment.key`.
 
+`PaymentReceipt.applied_at` фиксируется только successful PROCESSING→APPLIED
+transition и не меняется последующими audit updates. Вместе с immutable
+`accepted_at` он задаёт exact apply latency. В rollback window old-writer может
+оставить поле NULL; observability collector тогда использует `updated_at` как
+conservative per-row approximation для APPLIED receipt.
+
+`PaymentReceipt.ready_at` хранит readiness именно этой покупки. Для active
+renewal уже READY доступа он равен `applied_at`; для первой покупки и expired
+reactivation устанавливается один раз при следующем PREPARING→READY. Runtime
+обновляет только newest pending receipt и не переписывает предыдущие покупки.
+Expand backfill и post-expand old-writer fallback используют conservative
+`updated_at` approximation, ограниченную APPLIED receipt с READY access.
+
 ---
 
 ## VPNAccess (apps/vpn)
@@ -144,6 +157,7 @@ revision, не меняя token.
 | `state` | str | `PREPARING`, `READY`, `EXPIRED`, `DISABLED_REFUND` |
 | `state_revision` | int | Revision для optimistic updates |
 | `ready_notification_revision` | int | Последняя успешно уведомлённая revision |
+| `first_ready_at` | DateTime? | Первый successful PREPARING→READY; immutable observability timestamp |
 | `disabled_at`, `disabled_reason`, `disabled_by` | audit? | Обязательный audit состояния `DISABLED_REFUND` |
 
 Для `READY` published UUID и revision обязаны точно совпадать с desired UUID и
@@ -151,6 +165,8 @@ revision. `PREPARING` допускает staged reissue с новым desired cr
 предыдущим published credential, только если published revision строго меньше
 desired. При равных revisions UUID обязаны совпадать в любом state; null
 published pair допустима до первой публикации.
+`first_ready_at` остаётся access-level audit первого успешного перехода, но не
+используется для per-purchase readiness latency.
 
 ## VPNPurchase (apps/vpn)
 
@@ -176,6 +192,8 @@ published pair допустима до первой публикации.
 | `desired_snapshot_revision/hash` | int, str | Желаемый exact snapshot |
 | `applied_snapshot_revision/hash` | int, str | Подтверждённый агентом snapshot |
 | `last_health_at`, `last_error_code` | audit? | Безопасное состояние health-check |
+| `last_error_started_at` | DateTime? | Onset непрерывного текущего error code |
+| `revision_drift_started_at` | DateTime? | Onset непрерывного desired/applied mismatch |
 | `reality_public_key`, `reality_short_id`, `reality_server_name` | str | Только публичные REALITY client parameters |
 | `reality_fingerprint`, `reality_flow` | str | Фиксированные `chrome`, `xtls-rprx-vision` |
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from datetime import timedelta
 from unittest.mock import Mock
 
@@ -57,6 +58,7 @@ class FulfillPurchaseServiceTest(TestCase):
         self.assertEqual(access.user, self.payment.user)
         self.assertEqual(access.expired_at, self.accepted_at + timedelta(days=30))
         self.assertEqual(access.state, VPNAccessState.PREPARING)
+        self.assertFalse(result.is_ready)
         self.assertEqual(purchase.payment, self.payment)
         self.assertEqual(purchase.period_days, 30)
         self.assertEqual(purchase.expired_at_after, access.expired_at)
@@ -71,12 +73,28 @@ class FulfillPurchaseServiceTest(TestCase):
         token = access.subscription_token
         desired_uuid = access.desired_uuid
 
-        self.service(purchase=self._purchase())
+        result = self.service(purchase=self._purchase())
 
         access.refresh_from_db()
         self.assertEqual(access.expired_at, current_expiry + timedelta(days=30))
         self.assertEqual(access.subscription_token, token)
         self.assertEqual(access.desired_uuid, desired_uuid)
+        self.assertFalse(result.is_ready)
+
+    def test_active_ready_renewal_is_immediately_ready(self) -> None:
+        credential = uuid.uuid4()
+        VPNAccessFactory(
+            user=self.payment.user,
+            expired_at=self.accepted_at + timedelta(days=9),
+            state=VPNAccessState.READY,
+            desired_uuid=credential,
+            published_uuid=credential,
+            published_revision=1,
+        )
+
+        result = self.service(purchase=self._purchase())
+
+        self.assertTrue(result.is_ready)
 
     def test_expired_renewal_starts_at_acceptance_and_reenters_preparing(self) -> None:
         access = VPNAccessFactory(
@@ -87,7 +105,7 @@ class FulfillPurchaseServiceTest(TestCase):
         token = access.subscription_token
         desired_uuid = access.desired_uuid
 
-        self.service(purchase=self._purchase())
+        result = self.service(purchase=self._purchase())
 
         access.refresh_from_db()
         self.assertEqual(access.expired_at, self.accepted_at + timedelta(days=30))
@@ -95,6 +113,7 @@ class FulfillPurchaseServiceTest(TestCase):
         self.assertEqual(access.state_revision, 2)
         self.assertEqual(access.subscription_token, token)
         self.assertEqual(access.desired_uuid, desired_uuid)
+        self.assertFalse(result.is_ready)
 
     def test_two_sequential_receipts_add_exactly_two_periods(self) -> None:
         second_payment = PaymentFactory(

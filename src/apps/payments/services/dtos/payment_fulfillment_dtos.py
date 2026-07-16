@@ -16,6 +16,7 @@ class VPNPaymentFulfillmentIn:
 class VPNPaymentFulfillmentOut:
     access_id: int
     purchase_id: int
+    is_ready: bool
 
 
 @dataclass(kw_only=True, slots=True, frozen=True)

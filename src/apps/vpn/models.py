@@ -63,6 +63,9 @@ class VPNAccess(BaseDjangoModel):
     ready_notification_revision = models.PositiveBigIntegerField(
         "последняя уведомлённая revision", default=0
     )
+    first_ready_at = models.DateTimeField(
+        "впервые опубликован", null=True, blank=True
+    )
     disabled_at = models.DateTimeField("отключён", null=True, blank=True)
     disabled_reason = models.CharField("причина отключения", max_length=128, blank=True)
     disabled_by = models.ForeignKey(
@@ -216,6 +219,12 @@ class VPNNode(BaseDjangoModel):
     )
     last_health_at = models.DateTimeField("последний health check", null=True, blank=True)
     last_error_code = models.CharField("последний код ошибки", max_length=64, blank=True)
+    last_error_started_at = models.DateTimeField(
+        "начало непрерывной ошибки", null=True, blank=True
+    )
+    revision_drift_started_at = models.DateTimeField(
+        "начало непрерывного revision drift", null=True, blank=True
+    )
     reality_public_key = models.CharField(
         "REALITY public key", max_length=64, validators=[validate_x25519_public_key]
     )

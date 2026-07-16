@@ -17,6 +17,15 @@ def _bounded_jitter_seconds() -> float:
     return random.uniform(0.0, 5.0)
 
 
+def _report_lease_recovery() -> None:
+    from apps.vpn.observability import VPNMetric, emit_vpn_metric
+
+    try:
+        emit_vpn_metric(VPNMetric(name="vpn_receipt_lease_recovery_total", value=1))
+    except Exception:
+        pass
+
+
 @final
 @dataclass(kw_only=True, slots=True, frozen=True)
 class RecoverPaymentReceiptsService:
@@ -29,6 +38,7 @@ class RecoverPaymentReceiptsService:
     jitter_seconds: Callable[[], float]
     stale_after: timedelta
     batch_size: int
+    report_lease_recovery: Callable[[], None] = _report_lease_recovery
 
     def __call__(self) -> int:
         current_time = self.now()
@@ -47,6 +57,10 @@ class RecoverPaymentReceiptsService:
                 )
                 if not recovered:
                     continue
+                try:
+                    self.report_lease_recovery()
+                except Exception:
+                    pass
             try:
                 self.enqueue_receipt(
                     receipt_id=receipt.pk,

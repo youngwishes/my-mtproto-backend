@@ -1,3 +1,6 @@
+x-vpn-sales-environment: &vpn-sales-environment
+  VPN_SALES_ENABLED: "${VPN_SALES_ENABLED:-0}"
+
 services:
   django:
     build: .
@@ -9,6 +12,7 @@ services:
     env_file:
       - .env
     environment:
+      <<: *vpn-sales-environment
       VDS_REQUEST_TIMEOUT: "${INTEG_VDS_REQUEST_TIMEOUT:-10}"
     expose:
       - 8000
@@ -83,4 +87,6 @@ services:
     container_name: telegram-bot
     env_file:
       - ./bot/.env
+    environment:
+      <<: *vpn-sales-environment
     restart: unless-stopped

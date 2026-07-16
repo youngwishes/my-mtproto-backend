@@ -118,6 +118,8 @@ class PaymentReceiptQuerySet(ProtectedWriteQuerySet):
             "currency",
             "amount",
             "accepted_at",
+            "applied_at",
+            "ready_at",
             "status",
             "attempt_count",
             "next_attempt_at",
@@ -207,7 +209,10 @@ class PaymentReceiptQuerySet(ProtectedWriteQuerySet):
         receipt_id: int,
         lease_id: UUID,
         payment: Payment,
+        applied_at: datetime | None = None,
+        ready_at: datetime | None = None,
     ) -> bool:
+        effective_applied_at = applied_at or timezone.now()
         return bool(
             self.filter(
                 pk=receipt_id,
@@ -221,6 +226,8 @@ class PaymentReceiptQuerySet(ProtectedWriteQuerySet):
             ._safe_update(
                 status=PaymentReceiptStatusEnum.APPLIED,
                 payment=payment,
+                applied_at=effective_applied_at,
+                ready_at=ready_at,
                 lease_id=None,
                 processing_started_at=None,
                 next_attempt_at=None,
@@ -531,6 +538,8 @@ class PaymentReceipt(ImmutableFieldsModel, BaseDjangoModel):
         "currency",
         "amount",
         "accepted_at",
+        "applied_at",
+        "ready_at",
     )
     safe_write_fields = (
         "status",
@@ -572,6 +581,8 @@ class PaymentReceipt(ImmutableFieldsModel, BaseDjangoModel):
         validators=(MinValueValidator(1),),
     )
     accepted_at = models.DateTimeField("принят", auto_now_add=True)
+    applied_at = models.DateTimeField("применён", null=True, blank=True)
+    ready_at = models.DateTimeField("VPN-доступ готов", null=True, blank=True)
     status = models.CharField(
         "статус",
         max_length=16,
@@ -674,5 +685,13 @@ class PaymentReceipt(ImmutableFieldsModel, BaseDjangoModel):
                     )
                 ),
                 name="coherent_payment_receipt_applied",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    Q(ready_at__isnull=True)
+                    | Q(applied_at__isnull=True)
+                    | Q(ready_at__gte=F("applied_at"))
+                ),
+                name="payment_receipt_ready_not_before_applied",
             ),
         ]

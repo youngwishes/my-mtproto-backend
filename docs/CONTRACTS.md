@@ -427,6 +427,21 @@ payload, provider charge/payload, subscription token и UUID никогда не
 отражаются в error body. Для mutating requests request logger сохраняет только
 method/path, а headers и body целиком заменяет на `[redacted]` до записи в log.
 
+### Маппинг Telegram-бота на VPN API
+
+| Действие в боте | Backend contract |
+|---|---|
+| Открыть «VLESS VPN» | `POST /vpn/status/` |
+| Купить за RUB или Stars | `POST /vpn/payment-intents/`, payload передаётся в Telegram без изменений |
+| Telegram pre-checkout случайного VPN payload | `POST /vpn/pre-checkout/`; bot отвечает `ok=false` с безопасным `message` при отказе backend |
+| Telegram successful payment случайного VPN payload | `POST /vpn/payments/`; после `ACCEPTED`/`APPLIED` бот немедленно сообщает о подготовке |
+| Перевыпустить готовый доступ | `POST /vpn/reissue/`; bot сразу показывает `PREPARING` |
+
+Статические payload `payment`, `payment_stars`,
+`gift_certificate_yukassa` и `gift_certificate_stars` остаются закреплены за
+существующими MTProto/gift flows. Все остальные invoice payload проверяет VPN
+backend как случайный intent; текст invoice и валюта не выбирают продукт.
+
 ---
 
 ## GET /api/v1/vpn/subscriptions/&lt;token&gt;/
