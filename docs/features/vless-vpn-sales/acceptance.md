@@ -23,19 +23,19 @@ production-like SQLite-копии с pre-expand schema `payments.0005`, одни
 | Restored backup `PRAGMA integrity_check` | `ok` |
 | Restored backup `PRAGMA foreign_key_check` | empty |
 | `vless_migration_preflight` | exit 0, `VLESS migration preflight passed` |
-| Full forward migrate | exit 0, 0.48 s wall time |
+| Full forward migrate through `vpn.0005` | exit 0, 0.50 s wall time |
 | Post-migrate integrity/FK checks | `ok` / empty |
 | Legacy writer insert after expand | passed; nullable new relation preserved |
 | Migrated legacy row count | 10 001 including the post-expand old-writer row |
 | Backup → rollback restore equality | byte-identical |
 | Synthetic backup/restore SHA-256 | `ce6780904e92a80c5508663e296dc2e20196ee36029da8f8b1098cd67d0540f9` |
-| Migration/preflight regression tests | 22/22 passed |
+| Migration/preflight regression tests | 23/23 passed |
 
 Проверенные regression suites:
 
 ```text
 make test ARGS="apps.payments.tests.test_migrations apps.vpn.tests.test_vpn_migrations apps.payments.tests.test_management.test_vless_migration_preflight"
-Ran 22 tests — OK
+Ran 23 tests — OK
 ```
 
 Rehearsal также подтвердил fail-closed preflight: исходная локальная копия без
@@ -68,7 +68,7 @@ PR gate, потому что tracked документ не может ссыла
 
 | Check | Result |
 |---|---|
-| `make test` | 611/611 passed |
+| `make test` | 646/646 passed |
 | `cd bot && uv run pytest -q` | 90/90 passed |
 | Bot Ruff | passed |
 | Cross-repo contract/release tests | 11/11 passed |
@@ -100,6 +100,27 @@ PR gate, потому что tracked документ не может ссыла
 Product acceptance is ready for an independent `product-reviewer` against the
 final candidate SHA. Any finding returns to the originating implementer and
 invalidates this ready state until the full checks are repeated.
+
+### Initial product-review remediation
+
+Первый product-review на SHA
+`64893b3eb0aecece9a77b75337b0dec971fe7c1b` вернул findings по delayed
+expiration race, management/data-plane semantics, refund operator safety и
+receipt retry state machine. Исправления прошли три отдельных scoped review и
+новый integration review:
+
+- expired/refunded access реактивируется отличным новым payment, при этом
+  expiration formula и exact-once purchase сохраняются;
+- management transport failure сохраняет подтверждённый serving, а
+  authenticated disproof отзывает его без health-side promotion;
+- refund выполняется только для current/latest applied VPNPurchase, требует
+  signed confirmation, exact-term CAS и хранит immutable audit;
+- receipt claim фиксируется отдельно, failure переводится по exact lease в
+  bounded `RETRY`, Beat переочередяет только durable due work;
+- admin messages и payment identity остаются безопасными.
+
+После remediation полный backend suite содержит 646 тестов. Требуется новый
+product-review на новом exact candidate SHA; предыдущий verdict не переносится.
 
 ## Publication and smoke
 
