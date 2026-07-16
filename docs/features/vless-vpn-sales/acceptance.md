@@ -122,6 +122,11 @@ receipt retry state machine. Исправления прошли три отде
 После remediation полный backend suite содержит 646 тестов. Требуется новый
 product-review на новом exact candidate SHA; предыдущий verdict не переносится.
 
+Повторный product-review подтвердил remediation и выявил одну терминологическую
+коллизию для `INCOMPATIBLE`. Canonical semantics уточнена без изменения runtime:
+management contract incompatibility запрещает новые sale/readiness/mutation,
+но не считается data-plane disproof для уже подтверждённого serving evidence.
+
 ## Publication and smoke
 
 R-004/R-005 evidence добавляется только после final backend commit/PR checks и

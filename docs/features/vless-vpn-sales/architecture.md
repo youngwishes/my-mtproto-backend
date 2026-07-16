@@ -747,10 +747,14 @@ final SHA обязано отдельно содержать bootstrap SHA, ус
 и успешный forward redeploy; branch names и плавающие image tags не заменяют ни
 один SHA gate.
 
-Backend для MVP принимает только agent contract v1. Несовместимый агент получает
-`INCOMPATIBLE`, не участвует в продаже/подписке и не получает mutation calls.
-Изменения contract сначала добавляются backward-compatible на agent, затем на
-backend; удаление старой версии — только отдельным release после fleet audit.
+Backend для MVP принимает только agent contract v1. Несовместимый agent получает
+`INCOMPATIBLE`, не участвует в новых продажах/readiness/публикации и не получает
+mutation calls. Management contract failure сам по себе не доказывает остановку
+Xray: ранее подтверждённые `SERVING_READY` + `is_serving` ссылки сохраняются в
+существующей subscription до authenticated snapshot disproof. Первая или ранее
+не подтверждённая incompatible-нода в subscription не включается. Изменения
+contract сначала добавляются backward-compatible на agent, затем на backend;
+удаление старой версии — только отдельным release после fleet audit.
 
 Последовательность rollout:
 
