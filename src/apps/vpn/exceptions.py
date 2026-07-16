@@ -50,6 +50,13 @@ class VPNAgentUnavailable(VPNAgentTransportError):
     error_code = "agent_unavailable"
 
 
+class VPNFleetUnexpectedError(RuntimeError):
+    """unexpected VPN fleet failure"""
+
+    def __init__(self) -> None:
+        super().__init__(self.__doc__)
+
+
 class VPNAccessNotFound(BaseServiceError):
     """VPN-доступ не найден"""
 

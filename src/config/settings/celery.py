@@ -12,6 +12,10 @@ CELERY_RESULT_BACKEND = os.environ.get(
 CELERY_TASK_ROUTES = {
     "apps.vpn.apply_payment_receipt": {"queue": "vpn_payment_fulfillment"},
     "apps.vpn.recover_payment_receipts": {"queue": "celery"},
+    "apps.vpn.health_check_nodes": {"queue": "celery"},
+    "apps.vpn.reconcile_nodes": {"queue": "celery"},
+    "apps.vpn.send_ready_notification": {"queue": "celery"},
+    "apps.vpn.recover_ready_notifications": {"queue": "celery"},
 }
 
 CELERY_BEAT_SCHEDULE = {
@@ -37,6 +41,18 @@ CELERY_BEAT_SCHEDULE = {
     },
     "recover-vpn-payment-receipts": {
         "task": "apps.vpn.recover_payment_receipts",
+        "schedule": timedelta(minutes=1),
+    },
+    "health-check-vpn-nodes": {
+        "task": "apps.vpn.health_check_nodes",
+        "schedule": timedelta(minutes=5),
+    },
+    "reconcile-vpn-nodes": {
+        "task": "apps.vpn.reconcile_nodes",
+        "schedule": timedelta(hours=1),
+    },
+    "recover-vpn-ready-notifications": {
+        "task": "apps.vpn.recover_ready_notifications",
         "schedule": timedelta(minutes=1),
     },
 }

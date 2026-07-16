@@ -22,7 +22,10 @@ from apps.vpn.services.recover_payment_receipts import (
 
 
 def _defer_delivery_to_reconcile(*, access_id: int) -> None:
-    """Leave publication to the durable reconcile stage supplied by B-012."""
+    """Accelerate delivery; hourly full reconcile recovers a lost enqueue."""
+    from apps.vpn.tasks.reconcile import reconcile_vpn_nodes_task
+
+    reconcile_vpn_nodes_task.delay()
 
 
 def get_vpn_payment_receipt_service(

@@ -30,6 +30,10 @@ VPN_PAYMENT_WORKER_OWNER_PID_PATH = os.environ.get(
     "VPN_PAYMENT_WORKER_OWNER_PID_PATH",
     str(BASE_DIR / "data" / "vpn-payment-worker.owner.pid"),
 )
+VPN_SUBSCRIPTION_BASE_URL = os.environ.get(
+    "VPN_SUBSCRIPTION_BASE_URL",
+    "https://mtprotokeys.ru/api/v1/vpn/subscriptions",
+)
 
 load_dotenv(BASE_DIR.parent / ".env")
 

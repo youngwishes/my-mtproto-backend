@@ -182,6 +182,58 @@ revision. Статусы: `PENDING`, `APPLIED`, `FAILED`. Для `APPLIED`
 `applied_revision` обязана точно совпадать с `desired_revision`; безопасный
 `last_error_code` не должен содержать payload или секреты.
 
+## Reconcile, readiness и доставка URL
+
+Каждая активная нода имеет собственную монотонную snapshot revision. Reconcile
+строит полный exact snapshot. Если уже сохранённые desired revision/hash
+совпадают с построенным snapshot, потерянная Celery-задача повторно доставляет
+ту же revision; при изменении desired set revision увеличивается conditional
+update-ом без `select_for_update()`. Ограниченные повторные попытки с jitter
+разрешают гонку нескольких планировщиков, а ежечасный полный reconcile
+восстанавливает потерянный enqueue.
+
+Успешная фиксация полного snapshot атомарно связывает node READY и apply
+evidence с его точным составом: все отсутствующие в snapshot строки
+`VPNAccessNodeApply` деактивируются и теряют `applied_revision`, включая empty
+snapshot. При следующем появлении того же UUID/revision строка сначала снова
+становится `PENDING` и не может быть использована для публикации до нового
+успешного PUT. До успешного exact removal прежняя published пара и apply
+evidence не стираются, поэтому неудачная попытка удаления не выдаёт ложный
+отзыв уже опубликованного credential.
+
+Нода становится `READY` только после успешного `PUT` и отдельного post-apply
+health, который сообщает точное совпадение revision/hash и readiness `READY`.
+Обычный пяти-минутный health check никогда не повышает ноду в `READY` и не
+переписывает applied evidence. `RECOVERY_READY` переводит ноду в `SYNCING` и
+требует следующий полный `PUT`. Несовместимый contract и overflow дают
+`INCOMPATIBLE` и `OVER_CAPACITY`; stale/conflict/transport failure сохраняются
+как безопасные redacted `last_error_code`. Ошибка одной ноды не прерывает обход
+остального fleet.
+
+После exact apply строки `VPNAccessNodeApply` текущей credential revision
+становятся `APPLIED`. `PublishVPNReadinessService` одним conditional update-ом
+переводит `PREPARING` в `READY` и копирует desired UUID/revision в published
+только при наличии хотя бы одной активной, разрешённой, exact-synced READY-ноды.
+Health без apply evidence публикацию не разрешает.
+
+Health tick сохраняет последний reconcile error при `RECOVERY_READY`, drift и
+для ноды, которая ещё не подтверждена reconcile как READY; это не сбрасывает
+дедупликацию одинакового алерта. Неожиданная ошибка builder/DB/programming
+помечает ноду безопасным кодом `unexpected_reconcile_error`, обход продолжает
+остальные ноды, после чего fleet-задача завершается ошибкой без логирования raw
+exception text.
+Health fleet применяет тот же fail-loud принцип с отдельным bounded кодом
+`unexpected_health_error`: ожидаемая transport-ошибка остаётся изолированной,
+а programming/DB failure после обхода остальных нод завершает health-задачу
+безопасным исключением.
+
+Уведомление со стабильным subscription URL отделено от публикации. Marker
+`ready_notification_revision` обновляется только после успешного ответа
+Telegram. Beat раз в минуту повторно ставит READY-доступы с отстающим marker,
+поэтому ошибка broker или Telegram не теряет URL. Сбой между отправкой и записью
+marker может дать безопасный дубль: доставка намеренно at-least-once. В логи не
+передаются bearer token, subscription URL или snapshot payload.
+
 ## Selectors
 
 ORM-чтения сосредоточены в `selectors.py`: lookup активного доступа по user или
