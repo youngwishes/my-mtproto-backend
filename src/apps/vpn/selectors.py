@@ -4,11 +4,21 @@ from django.db.models import F, QuerySet
 from django.utils import timezone
 
 from apps.vpn.enums import VPNAccessState, VPNNodeHealthState
-from apps.vpn.models import VPNAccess, VPNAccessNodeApply, VPNNode
+from apps.vpn.models import VPNAccess, VPNAccessNodeApply, VPNNode, VPNPurchase
 
 
 def get_vpn_access_by_user_id(*, user_id: int) -> VPNAccess | None:
     return VPNAccess.objects.active().filter(user_id=user_id).first()
+
+
+def get_any_vpn_access_by_user_id(*, user_id: int) -> VPNAccess | None:
+    """Return the unique access regardless of lifecycle state."""
+    return VPNAccess.objects.filter(user_id=user_id).first()
+
+
+def get_vpn_purchase_by_payment_id(*, payment_id: int) -> VPNPurchase | None:
+    """Return the immutable fulfillment audit for exact payment replay."""
+    return VPNPurchase.objects.filter(payment_id=payment_id).select_related("access").first()
 
 
 def get_vpn_access_by_subscription_token(*, token: str) -> VPNAccess | None:

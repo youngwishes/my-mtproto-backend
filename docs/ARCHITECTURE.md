@@ -63,7 +63,8 @@ src/
 │   ├── notifications/           # Шаблоны уведомлений, рассылки
 │   ├── users/                   # SystemUser, бесплатные ссылки, рефералы
 │   ├── vds/                     # VDSInstance, MTPRotoKey, инфра-сервисы, Celery-задачи
-│   ├── payments/                # Product, Payment, YuKassa/Stars
+│   ├── payments/                # Product, intent/receipt, Payment, YuKassa/Stars
+│   ├── vpn/                     # VLESS accesses, purchases, nodes, fulfillment
 │   └── music/                   # Заглушка для FakeTLS-маскировки (не трогать, бизнес-логики нет)
 └── manage.py
 
@@ -108,6 +109,18 @@ apps/core/
 def get_first_free_link_service() -> FirstFreeLinkService:
     return FirstFreeLinkService()
 ```
+
+### Payment/VPN transaction boundary
+
+`apps/payments` владеет durable receipt и единственной транзакцией его
+применения. Payment-orchestrator зависит только от своего
+`VPNPaymentFulfillment` protocol/DTO и не импортирует `apps.vpn`. Обратное
+направление разрешено: vpn-owned composition root инъектирует concrete
+fulfillment в payment service. В одной SQLite-транзакции выполняются
+conditional lease claim, создание Payment, создание/продление VPNAccess,
+VPNPurchase и переход receipt в `APPLIED`; `select_for_update()` не считается
+гарантией для этого пути. Ускоряющая доставка credential регистрируется after
+commit, а её отказ покрывается periodic recovery.
 
 ### Ежедневная выдача бесплатных периодов
 

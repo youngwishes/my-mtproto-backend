@@ -55,6 +55,15 @@ def get_payment_receipt_by_intent_id(*, intent_id: int) -> PaymentReceipt | None
     )
 
 
+def get_payment_receipt_by_id(*, receipt_id: int) -> PaymentReceipt | None:
+    """Return a receipt and immutable relations used by the apply transaction."""
+    return (
+        PaymentReceipt.objects.filter(pk=receipt_id)
+        .select_related("intent", "user", "product", "payment")
+        .first()
+    )
+
+
 def get_payment_by_identity(*, provider: str, charge_id: str) -> Payment | None:
     """Expose an existing legacy/new Payment before receipt identity acceptance."""
     return (

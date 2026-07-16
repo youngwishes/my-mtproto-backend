@@ -44,6 +44,28 @@ Admin никогда не показывает raw subscription token: отоб�
 `expired_at_after`. One-to-one связь с Payment не допускает повторного
 применения одного платежа. Связи защищены от удаления через `PROTECT`.
 
+## Fulfillment оплаченного периода
+
+`FulfillPurchaseService` реализует payment-owned
+`VPNPaymentFulfillment` и вызывается внутри транзакции
+`ApplyPaymentReceiptService`. Первая покупка создаёт единственный `VPNAccess`
+со сроком `accepted_at + 30 days`. Продление всегда использует формулу
+`max(current_expired_at, accepted_at) + 30 days`: активный период получает ровно
+30 дней сверху, истёкший начинается от серверного времени принятия durable
+receipt и возвращается в `PREPARING`.
+
+Продление не меняет `subscription_token`, `desired_uuid` или MTProto/free/gift/
+referral state. `VPNPurchase(payment OneToOne)` является immutable audit и
+делает exact повтор того же Payment идемпотентным. Создание/обновление access и
+создание purchase входят в payment-owned transaction, поэтому ошибка audit
+insert откатывает их вместе с Payment и receipt lease.
+
+Composition root находится в `apps.vpn.factories.payment_receipts`: допустимое
+направление импорта — `vpn -> payments`. Он инъектирует concrete fulfillment в
+payment orchestrator. Delivery scheduler передаётся контрактом и регистрируется
+только after commit; его отказ не отменяет покупку, поскольку periodic reconcile
+остаётся durable recovery. Runnable task/очередь появляются отдельно в B-009.
+
 ## VPNNode
 
 Нода хранит публичный authority (`host`, `port`), HTTPS management origin,

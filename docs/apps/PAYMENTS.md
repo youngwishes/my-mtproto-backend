@@ -95,6 +95,23 @@ OneToOne-collision перечитывает receipt-победитель по in
 путь. Ошибка регистрации или broker callback не удаляет `RECEIVED`: periodic
 recovery остаётся durable механизмом доставки в single-writer очередь.
 
+`ApplyPaymentReceiptService` — единственный владелец транзакции применения
+receipt. Он без `select_for_update()` атомарно захватывает только
+`RECEIVED`/наступивший `RETRY` по переданному `lease_id`, создаёт ровно один
+`Payment`, вызывает injected `VPNPaymentFulfillment` и conditional-переходом с
+тем же lease завершает receipt как `APPLIED`. Ошибка любого шага откатывает
+claim, Payment и VPN fulfillment вместе. Exact повтор уже `APPLIED` receipt
+возвращает существующий Payment без повторного вызова fulfillment.
+
+Короткий SQLite lock/busy contention распознаётся прежде всего по структурным
+`SQLITE_BUSY`/`SQLITE_LOCKED` code/name, а без них — только по ограниченному
+набору canonical messages. Он повторяется не более трёх раз с небольшой
+jitter-задержкой; исчерпание лимита преобразуется в безопасную доменную ошибку,
+не раскрывающую raw DB message. Другие `OperationalError` не маскируются.
+Payments объявляет только immutable
+fulfillment DTO и `Protocol`: пакет не импортирует `apps.vpn`, не содержит
+concrete VPN factory и не создаёт runnable consumer.
+
 ## Сервисы
 
 - **CreatePaymentService** — оркестратор платежа. Ищет пользователя, определяет стратегию (extend/issue), создаёт Payment, отправляет уведомление через SendNotificationService.

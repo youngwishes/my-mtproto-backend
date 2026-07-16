@@ -6,6 +6,11 @@ from apps.payments.services.accept_payment_receipt import (
     AcceptPaymentReceiptService,
     get_accept_payment_receipt_service,
 )
+from apps.payments.services.apply_payment_receipt import (
+    ApplyPaymentReceiptService,
+    get_apply_payment_receipt_service,
+)
+from apps.payments.services.contracts import VPNPaymentFulfillment
 from apps.payments.services.extend_key_service import (
     ExtendKeyService,
     get_extend_key_service,
@@ -26,6 +31,9 @@ from apps.payments.services.payment_intents import (
 __all__ = [
     "AcceptPaymentReceiptService",
     "get_accept_payment_receipt_service",
+    "ApplyPaymentReceiptService",
+    "get_apply_payment_receipt_service",
+    "VPNPaymentFulfillment",
     "CreatePaymentService",
     "get_create_payment_service",
     "ExtendKeyService",

@@ -41,3 +41,15 @@ class PaymentIdentityConflict(BaseServiceError):
 
 class VPNProductNotConfigured(BaseServiceError):
     """VPN-продукт временно недоступен"""
+
+
+class PaymentReceiptNotFound(BaseServiceError):
+    """Квитанция платежа не найдена"""
+
+
+class PaymentReceiptLeaseUnavailable(BaseServiceError):
+    """Квитанция платежа уже обрабатывается"""
+
+
+class PaymentReceiptDatabaseBusy(BaseServiceError):
+    """База платежей временно занята"""
