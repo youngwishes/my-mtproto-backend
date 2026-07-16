@@ -25,6 +25,10 @@ from apps.vpn.services.recover_payment_receipts import (
     RecoverPaymentReceiptsService,
     get_recover_payment_receipts_service,
 )
+from apps.vpn.services.retry_payment_receipt import (
+    RetryPaymentReceiptService,
+    get_retry_payment_receipt_service,
+)
 from apps.vpn.services.health_check import (
     HealthCheckVPNFleetService,
     HealthCheckVPNNodeService,
@@ -85,6 +89,8 @@ __all__ = [
     "get_forecast_vpn_snapshot_capacity_service",
     "RecoverPaymentReceiptsService",
     "get_recover_payment_receipts_service",
+    "RetryPaymentReceiptService",
+    "get_retry_payment_receipt_service",
     "HealthCheckVPNFleetService",
     "HealthCheckVPNNodeService",
     "get_health_check_vpn_fleet_service",

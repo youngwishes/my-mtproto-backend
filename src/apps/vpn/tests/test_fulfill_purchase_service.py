@@ -30,10 +30,18 @@ class FulfillPurchaseServiceTest(TestCase):
 
     def _service(self, **overrides: object) -> FulfillPurchaseService:
         values = {
-            "get_access": lambda *, user_id: VPNAccess.objects.filter(user_id=user_id).first(),
-            "get_purchase": lambda *, payment_id: VPNPurchase.objects.filter(payment_id=payment_id).select_related("access").first(),
+            "get_access": lambda *, user_id: VPNAccess.objects.filter(
+                user_id=user_id
+            ).first(),
+            "get_purchase": lambda *, payment_id: VPNPurchase.objects.filter(
+                payment_id=payment_id
+            )
+            .select_related("access")
+            .first(),
             "create_access": VPNAccess.objects.create,
-            "save_access": lambda *, access, update_fields: access.save(update_fields=update_fields),
+            "save_access": lambda *, access, update_fields: access.save(
+                update_fields=update_fields
+            ),
             "create_purchase": VPNPurchase.objects.create,
             "register_after_commit": self.callbacks.append,
             "schedule_delivery": lambda *, access_id: self.scheduled.append(access_id),
@@ -115,6 +123,26 @@ class FulfillPurchaseServiceTest(TestCase):
         self.assertEqual(access.desired_uuid, desired_uuid)
         self.assertFalse(result.is_ready)
 
+    def test_receipt_accepted_before_expiry_reactivates_access_expired_before_apply(
+        self,
+    ) -> None:
+        current_expiry = self.accepted_at + timedelta(hours=1)
+        access = VPNAccessFactory(
+            user=self.payment.user,
+            expired_at=current_expiry,
+            state=VPNAccessState.EXPIRED,
+            state_revision=2,
+        )
+
+        result = self.service(purchase=self._purchase())
+
+        access.refresh_from_db()
+        self.assertEqual(access.expired_at, current_expiry + timedelta(days=30))
+        self.assertEqual(access.state, VPNAccessState.PREPARING)
+        self.assertEqual(access.state_revision, 3)
+        self.assertFalse(result.is_ready)
+        self.assertEqual(len(self.callbacks), 1)
+
     def test_two_sequential_receipts_add_exactly_two_periods(self) -> None:
         second_payment = PaymentFactory(
             user=self.payment.user,
@@ -129,7 +157,9 @@ class FulfillPurchaseServiceTest(TestCase):
         self.assertEqual(access.expired_at, self.accepted_at + timedelta(days=60))
         self.assertEqual(VPNPurchase.objects.count(), 2)
 
-    def test_same_payment_retry_is_exact_without_adding_time_or_scheduling(self) -> None:
+    def test_same_payment_retry_is_exact_without_adding_time_or_scheduling(
+        self,
+    ) -> None:
         first = self.service(purchase=self._purchase())
         first_callback_count = len(self.callbacks)
 
@@ -176,7 +206,9 @@ class FulfillPurchaseServiceTest(TestCase):
         self.assertFalse(VPNPurchase.objects.exists())
         self.assertEqual(self.callbacks, [])
 
-    def test_delivery_is_registered_after_commit_and_broker_failure_is_nonfatal(self) -> None:
+    def test_delivery_is_registered_after_commit_and_broker_failure_is_nonfatal(
+        self,
+    ) -> None:
         result = self.service(purchase=self._purchase())
 
         self.assertEqual(self.scheduled, [])

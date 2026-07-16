@@ -7,7 +7,7 @@ from datetime import timedelta
 from pathlib import Path
 from unittest.mock import Mock
 
-from django.db import OperationalError
+from django.db import OperationalError, transaction
 from django.test import TestCase
 from django.utils import timezone
 
@@ -15,6 +15,7 @@ from apps.payments.enums import PaymentReceiptStatusEnum, ProductCodeEnum
 from apps.payments.exceptions import (
     PaymentReceiptDatabaseBusy,
     PaymentReceiptLeaseUnavailable,
+    PaymentReceiptTransactionBoundaryViolation,
 )
 from apps.payments.models import Payment, PaymentReceipt
 from apps.payments.services.apply_payment_receipt import (
@@ -117,6 +118,19 @@ class ApplyPaymentReceiptServiceTest(TestCase):
         self.assertFalse(Payment.objects.exists())
         self.fulfill.assert_not_called()
 
+    def test_claim_refuses_outer_transaction_with_bounded_domain_error(self) -> None:
+        with transaction.atomic():
+            with (
+                self.assertNumQueries(0),
+                self.assertRaises(PaymentReceiptTransactionBoundaryViolation),
+            ):
+                self.service(receipt_id=self.receipt.pk, lease_id=self.lease_id)
+
+        self.receipt.refresh_from_db()
+        self.assertEqual(self.receipt.status, PaymentReceiptStatusEnum.RECEIVED)
+        self.assertEqual(self.receipt.attempt_count, 0)
+        self.assertFalse(Payment.objects.exists())
+
     def test_wrong_lease_at_completion_rolls_back_payment_and_fulfillment(self) -> None:
         def invalidate_lease(**_: object) -> VPNPaymentFulfillmentOut:
             PaymentReceipt.objects.filter(pk=self.receipt.pk)._safe_update(
@@ -138,10 +152,11 @@ class ApplyPaymentReceiptServiceTest(TestCase):
             service(receipt_id=self.receipt.pk, lease_id=self.lease_id)
 
         self.receipt.refresh_from_db()
-        self.assertEqual(self.receipt.status, PaymentReceiptStatusEnum.RECEIVED)
+        self.assertEqual(self.receipt.status, PaymentReceiptStatusEnum.PROCESSING)
+        self.assertEqual(self.receipt.lease_id, self.lease_id)
         self.assertFalse(Payment.objects.exists())
 
-    def test_fulfillment_failure_rolls_back_payment_and_claim(self) -> None:
+    def test_fulfillment_failure_rolls_back_domain_writes_but_keeps_claim(self) -> None:
         product_count = ProductFactory._meta.model.objects.count()
 
         def fail_after_domain_write(**_: object) -> None:
@@ -154,10 +169,52 @@ class ApplyPaymentReceiptServiceTest(TestCase):
             self.service(receipt_id=self.receipt.pk, lease_id=self.lease_id)
 
         self.receipt.refresh_from_db()
-        self.assertEqual(self.receipt.status, PaymentReceiptStatusEnum.RECEIVED)
-        self.assertEqual(self.receipt.attempt_count, 0)
+        self.assertEqual(self.receipt.status, PaymentReceiptStatusEnum.PROCESSING)
+        self.assertEqual(self.receipt.lease_id, self.lease_id)
+        self.assertEqual(self.receipt.processing_started_at, self.now)
+        self.assertEqual(self.receipt.attempt_count, 1)
         self.assertFalse(Payment.objects.exists())
         self.assertEqual(ProductFactory._meta.model.objects.count(), product_count)
+
+    def test_due_retry_applies_once_after_failed_attempt(self) -> None:
+        self.fulfill.side_effect = RuntimeError("temporary")
+        with self.assertRaises(RuntimeError):
+            self.service(receipt_id=self.receipt.pk, lease_id=self.lease_id)
+        PaymentReceipt.objects.mark_for_retry(
+            receipt_id=self.receipt.pk,
+            lease_id=self.lease_id,
+            next_attempt_at=self.now,
+            error_code="unexpected_apply_error",
+        )
+        successful_fulfillment = Mock(
+            return_value=VPNPaymentFulfillmentOut(
+                access_id=21,
+                purchase_id=22,
+                is_ready=True,
+            )
+        )
+        retry_service = get_apply_payment_receipt_service(
+            fulfill_purchase=successful_fulfillment,
+            now=lambda: self.now,
+            sleep=lambda _: None,
+        )
+
+        result = retry_service(
+            receipt_id=self.receipt.pk,
+            lease_id=uuid.uuid4(),
+        )
+        replay = retry_service(
+            receipt_id=self.receipt.pk,
+            lease_id=uuid.uuid4(),
+        )
+
+        self.receipt.refresh_from_db()
+        self.assertEqual(self.receipt.status, PaymentReceiptStatusEnum.APPLIED)
+        self.assertEqual(self.receipt.attempt_count, 2)
+        self.assertEqual(Payment.objects.count(), 1)
+        self.assertFalse(result.is_replay)
+        self.assertTrue(replay.is_replay)
+        successful_fulfillment.assert_called_once()
 
     def test_two_distinct_charges_are_applied_in_accepted_order(self) -> None:
         second = PaymentReceiptFactory(
@@ -197,6 +254,7 @@ class ApplyPaymentReceiptServiceTest(TestCase):
             now=lambda: self.now,
             sleep=sleeps.append,
             lock_retry_delay=lambda attempt: attempt / 10,
+            ensure_transaction_boundary=self.service.ensure_transaction_boundary,
         )
 
         result = service(receipt_id=self.receipt.pk, lease_id=self.lease_id)
@@ -216,6 +274,7 @@ class ApplyPaymentReceiptServiceTest(TestCase):
             now=lambda: self.now,
             sleep=lambda _: None,
             lock_retry_delay=lambda _: 0,
+            ensure_transaction_boundary=self.service.ensure_transaction_boundary,
         )
 
         with self.assertRaises(PaymentReceiptDatabaseBusy):
@@ -236,6 +295,7 @@ class ApplyPaymentReceiptServiceTest(TestCase):
             now=lambda: self.now,
             sleep=sleeps.append,
             lock_retry_delay=lambda _: 0,
+            ensure_transaction_boundary=self.service.ensure_transaction_boundary,
         )
 
         with self.assertRaisesRegex(OperationalError, "disk I/O error"):

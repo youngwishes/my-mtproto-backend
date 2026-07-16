@@ -40,14 +40,15 @@
 
 | Состояние | Допустимый следующий статус | Семантика |
 |---|---|---|
-| `RECEIVED` | `PROCESSING` | Платёж принят и выбирается recovery независимо от состояния broker/нод. |
+| `RECEIVED` | `RETRY`, `PROCESSING` | Платёж принят; broker-orphaned receipt recovery сначала условно переводит в due `RETRY`, а непосредственная задача может захватить как `PROCESSING`. |
 | `PROCESSING` | `APPLIED`, `RETRY` | Всегда содержит одновременно `lease_id` и `processing_started_at`; завершить обработку может только владелец exact актуального lease. |
 | `RETRY` | `PROCESSING` | Не содержит lease и всегда содержит `next_attempt_at`; число попыток и безопасный `last_error_code` сохраняются. |
 | `APPLIED` | — | Nullable ранее `payment` заполнен применённым Payment; повтор не создаёт новую покупку. |
 
 Beat recovery выбирает все `RECEIVED`, наступившие `RETRY` и `PROCESSING` со
-старым `processing_started_at`. Stale recovery атомарно очищает старый lease и
-переводит receipt в `RETRY`; умерший или запоздавший worker после этого не может
+старым `processing_started_at`. `RECEIVED` и stale `PROCESSING` сначала
+условно и durably переводятся в due `RETRY`; в singleton queue ставятся только
+уже сохранённые `RETRY`. Умерший или запоздавший worker после этого не может
 завершить обработку со старым `lease_id`.
 
 Изменяемые state/lease/retry/payment-поля записываются только через conditional
@@ -95,19 +96,32 @@ OneToOne-collision перечитывает receipt-победитель по in
 путь. Ошибка регистрации или broker callback не удаляет `RECEIVED`: periodic
 recovery остаётся durable механизмом доставки в single-writer очередь.
 
-`ApplyPaymentReceiptService` — единственный владелец транзакции применения
-receipt. Он без `select_for_update()` атомарно захватывает только
-`RECEIVED`/наступивший `RETRY` по переданному `lease_id`, создаёт ровно один
-`Payment`, вызывает injected `VPNPaymentFulfillment` и conditional-переходом с
-тем же lease завершает receipt как `APPLIED`. Ошибка любого шага откатывает
-claim, Payment и VPN fulfillment вместе. Exact повтор уже `APPLIED` receipt
-возвращает существующий Payment без повторного вызова fulfillment.
+`ApplyPaymentReceiptService` выполняется только task-owned composition root под
+singleton writer lock и не допускает внешнюю caller-транзакцию. Перед чтением и
+любой mutation он проверяет возможность открыть non-nested durable boundary;
+нарушение возвращает bounded `PaymentReceiptTransactionBoundaryViolation`, а не
+сырой `RuntimeError` Django.
+
+Применение состоит из двух транзакций. Первая без `select_for_update()`
+условно захватывает только `RECEIVED`/наступивший `RETRY` по переданному
+`lease_id`, увеличивает `attempt_count` и durably фиксирует `PROCESSING`.
+Вторая создаёт ровно один `Payment`, вызывает injected
+`VPNPaymentFulfillment` и conditional-переходом с тем же lease завершает
+receipt как `APPLIED`. Ошибка второго этапа вместе откатывает Payment и весь VPN
+fulfillment, но committed lease остаётся `PROCESSING`. Task переводит только
+эту exact lease в `RETRY`, сохраняя bounded safe error code и следующий запуск
+с exponential backoff/jitter. Exact повтор уже `APPLIED` receipt возвращает
+существующий Payment без повторного вызова fulfillment.
 
 Короткий SQLite lock/busy contention распознаётся прежде всего по структурным
 `SQLITE_BUSY`/`SQLITE_LOCKED` code/name, а без них — только по ограниченному
 набору canonical messages. Он повторяется не более трёх раз с небольшой
 jitter-задержкой; исчерпание лимита преобразуется в безопасную доменную ошибку,
 не раскрывающую raw DB message. Другие `OperationalError` не маскируются.
+Retry settings проверяются до singleton lock и receipt claim: base — целое
+положительное, max находится между base и 86 400 секундами, jitter конечный и
+от 0 до 300 секунд. Некорректная конфигурация fail-fast останавливает задачу без
+изменения receipt; silent normalization запрещена.
 Payments объявляет только immutable
 fulfillment DTO и `Protocol`: пакет не импортирует `apps.vpn`, не содержит
 concrete VPN factory и не создаёт runnable consumer.

@@ -30,6 +30,15 @@ VPN_PAYMENT_WORKER_OWNER_PID_PATH = os.environ.get(
     "VPN_PAYMENT_WORKER_OWNER_PID_PATH",
     str(BASE_DIR / "data" / "vpn-payment-worker.owner.pid"),
 )
+VPN_PAYMENT_RETRY_BASE_SECONDS = int(
+    os.environ.get("VPN_PAYMENT_RETRY_BASE_SECONDS", "30")
+)
+VPN_PAYMENT_RETRY_MAX_SECONDS = int(
+    os.environ.get("VPN_PAYMENT_RETRY_MAX_SECONDS", "3600")
+)
+VPN_PAYMENT_RETRY_JITTER_SECONDS = float(
+    os.environ.get("VPN_PAYMENT_RETRY_JITTER_SECONDS", "5")
+)
 VPN_SUBSCRIPTION_BASE_URL = os.environ.get(
     "VPN_SUBSCRIPTION_BASE_URL",
     "https://mtprotokeys.ru/api/v1/vpn/subscriptions",

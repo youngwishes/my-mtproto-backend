@@ -221,6 +221,27 @@ class PaymentReceiptTest(TestCase):
         self.assertIsNone(receipt.lease_id)
         self.assertIsNone(receipt.processing_started_at)
 
+    def test_received_recovery_conditionally_enters_due_retry(self) -> None:
+        receipt = PaymentReceiptFactory(status=PaymentReceiptStatusEnum.RECEIVED)
+        next_attempt_at = timezone.now()
+
+        prepared = PaymentReceipt.objects.mark_received_for_retry(
+            receipt_id=receipt.pk,
+            next_attempt_at=next_attempt_at,
+        )
+        duplicate = PaymentReceipt.objects.mark_received_for_retry(
+            receipt_id=receipt.pk,
+            next_attempt_at=next_attempt_at + timedelta(minutes=1),
+        )
+
+        receipt.refresh_from_db()
+        self.assertTrue(prepared)
+        self.assertFalse(duplicate)
+        self.assertEqual(receipt.status, PaymentReceiptStatusEnum.RETRY)
+        self.assertEqual(receipt.attempt_count, 0)
+        self.assertEqual(receipt.next_attempt_at, next_attempt_at)
+        self.assertEqual(receipt.last_error_code, "enqueue_recovery")
+
     def test_crashed_claim_is_recovered_only_after_lease_becomes_stale(self) -> None:
         receipt = PaymentReceiptFactory()
         lease_id = uuid.uuid4()

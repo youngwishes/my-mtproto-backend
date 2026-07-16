@@ -4,7 +4,17 @@ from datetime import datetime
 from uuid import UUID
 
 from django.db import transaction
-from django.db.models import Case, DateTimeField, Exists, F, OuterRef, Q, QuerySet, Value, When
+from django.db.models import (
+    Case,
+    DateTimeField,
+    Exists,
+    F,
+    OuterRef,
+    Q,
+    QuerySet,
+    Value,
+    When,
+)
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 
@@ -19,7 +29,12 @@ from apps.vpn.enums import (
     VPNDataPlaneState,
     VPNNodeHealthState,
 )
-from apps.vpn.exceptions import VPNAgentContractError, VPNAgentTransportError
+from apps.vpn.exceptions import (
+    VPNAgentContractError,
+    VPNAgentTransportError,
+    VPNRefundConflict,
+    VPNRefundPurchaseNotCurrent,
+)
 from apps.vpn.models import (
     VPNAccess,
     VPNAccessNodeApply,
@@ -114,10 +129,14 @@ def stage_vpn_access_reissue(
 
 
 def get_due_vpn_accesses(*, now: datetime, limit: int = 500) -> QuerySet[VPNAccess]:
-    return VPNAccess.objects.active().filter(
-        expired_at__lte=now,
-        state__in=(VPNAccessState.PREPARING, VPNAccessState.READY),
-    ).order_by("pk")[:limit]
+    return (
+        VPNAccess.objects.active()
+        .filter(
+            expired_at__lte=now,
+            state__in=(VPNAccessState.PREPARING, VPNAccessState.READY),
+        )
+        .order_by("pk")[:limit]
+    )
 
 
 def expire_vpn_access_conditionally(*, access: VPNAccess, now: datetime) -> bool:
@@ -139,26 +158,64 @@ def expire_vpn_access_conditionally(*, access: VPNAccess, now: datetime) -> bool
 
 
 def deactivate_vpn_refund_conditionally(
-    *, access: VPNAccess, actor_id: int, reason: str, now: datetime
+    *, purchase: VPNPurchase, actor_id: int, reason: str, now: datetime
 ) -> bool:
-    return (
-        VPNAccess.objects.active()
-        .filter(
-            pk=access.pk,
-            state_revision=access.state_revision,
-            disabled_at__isnull=True,
+    with transaction.atomic():
+        newer_purchase = VPNPurchase.objects.filter(access_id=OuterRef("pk")).filter(
+            Q(expired_at_after__gt=purchase.expired_at_after)
+            | Q(
+                expired_at_after=purchase.expired_at_after,
+                pk__gt=purchase.pk,
+            )
         )
-        .exclude(state=VPNAccessState.DISABLED_REFUND)
-        .update(
-            state=VPNAccessState.DISABLED_REFUND,
-            state_revision=F("state_revision") + 1,
-            disabled_at=now,
-            disabled_by_id=actor_id,
-            disabled_reason=reason,
+        access_updated = (
+            VPNAccess.objects.active()
+            .filter(
+                ~Exists(newer_purchase),
+                pk=purchase.access_id,
+                state_revision=purchase.access.state_revision,
+                expired_at=purchase.access.expired_at,
+                disabled_at__isnull=True,
+            )
+            .exclude(state=VPNAccessState.DISABLED_REFUND)
+            .update(
+                state=VPNAccessState.DISABLED_REFUND,
+                state_revision=F("state_revision") + 1,
+                disabled_at=now,
+                disabled_by_id=actor_id,
+                disabled_reason=reason,
+                updated_at=now,
+            )
+        )
+        if access_updated != 1:
+            current_purchase = VPNPurchase.objects.filter(pk=purchase.pk).first()
+            if (
+                current_purchase is not None
+                and current_purchase.refunded_at is not None
+            ):
+                return False
+            latest_purchase_id = (
+                VPNPurchase.objects.filter(access_id=purchase.access_id)
+                .order_by("-expired_at_after", "-pk")
+                .values_list("pk", flat=True)
+                .first()
+            )
+            if latest_purchase_id != purchase.pk:
+                raise VPNRefundPurchaseNotCurrent()
+            raise VPNRefundConflict()
+
+        audit_updated = VPNPurchase.objects.filter(
+            pk=purchase.pk,
+            refunded_at__isnull=True,
+        ).update(
+            refunded_at=now,
+            refunded_by_id=actor_id,
+            refund_reason=reason,
             updated_at=now,
         )
-        == 1
-    )
+        if audit_updated != 1:
+            raise VPNRefundConflict()
+        return True
 
 
 def get_active_unexpired_vpn_access_by_user_id(*, user_id: int) -> VPNAccess | None:
@@ -211,9 +268,7 @@ def stage_vpn_node_snapshot(
             desired_snapshot_revision=snapshot.snapshot_revision,
             desired_snapshot_hash=snapshot.snapshot_hash,
             health_state=VPNNodeHealthState.SYNCING,
-            revision_drift_started_at=Coalesce(
-                "revision_drift_started_at", Value(now)
-            ),
+            revision_drift_started_at=Coalesce("revision_drift_started_at", Value(now)),
             last_error_code="",
             last_error_started_at=None,
             updated_at=now,
@@ -307,11 +362,15 @@ def mark_vpn_node_snapshot_applied(
             access_id__in=included_access_ids
         ).update(is_active=False, is_serving=False, updated_at=now)
         for access in snapshot.accesses:
-            is_current_published = VPNAccess.objects.active().filter(
-                pk=access.access_id,
-                state=VPNAccessState.READY,
-                published_revision=access.access_revision,
-            ).exists()
+            is_current_published = (
+                VPNAccess.objects.active()
+                .filter(
+                    pk=access.access_id,
+                    state=VPNAccessState.READY,
+                    published_revision=access.access_revision,
+                )
+                .exists()
+            )
             VPNAccessNodeApply.objects.active().filter(
                 access_id=access.access_id,
                 node_id=node.pk,
@@ -423,15 +482,41 @@ def record_vpn_node_health(*, node: VPNNode, health: VPNAgentHealthDTO) -> None:
         and health.applied_snapshot_hash == node.desired_snapshot_hash
         and node.desired_snapshot_revision > 0
     )
-    confirms_serving_snapshot = (
+    matches_recorded_applied = (
         health.readiness == "READY"
-        and node.data_plane_state == VPNDataPlaneState.SERVING_READY
         and health.applied_snapshot_revision == node.applied_snapshot_revision
         and health.applied_snapshot_hash == node.applied_snapshot_hash
         and node.applied_snapshot_revision > 0
     )
-    if health.readiness == "RECOVERY_READY" or not exact:
-        fields["health_state"] = VPNNodeHealthState.SYNCING
+    reconciled_exact = exact and matches_recorded_applied
+    confirms_serving_snapshot = (
+        matches_recorded_applied
+        and node.data_plane_state == VPNDataPlaneState.SERVING_READY
+    )
+    needs_reconcile = health.readiness == "RECOVERY_READY" or not reconciled_exact
+    if needs_reconcile:
+        if health.readiness == "RECOVERY_READY":
+            fields["health_state"] = VPNNodeHealthState.SYNCING
+        else:
+            fields["health_state"] = Case(
+                When(
+                    Q(last_error_code="")
+                    | Q(
+                        last_error_code__in=(
+                            "agent_transport_error",
+                            "agent_timeout",
+                            "agent_tls_failure",
+                            "agent_unauthorized",
+                            "agent_protocol_error",
+                            "agent_unavailable",
+                            "incompatible_contract",
+                            "unexpected_health_error",
+                        )
+                    ),
+                    then=Value(VPNNodeHealthState.SYNCING),
+                ),
+                default=F("health_state"),
+            )
         if not confirms_serving_snapshot:
             fields["data_plane_state"] = VPNDataPlaneState.UNAVAILABLE
         fields["revision_drift_started_at"] = Coalesce(
@@ -444,9 +529,7 @@ def record_vpn_node_health(*, node: VPNNode, health: VPNAgentHealthDTO) -> None:
             fields["last_error_started_at"] = None
     with transaction.atomic():
         VPNNode.objects.active().filter(pk=node.pk).update(**fields)
-        if (health.readiness == "RECOVERY_READY" or not exact) and not (
-            confirms_serving_snapshot
-        ):
+        if needs_reconcile and not confirms_serving_snapshot:
             VPNAccessNodeRevisionEvidence.objects.active().filter(
                 node_id=node.pk, is_serving=True
             ).update(is_serving=False, updated_at=now)
@@ -461,48 +544,38 @@ def record_vpn_node_health_failure(
         else VPNNodeHealthState.UNHEALTHY
     )
     now = timezone.now()
-    with transaction.atomic():
-        VPNNode.objects.active().filter(pk=node.pk).update(
-            health_state=state,
-            data_plane_state=VPNDataPlaneState.UNAVAILABLE,
-            last_health_at=now,
-            last_error_code=error.error_code,
-            last_error_started_at=Case(
-                When(
-                    last_error_code=error.error_code,
-                    then=Coalesce("last_error_started_at", Value(now)),
-                ),
-                default=Value(now),
-                output_field=DateTimeField(),
+    VPNNode.objects.active().filter(pk=node.pk).update(
+        health_state=state,
+        last_health_at=now,
+        last_error_code=error.error_code,
+        last_error_started_at=Case(
+            When(
+                last_error_code=error.error_code,
+                then=Coalesce("last_error_started_at", Value(now)),
             ),
-            updated_at=now,
-        )
-        VPNAccessNodeRevisionEvidence.objects.active().filter(
-            node_id=node.pk, is_serving=True
-        ).update(is_serving=False, updated_at=now)
+            default=Value(now),
+            output_field=DateTimeField(),
+        ),
+        updated_at=now,
+    )
 
 
 def record_vpn_node_unexpected_failure(*, node: VPNNode, error_code: str) -> None:
     """Persist a bounded code without retaining the raw exception."""
     now = timezone.now()
-    with transaction.atomic():
-        VPNNode.objects.active().filter(pk=node.pk).update(
-            health_state=VPNNodeHealthState.UNHEALTHY,
-            data_plane_state=VPNDataPlaneState.UNAVAILABLE,
-            last_error_code=error_code,
-            last_error_started_at=Case(
-                When(
-                    last_error_code=error_code,
-                    then=Coalesce("last_error_started_at", Value(now)),
-                ),
-                default=Value(now),
-                output_field=DateTimeField(),
+    VPNNode.objects.active().filter(pk=node.pk).update(
+        health_state=VPNNodeHealthState.UNHEALTHY,
+        last_error_code=error_code,
+        last_error_started_at=Case(
+            When(
+                last_error_code=error_code,
+                then=Coalesce("last_error_started_at", Value(now)),
             ),
-            updated_at=now,
-        )
-        VPNAccessNodeRevisionEvidence.objects.active().filter(
-            node_id=node.pk, is_serving=True
-        ).update(is_serving=False, updated_at=now)
+            default=Value(now),
+            output_field=DateTimeField(),
+        ),
+        updated_at=now,
+    )
 
 
 def get_access_node_applies(*, access: VPNAccess) -> QuerySet[VPNAccessNodeApply]:

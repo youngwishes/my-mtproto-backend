@@ -1,8 +1,13 @@
 from __future__ import annotations
 
 from django import forms
-from django.contrib import admin
+from django.contrib import admin, messages
+from django.core import signing
+from django.db.models import QuerySet
+from django.http import HttpRequest, HttpResponse
+from django.template.response import TemplateResponse
 
+from apps.vpn.exceptions import VPNRefundConflict, VPNRefundPurchaseNotCurrent
 from apps.vpn.models import (
     VPNAccess,
     VPNAccessNodeApply,
@@ -11,6 +16,10 @@ from apps.vpn.models import (
     VPNPurchase,
 )
 from apps.vpn.services import get_deactivate_vpn_refund_service
+
+_REFUND_CONFIRMATION_SALT = "vpn.refund-confirmation.v1"
+_REFUND_CONFIRMATION_MAX_AGE_SECONDS = 600
+_REDACTED_PAYMENT_IDENTITY = "••••••"
 
 
 class VPNNodeAdminForm(forms.ModelForm):
@@ -41,16 +50,6 @@ class VPNAccessAdmin(admin.ModelAdmin):
     readonly_fields = ("masked_subscription_token", "created_at", "updated_at")
     exclude = ("subscription_token",)
     search_fields = ("user__username", "user__telegram_username")
-    actions = ("deactivate_after_refund",)
-
-    @admin.action(description="Деактивировать после возврата")
-    def deactivate_after_refund(self, request, queryset) -> None:
-        service = get_deactivate_vpn_refund_service()
-        changed = sum(
-            service(access=access, actor=request.user, reason="admin refund")
-            for access in queryset
-        )
-        self.message_user(request, f"Деактивировано VPN-доступов: {changed}")
 
     @admin.display(description="Subscription token")
     def masked_subscription_token(self, obj: VPNAccess) -> str:
@@ -60,9 +59,112 @@ class VPNAccessAdmin(admin.ModelAdmin):
 
 @admin.register(VPNPurchase)
 class VPNPurchaseAdmin(admin.ModelAdmin):
-    list_display = ("pk", "payment", "access", "period_days", "expired_at_after")
-    list_select_related = ("payment", "access")
-    readonly_fields = ("payment", "access", "period_days", "expired_at_after")
+    list_display = (
+        "pk",
+        "safe_payment_identity",
+        "access_user",
+        "period_days",
+        "expired_at_after",
+        "refunded_at",
+    )
+    list_select_related = ("payment", "access", "access__user", "refunded_by")
+    readonly_fields = (
+        "payment",
+        "access",
+        "period_days",
+        "expired_at_after",
+        "refunded_at",
+        "refunded_by",
+        "refund_reason",
+    )
+    actions = ("deactivate_after_refund",)
+
+    @admin.display(description="Платёж")
+    def safe_payment_identity(self, obj: VPNPurchase) -> str:
+        return _REDACTED_PAYMENT_IDENTITY
+
+    @admin.display(description="Пользователь")
+    def access_user(self, obj: VPNPurchase) -> str:
+        return str(obj.access.user)
+
+    @admin.action(description="Отключить VPN после подтверждённого возврата")
+    def deactivate_after_refund(
+        self,
+        request: HttpRequest,
+        queryset: QuerySet[VPNPurchase],
+    ) -> HttpResponse | None:
+        purchases = list(
+            queryset.select_related("payment", "access", "access__user")[:2]
+        )
+        if len(purchases) != 1:
+            self.message_user(
+                request,
+                "Для безопасного возврата выберите ровно одну VPN-покупку.",
+                level=messages.ERROR,
+            )
+            return None
+
+        purchase = purchases[0]
+        if request.POST.get("confirm") != "yes":
+            confirmation_token = signing.dumps(
+                {
+                    "purchase_id": purchase.pk,
+                    "state_revision": purchase.access.state_revision,
+                    "expired_at": purchase.access.expired_at.isoformat(),
+                },
+                salt=_REFUND_CONFIRMATION_SALT,
+            )
+            return TemplateResponse(
+                request,
+                "admin/vpn/vpnpurchase/refund_confirmation.html",
+                {
+                    **self.admin_site.each_context(request),
+                    "opts": self.model._meta,
+                    "title": "Подтвердите отключение VPN после возврата",
+                    "purchase": purchase,
+                    "safe_payment_identity": self.safe_payment_identity(purchase),
+                    "current_expired_at": purchase.access.expired_at,
+                    "action_name": "deactivate_after_refund",
+                    "confirmation_token": confirmation_token,
+                },
+            )
+
+        try:
+            confirmation = signing.loads(
+                request.POST.get("confirmation_token", ""),
+                salt=_REFUND_CONFIRMATION_SALT,
+                max_age=_REFUND_CONFIRMATION_MAX_AGE_SECONDS,
+            )
+        except signing.BadSignature:
+            confirmation = None
+        if confirmation != {
+            "purchase_id": purchase.pk,
+            "state_revision": purchase.access.state_revision,
+            "expired_at": purchase.access.expired_at.isoformat(),
+        }:
+            self.message_user(
+                request,
+                "Подтверждение устарело или не соответствует выбранной покупке.",
+                level=messages.ERROR,
+            )
+            return None
+
+        try:
+            changed = get_deactivate_vpn_refund_service()(
+                purchase=purchase,
+                actor=request.user,
+                reason="admin confirmed provider refund",
+            )
+        except (VPNRefundConflict, VPNRefundPurchaseNotCurrent) as exc:
+            self.message_user(request, str(exc), level=messages.ERROR)
+            return None
+        message = (
+            "VPN-доступ отключён; денежный refund у провайдера не выполнялся."
+            if changed
+            else "Этот платёж уже был обработан как refund; состояние не изменено."
+        )
+        self.message_user(request, message, level=messages.SUCCESS)
+        return None
 
 
 @admin.register(VPNNode)

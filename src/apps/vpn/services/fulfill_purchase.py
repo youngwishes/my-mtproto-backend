@@ -72,15 +72,26 @@ class FulfillPurchaseService:
                     state=VPNAccessState.PREPARING,
                 )
             else:
-                was_expired = access.expired_at <= purchase.accepted_at
-                access.expired_at = max(access.expired_at, purchase.accepted_at) + timedelta(
-                    days=30
+                requires_reactivation = (
+                    access.expired_at <= purchase.accepted_at
+                    or access.state
+                    in (VPNAccessState.EXPIRED, VPNAccessState.DISABLED_REFUND)
                 )
+                access.expired_at = max(
+                    access.expired_at, purchase.accepted_at
+                ) + timedelta(days=30)
                 update_fields = ["expired_at", "updated_at"]
-                if was_expired and access.state != VPNAccessState.PREPARING:
+                if requires_reactivation and access.state != VPNAccessState.PREPARING:
                     access.state = VPNAccessState.PREPARING
                     access.state_revision += 1
                     update_fields.extend(("state", "state_revision"))
+                    if access.disabled_at is not None:
+                        access.disabled_at = None
+                        access.disabled_by_id = None
+                        access.disabled_reason = ""
+                        update_fields.extend(
+                            ("disabled_at", "disabled_by", "disabled_reason")
+                        )
                 self.save_access(access=access, update_fields=update_fields)
 
             purchase_audit = self.create_purchase(
@@ -106,7 +117,9 @@ class FulfillPurchaseService:
 def get_fulfill_purchase_service(
     *,
     schedule_delivery: Callable[..., None] = _noop_schedule_delivery,
-    register_after_commit_callback: Callable[[Callable[[], None]], None] = register_after_commit,
+    register_after_commit_callback: Callable[
+        [Callable[[], None]], None
+    ] = register_after_commit,
 ) -> FulfillPurchaseService:
     return FulfillPurchaseService(
         get_access=get_any_vpn_access_by_user_id,

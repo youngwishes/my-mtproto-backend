@@ -13,7 +13,7 @@ from apps.users.models import SystemUser
 
 class VPNRevisionEvidenceExpandMigrationTest(TransactionTestCase):
     migrate_from = ("vpn", "0001_initial")
-    migrate_to = ("vpn", "0004_access_first_ready_at")
+    migrate_to = ("vpn", "0005_purchase_refund_audit")
 
     def setUp(self) -> None:
         super().setUp()
@@ -118,7 +118,11 @@ class VPNRevisionEvidenceExpandMigrationTest(TransactionTestCase):
 
         current_access = VPNAccess.objects.get(pk=access.pk)
         self.assertEqual(
-            tuple(get_subscription_nodes(access=current_access).values_list("pk", flat=True)),
+            tuple(
+                get_subscription_nodes(access=current_access).values_list(
+                    "pk", flat=True
+                )
+            ),
             (node.pk,),
         )
         history.objects.create(
@@ -141,3 +145,58 @@ class VPNRevisionEvidenceExpandMigrationTest(TransactionTestCase):
         self.assertNotIn(
             "vpn_vpnaccessnoderevisionevidence", connection.introspection.table_names()
         )
+
+
+class VPNPurchaseRefundAuditMigrationTest(TransactionTestCase):
+    migrate_from = ("vpn", "0004_access_first_ready_at")
+    migrate_to = ("vpn", "0005_purchase_refund_audit")
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.executor = MigrationExecutor(connection)
+        self.executor.migrate([self.migrate_from])
+        self.old_apps = self.executor.loader.project_state([self.migrate_from]).apps
+
+    def tearDown(self) -> None:
+        MigrationExecutor(connection).migrate([self.migrate_to])
+        super().tearDown()
+
+    def test_expand_preserves_existing_purchase_and_reverse_drops_only_audit(
+        self,
+    ) -> None:
+        user = SystemUser.objects.create(username="migration-refund-user")
+        payment = self.old_apps.get_model("payments", "Payment").objects.create(
+            user_id=user.pk,
+            charge_id="migration-refund-charge",
+        )
+        access = self.old_apps.get_model("vpn", "VPNAccess").objects.create(
+            user_id=user.pk,
+            subscription_token="r" * 43,
+            desired_uuid=uuid.uuid4(),
+            desired_revision=1,
+            expired_at=timezone.now() + timedelta(days=30),
+            state="preparing",
+            state_revision=1,
+        )
+        purchase = self.old_apps.get_model("vpn", "VPNPurchase").objects.create(
+            payment_id=payment.pk,
+            access_id=access.pk,
+            period_days=30,
+            expired_at_after=access.expired_at,
+        )
+
+        self.executor = MigrationExecutor(connection)
+        self.executor.migrate([self.migrate_to])
+        new_apps = self.executor.loader.project_state([self.migrate_to]).apps
+        expanded = new_apps.get_model("vpn", "VPNPurchase").objects.get(pk=purchase.pk)
+        self.assertIsNone(expanded.refunded_at)
+        self.assertIsNone(expanded.refunded_by_id)
+        self.assertIsNone(expanded.refund_reason)
+
+        reverse = MigrationExecutor(connection)
+        reverse.migrate([self.migrate_from])
+        reversed_apps = reverse.loader.project_state([self.migrate_from]).apps
+        coherent = reversed_apps.get_model("vpn", "VPNPurchase").objects.get(
+            pk=purchase.pk
+        )
+        self.assertEqual(coherent.expired_at_after, access.expired_at)

@@ -53,3 +53,7 @@ class PaymentReceiptLeaseUnavailable(BaseServiceError):
 
 class PaymentReceiptDatabaseBusy(BaseServiceError):
     """База платежей временно занята"""
+
+
+class PaymentReceiptTransactionBoundaryViolation(BaseServiceError):
+    """Обработка платежа запущена внутри другой транзакции"""

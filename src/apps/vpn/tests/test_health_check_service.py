@@ -165,6 +165,95 @@ class HealthCheckVPNNodeServiceTests(TestCase):
         self.assertTrue(evidence.is_serving)
         self.assertIsNotNone(node.revision_drift_started_at)
 
+    def test_staged_timeout_then_unreconciled_desired_health_revokes_old_serving(
+        self,
+    ) -> None:
+        access = VPNAccessFactory(
+            state="preparing",
+            desired_revision=2,
+            desired_uuid=uuid.uuid4(),
+            published_uuid=uuid.uuid4(),
+            published_revision=1,
+        )
+        node = VPNNodeFactory(
+            health_state=VPNNodeHealthState.SYNCING,
+            data_plane_state=VPNDataPlaneState.SERVING_READY,
+            desired_snapshot_revision=3,
+            desired_snapshot_hash="a" * 64,
+            applied_snapshot_revision=2,
+            applied_snapshot_hash="d" * 64,
+        )
+        evidence = VPNAccessNodeRevisionEvidenceFactory(
+            access=access,
+            node=node,
+            revision=1,
+            applied_revision=1,
+            status=VPNApplyStatus.APPLIED,
+            is_serving=True,
+        )
+        get_health_check_vpn_node_service(
+            get_health=mock.Mock(side_effect=VPNAgentTimeout(node.pk))
+        )(node=node)
+        desired_health = VPNAgentHealthDTO(
+            contract_version="v1",
+            schema_version="1.0",
+            agent_sha="b" * 40,
+            xray_version="1",
+            xray_image_digest=f"sha256:{'c' * 64}",
+            readiness="READY",
+            applied_snapshot_revision=3,
+            applied_snapshot_hash="a" * 64,
+        )
+
+        get_health_check_vpn_node_service(
+            get_health=lambda *, node: desired_health
+        )(node=node)
+
+        node.refresh_from_db()
+        evidence.refresh_from_db()
+        self.assertEqual(node.health_state, VPNNodeHealthState.SYNCING)
+        self.assertEqual(node.data_plane_state, VPNDataPlaneState.UNAVAILABLE)
+        self.assertEqual(node.applied_snapshot_revision, 2)
+        self.assertFalse(evidence.is_serving)
+        self.assertIsNotNone(node.revision_drift_started_at)
+
+    def test_reconciled_exact_health_preserves_existing_serving(self) -> None:
+        access = VPNAccessFactory()
+        node = VPNNodeFactory(
+            health_state=VPNNodeHealthState.READY,
+            data_plane_state=VPNDataPlaneState.SERVING_READY,
+            desired_snapshot_revision=3,
+            desired_snapshot_hash="a" * 64,
+            applied_snapshot_revision=3,
+            applied_snapshot_hash="a" * 64,
+        )
+        evidence = VPNAccessNodeRevisionEvidenceFactory(
+            access=access,
+            node=node,
+            revision=1,
+            applied_revision=1,
+            status=VPNApplyStatus.APPLIED,
+            is_serving=True,
+        )
+        health = VPNAgentHealthDTO(
+            contract_version="v1",
+            schema_version="1.0",
+            agent_sha="b" * 40,
+            xray_version="1",
+            xray_image_digest=f"sha256:{'c' * 64}",
+            readiness="READY",
+            applied_snapshot_revision=3,
+            applied_snapshot_hash="a" * 64,
+        )
+
+        get_health_check_vpn_node_service(get_health=lambda *, node: health)(node=node)
+
+        node.refresh_from_db()
+        evidence.refresh_from_db()
+        self.assertEqual(node.data_plane_state, VPNDataPlaneState.SERVING_READY)
+        self.assertTrue(evidence.is_serving)
+        self.assertIsNone(node.revision_drift_started_at)
+
     def test_unconfirmed_snapshot_drift_revokes_serving_eligibility(self) -> None:
         access = VPNAccessFactory()
         node = VPNNodeFactory(
@@ -230,7 +319,9 @@ class HealthCheckVPNNodeServiceTests(TestCase):
         self.assertIsNone(node.last_error_started_at)
         self.assertIsNotNone(node.revision_drift_started_at)
 
-    def test_transport_failure_revokes_serving_eligibility(self) -> None:
+    def test_repeated_transport_failure_preserves_serving_until_authenticated_drift(
+        self,
+    ) -> None:
         access = VPNAccessFactory()
         node = VPNNodeFactory(
             health_state=VPNNodeHealthState.READY,
@@ -249,19 +340,64 @@ class HealthCheckVPNNodeServiceTests(TestCase):
             is_serving=True,
         )
 
-        get_health_check_vpn_node_service(
+        failing = get_health_check_vpn_node_service(
             get_health=mock.Mock(side_effect=VPNAgentTimeout(node.pk))
-        )(node=node)
+        )
+        for _ in range(2):
+            failing(node=node)
+            node.refresh_from_db()
+            evidence.refresh_from_db()
+            self.assertEqual(
+                node.data_plane_state, VPNDataPlaneState.SERVING_READY
+            )
+            self.assertTrue(evidence.is_serving)
+
+        drift = VPNAgentHealthDTO(
+            contract_version="v1",
+            schema_version="1.0",
+            agent_sha="b" * 40,
+            xray_version="1",
+            xray_image_digest=f"sha256:{'c' * 64}",
+            readiness="READY",
+            applied_snapshot_revision=2,
+            applied_snapshot_hash="d" * 64,
+        )
+        get_health_check_vpn_node_service(get_health=lambda *, node: drift)(node=node)
 
         node.refresh_from_db()
         evidence.refresh_from_db()
         self.assertEqual(node.data_plane_state, VPNDataPlaneState.UNAVAILABLE)
         self.assertFalse(evidence.is_serving)
 
+    def test_transport_failure_does_not_promote_node_without_prior_serving(self) -> None:
+        node = VPNNodeFactory(data_plane_state=VPNDataPlaneState.UNAVAILABLE)
+
+        get_health_check_vpn_node_service(
+            get_health=mock.Mock(side_effect=VPNAgentTimeout(node.pk))
+        )(node=node)
+
+        node.refresh_from_db()
+        self.assertEqual(node.data_plane_state, VPNDataPlaneState.UNAVAILABLE)
+
     def test_fleet_reports_unexpected_failure_continues_and_raises_safe_error(
         self,
     ) -> None:
-        first = VPNNodeFactory()
+        first = VPNNodeFactory(
+            health_state=VPNNodeHealthState.READY,
+            data_plane_state=VPNDataPlaneState.SERVING_READY,
+            desired_snapshot_revision=1,
+            desired_snapshot_hash="a" * 64,
+            applied_snapshot_revision=1,
+            applied_snapshot_hash="a" * 64,
+        )
+        evidence = VPNAccessNodeRevisionEvidenceFactory(
+            access=VPNAccessFactory(),
+            node=first,
+            revision=1,
+            applied_revision=1,
+            status=VPNApplyStatus.APPLIED,
+            is_serving=True,
+        )
         second = VPNNodeFactory()
         check_node = mock.Mock(
             side_effect=[ValueError("raw-health-secret-must-not-escape"), True]
@@ -282,8 +418,11 @@ class HealthCheckVPNNodeServiceTests(TestCase):
         self.assertNotIn("raw-health-secret", str(raised.exception))
         self.assertEqual(check_node.call_count, 2)
         first.refresh_from_db()
+        evidence.refresh_from_db()
         self.assertEqual(first.health_state, VPNNodeHealthState.UNHEALTHY)
         self.assertEqual(first.last_error_code, "unexpected_health_error")
+        self.assertEqual(first.data_plane_state, VPNDataPlaneState.SERVING_READY)
+        self.assertTrue(evidence.is_serving)
         report_failure.assert_called_once_with(
             node_id=first.pk,
             error_code="unexpected_health_error",

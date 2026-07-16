@@ -19,6 +19,10 @@ from apps.vpn.services.recover_payment_receipts import (
     RecoverPaymentReceiptsService,
     get_recover_payment_receipts_service as _get_recovery_service,
 )
+from apps.vpn.services.retry_payment_receipt import (
+    RetryPaymentReceiptService,
+    get_retry_payment_receipt_service as _get_retry_service,
+)
 
 
 def _defer_delivery_to_reconcile(*, access_id: int) -> None:
@@ -63,3 +67,11 @@ def get_recover_payment_receipts_service(
     enqueue_receipt: Callable[..., None],
 ) -> RecoverPaymentReceiptsService:
     return _get_recovery_service(enqueue_receipt=enqueue_receipt)
+
+
+def get_retry_payment_receipt_service() -> RetryPaymentReceiptService:
+    return _get_retry_service(
+        base_delay_seconds=settings.VPN_PAYMENT_RETRY_BASE_SECONDS,
+        max_delay_seconds=settings.VPN_PAYMENT_RETRY_MAX_SECONDS,
+        jitter_max_seconds=settings.VPN_PAYMENT_RETRY_JITTER_SECONDS,
+    )

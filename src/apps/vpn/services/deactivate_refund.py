@@ -4,13 +4,15 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, final
 
+from django.db import OperationalError
 from django.utils import timezone
 
-from apps.vpn.models import VPNAccess
+from apps.vpn.exceptions import VPNRefundConflict
 from apps.vpn.selectors import deactivate_vpn_refund_conditionally
 
 if TYPE_CHECKING:
     from apps.users.models import SystemUser
+    from apps.vpn.models import VPNPurchase
 
 
 def _schedule_reconcile() -> None:
@@ -26,17 +28,20 @@ class DeactivateVPNRefundService:
     deactivate_conditionally: Callable[..., bool] = deactivate_vpn_refund_conditionally
 
     def __call__(
-        self, *, access: VPNAccess, actor: SystemUser, reason: str
+        self, *, purchase: VPNPurchase, actor: SystemUser, reason: str
     ) -> bool:
         normalized_reason = reason.strip()
         if not normalized_reason:
             raise ValueError("refund reason is required")
-        changed = self.deactivate_conditionally(
-            access=access,
-            actor_id=actor.pk,
-            reason=normalized_reason,
-            now=timezone.now(),
-        )
+        try:
+            changed = self.deactivate_conditionally(
+                purchase=purchase,
+                actor_id=actor.pk,
+                reason=normalized_reason,
+                now=timezone.now(),
+            )
+        except OperationalError as exc:
+            raise VPNRefundConflict() from exc
         if changed:
             try:
                 self.schedule_reconcile()

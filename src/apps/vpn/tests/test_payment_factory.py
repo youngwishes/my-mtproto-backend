@@ -44,10 +44,11 @@ class VPNPaymentReceiptFactoryTest(TestCase):
 
         scheduler.assert_not_called()
 
-    def test_purchase_failure_rolls_back_payment_access_and_receipt_claim(self) -> None:
+    def test_purchase_failure_rolls_back_domain_writes_but_keeps_claim(self) -> None:
         receipt = PaymentReceiptFactory(
             product=ProductFactory(code=ProductCodeEnum.VLESS_30D)
         )
+        lease_id = uuid.uuid4()
         with patch.object(
             VPNPurchase.objects,
             "create",
@@ -58,11 +59,12 @@ class VPNPaymentReceiptFactoryTest(TestCase):
                 sleep=lambda _: None,
             )
             with self.assertRaisesRegex(RuntimeError, "purchase failed"):
-                service(receipt_id=receipt.pk, lease_id=uuid.uuid4())
+                service(receipt_id=receipt.pk, lease_id=lease_id)
 
         receipt.refresh_from_db()
-        self.assertEqual(receipt.status, "received")
-        self.assertEqual(receipt.attempt_count, 0)
+        self.assertEqual(receipt.status, "processing")
+        self.assertEqual(receipt.attempt_count, 1)
+        self.assertEqual(receipt.lease_id, lease_id)
         self.assertIsNone(receipt.payment_id)
         self.assertFalse(Payment.objects.exists())
         self.assertFalse(VPNAccess.objects.exists())

@@ -233,7 +233,9 @@ class PaymentsExpandMigrationTest(TransactionTestCase):
                 **common_fields,
             )
 
-    def test_legacy_writer_can_insert_payment_without_product_after_expand(self) -> None:
+    def test_legacy_writer_can_insert_payment_without_product_after_expand(
+        self,
+    ) -> None:
         self._create_product()
         user = self._create_user()
         old_payment = self.old_apps.get_model("payments", "Payment")
@@ -265,7 +267,7 @@ class PaymentReceiptAppliedAtMigrationTest(TransactionTestCase):
 
     def tearDown(self) -> None:
         MigrationExecutor(connection).migrate(
-            [self.migrate_to, ("vpn", "0004_access_first_ready_at")]
+            [self.migrate_to, ("vpn", "0005_purchase_refund_audit")]
         )
         super().tearDown()
 
@@ -315,7 +317,7 @@ class PaymentReceiptAppliedAtMigrationTest(TransactionTestCase):
             payment_id=payment.pk,
         )
         historical_vpn_apps = self.executor.loader.project_state(
-            [("vpn", "0004_access_first_ready_at")]
+            [("vpn", "0005_purchase_refund_audit")]
         ).apps
         access_model = historical_vpn_apps.get_model("vpn", "VPNAccess")
         purchase_model = historical_vpn_apps.get_model("vpn", "VPNPurchase")
@@ -415,26 +417,26 @@ class PaymentReceiptAppliedAtMigrationTest(TransactionTestCase):
         current_receipt = new_apps.get_model("payments", "PaymentReceipt").objects.get(
             pk=post_expand_receipt.pk
         )
-        current_access = MigrationExecutor(connection).loader.project_state(
-            [("vpn", "0004_access_first_ready_at")]
-        ).apps.get_model("vpn", "VPNAccess").objects.get(pk=post_expand_access.pk)
+        current_access = (
+            MigrationExecutor(connection)
+            .loader.project_state([("vpn", "0004_access_first_ready_at")])
+            .apps.get_model("vpn", "VPNAccess")
+            .objects.get(pk=post_expand_access.pk)
+        )
         self.assertIsNone(current_receipt.applied_at)
         self.assertIsNone(current_receipt.ready_at)
         self.assertIsNone(current_access.first_ready_at)
         from apps.vpn.observability import get_vpn_observation
 
         values = {
-            metric.name: metric.value
-            for metric in get_vpn_observation(at=now).metrics
+            metric.name: metric.value for metric in get_vpn_observation(at=now).metrics
         }
         self.assertEqual(values["vpn_receipts_applied_current"], 2)
         self.assertEqual(values["vpn_receipt_apply_latency_seconds"], 180)
         self.assertEqual(values["vpn_readiness_latency_seconds"], 300)
 
         reverse = MigrationExecutor(connection)
-        reverse.migrate(
-            [self.migrate_from, ("vpn", "0003_observability_onsets")]
-        )
+        reverse.migrate([self.migrate_from, ("vpn", "0003_observability_onsets")])
         reversed_apps = reverse.loader.project_state([self.migrate_from]).apps
         self.assertEqual(
             reversed_apps.get_model("payments", "PaymentReceipt")

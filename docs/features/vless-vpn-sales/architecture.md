@@ -140,13 +140,20 @@ apps/payments: accept receipt
 queue vpn_payment_fulfillment (concurrency=1)
         |
         v
-ApplyPaymentReceiptService transaction
-  - claim RECEIVED/RETRY receipt
+ApplyPaymentReceiptService claim transaction
+  - conditionally claim RECEIVED/due RETRY as PROCESSING
+  - commit lease and increment attempt_count
+        |
+        v
+ApplyPaymentReceiptService fulfillment transaction
   - create Payment once
   - injected FulfillVPNPurchaseService
   - create/extend VPNAccess
   - create VPNPurchase(payment, access)
-  - mark receipt APPLIED
+  - mark the exact lease APPLIED
+        |
+        +--> failure: rollback Payment/VPNPurchase/VPNAccess changes
+                     and conditionally move the committed lease to RETRY
         |
         v after commit
 schedule desired credential delivery
@@ -173,6 +180,13 @@ new_expired_at = max(current_expired_at, receipt.accepted_at) + 30 days
 contract не передаёт надёжный provider `paid_at`, поэтому message timestamp не
 используется как момент покупки.
 
+Формула срока не зависит от задержки worker-а. Если receipt принят до окончания
+срока, но beat успел перевести access в `EXPIRED` до применения receipt,
+fulfillment дополнительно учитывает фактический lifecycle state, возвращает
+access в `PREPARING` и увеличивает `state_revision`. То же выполняется для нового
+distinct Payment после `DISABLED_REFUND`; access-level disabled snapshot
+очищается, а purchase-level refund audit остаётся неизменным.
+
 Для первой покупки создаются стабильный subscription token, desired UUID и
 revision 1. Повторная покупка меняет только срок; token, desired UUID и
 опубликованный UUID сохраняются. Изменения регистрируют delivery после commit,
@@ -187,7 +201,7 @@ Celery queue `vpn_payment_fulfillment`, которую default worker не сл�
 `-Q vpn_payment_fulfillment --concurrency=1 --prefetch-multiplier=1`; default
 worker явно ограничен своими очередями.
 
-Перед claim и на всё время receipt-transaction singleton worker дополнительно
+Перед claim и на всё время обеих receipt-транзакций singleton worker дополнительно
 держит host-level exclusive `flock` на файле рядом с общей SQLite DB, например
 `/app/data/vpn-payment-writer.lock`. Все версии singleton service монтируют один
 и тот же host data directory, поэтому дублирующий или rolling container не может
@@ -195,6 +209,21 @@ worker явно ограничен своими очередями.
 singleton и только затем запускает новый; readiness нового worker включает
 успешное получение lock. Только `ApplyPaymentReceiptService` может превратить
 receipt в `Payment` и изменить оплаченный срок VPNAccess.
+
+Claim фиксируется отдельной короткой транзакцией до fulfillment. Поэтому ошибка
+создания `Payment` или VPN purchase откатывает все бизнес-записи, но оставляет
+аудируемую lease в `PROCESSING`. Task условно переводит только эту точную lease
+в `RETRY`, сохраняет ограниченный стабильный error code и рассчитывает bounded
+exponential backoff с jitter из `attempt_count`; текст исключения, provider
+payload и секреты в receipt/log не попадают. Потерявший lease воркер не может
+перезаписать результат нового владельца.
+
+Apply — task-only transaction boundary под singleton lock. Composition root не
+вызывает его внутри внешнего `transaction.atomic()`: service до чтения receipt
+проверяет non-nested durable boundary и при нарушении возвращает bounded domain
+error без DB mutation. Retry settings также валидируются до lock/claim; max
+backoff ограничен 86 400 секундами, jitter — 300 секундами, NaN/Inf и silent
+normalization запрещены.
 
 Уникальный receipt остаётся последней защитой от двух API deliveries. Короткие
 SQLite `OperationalError: database is locked` обрабатываются ограниченным retry
@@ -204,9 +233,11 @@ reissue не меняют оплаченный срок; они использу
 затереть конкурентный fulfillment.
 
 Celery Beat периодически выбирает `RECEIVED`, наступившие `RETRY` и stale
-`PROCESSING` receipts, возвращает stale lease в `RETRY` и повторно ставит их в
-single-writer queue. Поля lease (`processing_started_at`, `lease_id`) позволяют
-воркеру завершить только захваченную им попытку. Ошибка broker после DB commit
+`PROCESSING` receipts. Broker-orphaned `RECEIVED` и stale lease сначала
+условно и durably переводятся в `RETRY`; в single-writer queue ставятся только
+receipt, уже находящиеся в `RETRY`. Поля lease (`processing_started_at`,
+`lease_id`) позволяют воркеру завершить только захваченную им попытку. Ошибка
+broker после DB commit
 не теряет работу: receipt остаётся выбираемым Beat recovery. После исчерпания
 обычных попыток состояние остаётся `RETRY` с увеличенным backoff и alert, а не
 становится необслуживаемым terminal failure без решения оператора.
@@ -366,6 +397,9 @@ identity и аудита суммы.
 - `payment` — unique OneToOne к `Payment`;
 - `access` — ForeignKey к `VPNAccess`;
 - `period_days=30` и `expired_at_after` как audit результата fulfillment.
+- nullable expand-поля `refunded_at`, `refunded_by`, `refund_reason`, которые DB
+  constraint разрешает только всеми `NULL` либо с non-NULL at/by/reason и
+  непустым reason.
 
 Один доступ связан со многими покупками, но один Payment может выполнить не
 более одного VPN fulfillment.
@@ -478,7 +512,10 @@ hash и managed accesses с минимальными правами доступ
 затронутой ноды и создаёт per-node exact snapshot tasks с bounded exponential
 backoff и jitter. Ошибка одной ноды не блокирует другие.
 После исчерпания быстрых retries нода становится `UNHEALTHY`, исключается из
-subscription и получает дедуплицированный alert.
+eligibility для новой продажи, readiness и публикации нового доступа и получает
+дедуплицированный alert. Уже подтверждённые `SERVING_READY` + `is_serving`
+evidence остаются в существующей subscription до authenticated disproof;
+первая или никогда не подтверждённая нода в subscription не включается.
 
 Health-check каждые 5 минут проверяет нездоровые и новые ноды. Нода не становится
 `READY` по одному health response: сначала выполняется exact full sync, затем
@@ -493,11 +530,27 @@ Beat-задача истечения переводит доступ в `EXPIRED
 broker потерян, следующий periodic reconcile исключит credential из exact
 snapshot. Отдельный необратимый `cleanup_enqueued` marker не используется.
 
-Refund deactivation — явный Django admin action над выбранным применённым VPN
-payment. Оператор видит user, payment identity и текущий срок, подтверждает
-действие; service записывает `DISABLED_REFUND`, audit actor/reason/time и
-запускает reconcile. Повтор действия идемпотентен. Он не изменяет MTProto данные
-и не выполняет автоматический денежный refund у provider.
+Refund deactivation — явный Django admin action над одной выбранной применённой
+`VPNPurchase`. Оператор видит user, ограниченную masked payment identity и
+текущий срок, затем явно подтверждает действие. Service разрешает отключение
+только по последней текущей покупке доступа, атомарно записывает
+`DISABLED_REFUND`, увеличивает `state_revision`, связывает immutable
+actor/reason/time audit с этой покупкой и запускает reconcile. Повтор той же
+возвращённой покупки идемпотентен; попытка применить refund старой покупки при
+наличии более новой блокируется без изменений. Действие не показывает provider
+payload/полный charge identity, не изменяет MTProto данные и не выполняет
+автоматический денежный refund у provider.
+
+Admin использует постоянную редакцию payment identity: ни пустой, ни короткий,
+ни длинный `charge_id` не попадает в HTML даже частично. Доменные conflict
+исключения инициализируют только bounded user-facing сообщения; внутренние DB
+детали через admin messages не раскрываются.
+
+Signed confirmation связывает выбранный purchase, `state_revision` и точный
+текущий `expired_at`. Conditional refund UPDATE повторяет эти CAS predicates и
+проверяет отсутствие более новой покупки в первом write statement. Поэтому
+активное продление между экраном подтверждения и действием не может отключить
+новый оплаченный срок и не оставляет частичный refund audit.
 
 ## API центрального backend
 

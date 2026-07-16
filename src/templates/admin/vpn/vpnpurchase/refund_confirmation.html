@@ -1,0 +1,24 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block content %}
+  <p>Отключить VPN-доступ после уже подтверждённого возврата?</p>
+  <dl>
+    <dt>Платёж</dt>
+    <dd>{{ safe_payment_identity }}</dd>
+    <dt>Пользователь</dt>
+    <dd>{{ purchase.access.user }}</dd>
+    <dt>Текущий срок</dt>
+    <dd>{{ current_expired_at }}</dd>
+  </dl>
+  <p><strong>Это действие не отправляет денежный refund провайдеру.</strong></p>
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="{{ action_name }}">
+    <input type="hidden" name="_selected_action" value="{{ purchase.pk }}">
+    <input type="hidden" name="confirm" value="yes">
+    <input type="hidden" name="confirmation_token" value="{{ confirmation_token }}">
+    <input type="submit" value="Подтвердить отключение">
+    <a href="../">Отмена</a>
+  </form>
+{% endblock %}

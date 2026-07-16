@@ -42,7 +42,10 @@ Admin никогда не показывает raw subscription token: отоб�
 `VPNPurchase` связывает один применённый `Payment` с `VPNAccess` и хранит
 неизменяемый audit результата fulfillment: `period_days` (по умолчанию 30) и
 `expired_at_after`. One-to-one связь с Payment не допускает повторного
-применения одного платежа. Связи защищены от удаления через `PROTECT`.
+применения одного платежа. Nullable expand-поля `refunded_at`, `refunded_by` и
+`refund_reason` заполняются вместе ровно один раз операторским действием и
+сохраняют связь audit с конкретным возвращённым платежом. Связи защищены от
+удаления через `PROTECT`.
 
 ## Fulfillment оплаченного периода
 
@@ -52,13 +55,20 @@ Admin никогда не показывает raw subscription token: отоб�
 со сроком `accepted_at + 30 days`. Продление всегда использует формулу
 `max(current_expired_at, accepted_at) + 30 days`: активный период получает ровно
 30 дней сверху, истёкший начинается от серверного времени принятия durable
-receipt и возвращается в `PREPARING`.
+receipt и возвращается в `PREPARING`. Если receipt был принят до окончания
+доступа, но применён уже после beat-перехода в `EXPIRED`, срок по-прежнему
+считается той же формулой, а фактический `EXPIRED` reactivates в `PREPARING`.
+Отдельный успешный платёж после `DISABLED_REFUND` также reactivates доступ,
+очищает текущий access-level disabled snapshot и не изменяет audit возвращённой
+покупки. Exact replay возвращённого или нового Payment остаётся no-op.
 
 Продление не меняет `subscription_token`, `desired_uuid` или MTProto/free/gift/
 referral state. `VPNPurchase(payment OneToOne)` является immutable audit и
-делает exact повтор того же Payment идемпотентным. Создание/обновление access и
-создание purchase входят в payment-owned transaction, поэтому ошибка audit
-insert откатывает их вместе с Payment и receipt lease.
+делает exact повтор того же Payment идемпотентным. Claim выполняется отдельной
+durable-транзакцией. Создание/обновление access, создание purchase, Payment и
+переход receipt в `APPLIED` входят в следующую payment-owned транзакцию, поэтому
+ошибка audit insert откатывает бизнес-записи, но оставляет exact lease в
+`PROCESSING` для аудируемого перехода в `RETRY`.
 
 Composition root находится в `apps.vpn.factories.payment_receipts`: допустимое
 направление импорта — `vpn -> payments`. Он инъектирует concrete fulfillment в
@@ -69,10 +79,12 @@ payment orchestrator. Delivery scheduler передаётся контракто
 Runnable consumer также принадлежит `apps.vpn`. Тонкая задача
 `apps.vpn.apply_payment_receipt` маршрутизируется только в очередь
 `vpn_payment_fulfillment`; отдельный Compose worker запускается с concurrency и
-prefetch 1 и монтирует общий `./data`. Перед claim и до конца receipt transaction
-он удерживает non-blocking exclusive `flock` файла
+prefetch 1 и монтирует общий `./data`. Перед claim и до конца claim/fulfillment
+транзакций он удерживает non-blocking exclusive `flock` файла
 `/app/data/vpn-payment-writer.lock`. Default worker явно слушает только очередь
 `celery`, поэтому concrete fulfillment не может выполняться конкурентно там.
+Это task-only boundary: caller не оборачивает apply service во внешнюю
+транзакцию; такое использование fail-fast даёт bounded domain error до mutation.
 
 До запуска Celery wrapper отдельно получает lifetime owner lock
 `/app/data/vpn-payment-worker.owner.lock` и сохраняет PID владельца. Второй idle
@@ -83,10 +95,13 @@ PID, command identity dedicated queue и то, что lifetime lock действ
 
 Celery Beat раз в минуту вызывает vpn-owned recovery service. Он ограниченной
 партией выбирает через payment selector `RECEIVED`, наступившие `RETRY` и stale
-`PROCESSING`, условно освобождает stale lease и ставит receipt в singleton queue
-с jitter до пяти секунд. Ошибка broker не меняет durable receipt: следующая
-итерация Beat снова выберет его. Deploy останавливает старый singleton до запуска
-нового и ждёт healthcheck lifetime-владельца.
+`PROCESSING`. Он сначала условно переводит broker-orphaned `RECEIVED` и stale
+lease в due `RETRY`, а в singleton queue ставит только уже durable `RETRY` с
+jitter до пяти секунд. Apply failure сохраняет стабильный безопасный error code
+и bounded exponential backoff; raw exception не сохраняется и не логируется.
+Ошибка broker оставляет due `RETRY`, поэтому следующая итерация Beat снова его
+выберет. Deploy останавливает старый singleton до запуска нового и ждёт
+healthcheck lifetime-владельца.
 
 ## VPNNode
 
@@ -223,7 +238,17 @@ health, который сообщает точное совпадение revisi
 точно подтверждает всё ещё applied/published старый snapshot, сохраняет
 `SERVING_READY` и его serving evidence, одновременно оставляя management state
 `SYNCING` и drift к desired. Serving отзывается только если health не подтверждает
-applied snapshot, сообщает `RECOVERY_READY` либо transport/auth/TLS недоступен.
+applied snapshot или сообщает `RECOVERY_READY`. Management timeout/auth/TLS
+failure сам по себе data-plane outage не доказывает и сохраняет прежний
+`data_plane_state`/serving evidence; для ноды без прежнего serving он также ничего
+не продвигает.
+Если следующий authenticated `READY` уже сообщает новый desired snapshot, но DB
+ещё хранит старый applied snapshot/revision evidence, health тем самым опровергает
+старый published serving. Старое evidence отзывается, data plane становится
+`UNAVAILABLE`, а management остаётся `SYNCING` с drift onset до полного reconcile;
+сам health не создаёт applied evidence и не публикует новый credential. Обычный
+случай `desired == DB applied == health applied` продолжает подтверждать уже
+существующий serving без promotion.
 Любой authenticated TLS health response очищает прежний auth/TLS onset, даже
 если desired ещё drifted. `RECOVERY_READY` требует следующий полный `PUT`.
 Несовместимый contract и overflow дают
@@ -249,6 +274,12 @@ exact `is_serving` history опубликованной revision; поэтому
 Аутентифицированный successful health с drift, missing snapshot или
 `RECOVERY_READY` явно сбрасывает data-plane state и serving flags; обычный
 transport failure этого не делает, поскольку состояние data plane не доказано.
+После исчерпания management retries `UNHEALTHY`/`INCOMPATIBLE` исключают ноду из
+ready-eligibility для новой продажи и публикации нового доступа. При этом active
+нода остаётся целью полного reconcile для восстановления, а subscription уже
+подтверждённой published revision продолжает использовать независимые
+`SERVING_READY` + `is_serving` evidence до authenticated disproof. Первая или
+никогда не подтверждённая нода такого evidence не получает и в serving не входит.
 В rollback window new readers могут использовать exact legacy current-row,
 но только если history для published revision ещё нет; это делает writes
 старого binary видимыми без duplicate links и без обхода history evidence.

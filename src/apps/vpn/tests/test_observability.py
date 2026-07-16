@@ -266,7 +266,7 @@ class VPNObservationDatabaseTests(TestCase):
 
         self.assertEqual(node.last_error_started_at, second)
 
-    def test_continuous_revision_drift_preserves_onset_and_exact_health_resets_it(
+    def test_unreconciled_desired_health_preserves_drift_onset(
         self,
     ) -> None:
         first = timezone.now() - timedelta(minutes=20)
@@ -311,7 +311,7 @@ class VPNObservationDatabaseTests(TestCase):
         with mock.patch("apps.vpn.selectors.timezone.now", return_value=recovered):
             record_vpn_node_health(node=node, health=exact_health)
         node.refresh_from_db()
-        self.assertIsNone(node.revision_drift_started_at)
+        self.assertEqual(node.revision_drift_started_at, first)
 
     def test_snapshot_covers_receipt_readiness_node_and_notification_metrics(
         self,

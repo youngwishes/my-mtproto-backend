@@ -57,6 +57,13 @@ class VPNFleetUnexpectedError(RuntimeError):
         super().__init__(self.__doc__)
 
 
+class VPNPaymentReceiptApplyFailed(RuntimeError):
+    """vpn payment receipt apply failed"""
+
+    def __init__(self) -> None:
+        super().__init__(self.__doc__)
+
+
 class VPNAccessNotFound(BaseServiceError):
     """VPN-доступ не найден"""
 
@@ -75,6 +82,20 @@ class VPNReissueConflict(BaseServiceError):
 
 class VPNReissueNotEligible(BaseServiceError):
     """VPN-доступ пока нельзя перевыпустить"""
+
+
+class VPNRefundPurchaseNotCurrent(RuntimeError):
+    """Нельзя отключить VPN по платежу: он не относится к текущему сроку"""
+
+    def __init__(self) -> None:
+        super().__init__(self.__doc__)
+
+
+class VPNRefundConflict(RuntimeError):
+    """Состояние VPN изменилось, повторите проверку возврата"""
+
+    def __init__(self) -> None:
+        super().__init__(self.__doc__)
 
 
 class VPNCapacityUnavailable(BaseServiceError):

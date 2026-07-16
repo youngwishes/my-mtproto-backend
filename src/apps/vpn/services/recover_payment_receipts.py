@@ -32,6 +32,7 @@ class RecoverPaymentReceiptsService:
     """Recover durable receipts without making broker delivery authoritative."""
 
     get_recoverable_receipts: Callable[..., Iterable[PaymentReceipt]]
+    prepare_received_retry: Callable[..., bool]
     recover_stale_lease: Callable[..., bool]
     enqueue_receipt: Callable[..., None]
     now: Callable[[], datetime]
@@ -49,7 +50,14 @@ class RecoverPaymentReceiptsService:
         bounded_receipts = list(receipts[: self.batch_size])
         enqueued = 0
         for receipt in bounded_receipts:
-            if receipt.status == PaymentReceiptStatusEnum.PROCESSING:
+            if receipt.status == PaymentReceiptStatusEnum.RECEIVED:
+                prepared = self.prepare_received_retry(
+                    receipt_id=receipt.pk,
+                    next_attempt_at=current_time,
+                )
+                if not prepared:
+                    continue
+            elif receipt.status == PaymentReceiptStatusEnum.PROCESSING:
                 recovered = self.recover_stale_lease(
                     receipt_id=receipt.pk,
                     stale_before=current_time - self.stale_after,
@@ -61,6 +69,8 @@ class RecoverPaymentReceiptsService:
                     self.report_lease_recovery()
                 except Exception:
                     pass
+            elif receipt.status != PaymentReceiptStatusEnum.RETRY:
+                continue
             try:
                 self.enqueue_receipt(
                     receipt_id=receipt.pk,
@@ -80,6 +90,7 @@ def get_recover_payment_receipts_service(
 ) -> RecoverPaymentReceiptsService:
     return RecoverPaymentReceiptsService(
         get_recoverable_receipts=get_recoverable_payment_receipts,
+        prepare_received_retry=PaymentReceipt.objects.mark_received_for_retry,
         recover_stale_lease=PaymentReceipt.objects.recover_stale_lease,
         enqueue_receipt=enqueue_receipt,
         now=now,

@@ -3,7 +3,11 @@ from __future__ import annotations
 import secrets
 import uuid
 
-from django.core.validators import MaxValueValidator, MinLengthValidator, MinValueValidator
+from django.core.validators import (
+    MaxValueValidator,
+    MinLengthValidator,
+    MinValueValidator,
+)
 from django.db import models
 
 from apps.core import BaseDjangoModel
@@ -63,9 +67,7 @@ class VPNAccess(BaseDjangoModel):
     ready_notification_revision = models.PositiveBigIntegerField(
         "последняя уведомлённая revision", default=0
     )
-    first_ready_at = models.DateTimeField(
-        "впервые опубликован", null=True, blank=True
-    )
+    first_ready_at = models.DateTimeField("впервые опубликован", null=True, blank=True)
     disabled_at = models.DateTimeField("отключён", null=True, blank=True)
     disabled_reason = models.CharField("причина отключения", max_length=128, blank=True)
     disabled_by = models.ForeignKey(
@@ -91,8 +93,12 @@ class VPNAccess(BaseDjangoModel):
             ),
             models.CheckConstraint(
                 condition=(
-                    models.Q(published_uuid__isnull=True, published_revision__isnull=True)
-                    | models.Q(published_uuid__isnull=False, published_revision__isnull=False)
+                    models.Q(
+                        published_uuid__isnull=True, published_revision__isnull=True
+                    )
+                    | models.Q(
+                        published_uuid__isnull=False, published_revision__isnull=False
+                    )
                 ),
                 name="vpn_access_published_pair",
             ),
@@ -165,17 +171,51 @@ class VPNPurchase(BaseDjangoModel):
         "оплаченный период, дней", default=30, validators=[MinValueValidator(1)]
     )
     expired_at_after = models.DateTimeField("срок после применения платежа")
+    refunded_at = models.DateTimeField("возврат подтверждён", null=True, blank=True)
+    refund_reason = models.CharField(
+        "причина возврата", max_length=128, null=True, blank=True
+    )
+    refunded_by = models.ForeignKey(
+        "users.SystemUser",
+        on_delete=models.PROTECT,
+        related_name="vpn_purchases_refunded",
+        verbose_name="возврат подтвердил",
+        null=True,
+        blank=True,
+    )
 
     class Meta:
         verbose_name = "VPN-покупка"
         verbose_name_plural = "VPN-покупки"
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(
+                        refunded_at__isnull=True,
+                        refunded_by__isnull=True,
+                        refund_reason__isnull=True,
+                    )
+                    | (
+                        models.Q(
+                            refunded_at__isnull=False,
+                            refunded_by__isnull=False,
+                            refund_reason__isnull=False,
+                        )
+                        & ~models.Q(refund_reason="")
+                    )
+                ),
+                name="vpn_purchase_refund_audit_complete",
+            )
+        ]
 
 
 class VPNNode(BaseDjangoModel):
     name = models.CharField("имя", max_length=64, unique=True)
     number = models.PositiveSmallIntegerField("порядковый номер", unique=True)
     location = models.CharField("локация", max_length=128)
-    host = models.CharField("публичный host", max_length=255, validators=[validate_public_host])
+    host = models.CharField(
+        "публичный host", max_length=255, validators=[validate_public_host]
+    )
     port = models.PositiveIntegerField(
         "публичный порт", validators=[MinValueValidator(1), MaxValueValidator(65535)]
     )
@@ -183,7 +223,9 @@ class VPNNode(BaseDjangoModel):
         "HTTPS URL агента", max_length=255, validators=[validate_https_base_url]
     )
     agent_secret_key = models.CharField(
-        "lookup key секрета", max_length=128, validators=[validate_agent_secret_lookup_key]
+        "lookup key секрета",
+        max_length=128,
+        validators=[validate_agent_secret_lookup_key],
     )
     agent_contract_version = models.CharField("версия контракта агента", max_length=16)
     health_state = models.CharField(
@@ -217,8 +259,12 @@ class VPNNode(BaseDjangoModel):
         blank=True,
         validators=[validate_optional_sha256],
     )
-    last_health_at = models.DateTimeField("последний health check", null=True, blank=True)
-    last_error_code = models.CharField("последний код ошибки", max_length=64, blank=True)
+    last_health_at = models.DateTimeField(
+        "последний health check", null=True, blank=True
+    )
+    last_error_code = models.CharField(
+        "последний код ошибки", max_length=64, blank=True
+    )
     last_error_started_at = models.DateTimeField(
         "начало непрерывной ошибки", null=True, blank=True
     )
@@ -256,7 +302,9 @@ class VPNNode(BaseDjangoModel):
                 fields=("host", "port"), name="uniq_vpn_node_public_authority"
             ),
             models.CheckConstraint(
-                condition=models.Q(applied_snapshot_revision__lte=models.F("desired_snapshot_revision")),
+                condition=models.Q(
+                    applied_snapshot_revision__lte=models.F("desired_snapshot_revision")
+                ),
                 name="vpn_node_applied_snapshot_lte_desired",
             ),
             models.CheckConstraint(
@@ -325,7 +373,9 @@ class VPNAccessNodeApply(BaseDjangoModel):
         default=VPNApplyStatus.PENDING,
     )
     last_attempt_at = models.DateTimeField("последняя попытка", null=True, blank=True)
-    last_error_code = models.CharField("последний код ошибки", max_length=64, blank=True)
+    last_error_code = models.CharField(
+        "последний код ошибки", max_length=64, blank=True
+    )
 
     class Meta:
         verbose_name = "применение VPN-доступа на ноде"

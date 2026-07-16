@@ -87,6 +87,15 @@ Playbook требует `vpn-payment-worker` в live ignored group vars и жд�
 `healthy`; при rollback failed singleton останавливается до восстановления
 предыдущего Compose stack. Не запускай второй singleton вручную.
 
+Retry receipt настраивается `VPN_PAYMENT_RETRY_BASE_SECONDS`,
+`VPN_PAYMENT_RETRY_MAX_SECONDS` и `VPN_PAYMENT_RETRY_JITTER_SECONDS` из
+`.env.example`. Delay экспоненциально растёт по сохранённому `attempt_count` и
+ограничивается max. Startup/task composition fail-fast требует целый base > 0,
+base <= max <= 86 400 и конечный jitter в диапазоне 0..300 секунд; значения не
+нормализуются автоматически. После ошибки проверяй, что receipt
+перешёл из `PROCESSING` в `RETRY`, `next_attempt_at` наступает в будущем, а
+`last_error_code` содержит только стабильный код без текста исключения.
+
 Для public VPN subscription задай `VPN_SUBSCRIPTION_REDIS_URL`, rate limit и
 window из `.env.example`. В `VPN_SUBSCRIPTION_TRUSTED_PROXY_NETWORKS` перечисляй
 только фактические IPv4/IPv6 CIDR reverse proxy: иначе `X-Forwarded-For`

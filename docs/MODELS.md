@@ -176,6 +176,14 @@ published pair допустима до первой публикации.
 | `access` | FK → VPNAccess (PROTECT) | Продлеваемый доступ |
 | `period_days` | PositiveSmallInt | Купленный период, default 30 |
 | `expired_at_after` | DateTime | Итоговый срок после применения |
+| `refunded_at` | DateTime? | Время подтверждённого оператором refund |
+| `refunded_by` | FK → SystemUser (PROTECT)? | Оператор, подтвердивший refund |
+| `refund_reason` | str | Неизменяемая причина; непустая только вместе с полным refund audit |
+
+Три refund-поля nullable для expand-миграции, но DB constraint разрешает только
+все три `NULL` либо заполненные `refunded_at`, `refunded_by` и явно non-NULL,
+непустой `refund_reason`. Возврат привязан к конкретной покупке и не
+переписывается повторным действием.
 
 ## VPNNode (apps/vpn)
 

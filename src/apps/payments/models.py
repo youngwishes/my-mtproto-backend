@@ -179,6 +179,25 @@ class PaymentReceiptQuerySet(ProtectedWriteQuerySet):
             )
         )
 
+    def mark_received_for_retry(
+        self,
+        *,
+        receipt_id: int,
+        next_attempt_at: datetime,
+    ) -> bool:
+        """Make a broker-orphaned received receipt durably retryable."""
+        return bool(
+            self.filter(
+                pk=receipt_id,
+                status=PaymentReceiptStatusEnum.RECEIVED,
+            )._safe_update(
+                status=PaymentReceiptStatusEnum.RETRY,
+                next_attempt_at=next_attempt_at,
+                last_error_code="enqueue_recovery",
+                updated_at=timezone.now(),
+            )
+        )
+
     def recover_stale_lease(
         self,
         *,
