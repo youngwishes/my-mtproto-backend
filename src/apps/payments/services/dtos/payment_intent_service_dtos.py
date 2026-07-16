@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 
 from apps.core.dtos import BaseServiceDTO
 
@@ -20,6 +21,11 @@ class PaymentIntentOut(BaseServiceDTO):
     amount: int
     provider: str
     expires_at: datetime
+    title: str
+    description: str
+    provider_data: dict[str, Any]
+    send_email_to_provider: bool
+    need_email: bool
 
 
 @dataclass(kw_only=True, slots=True, frozen=True)

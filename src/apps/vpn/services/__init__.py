@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+from apps.vpn.services.access_api import (
+    GetVPNAccessStatusService,
+    ReissueVPNAccessByUsernameService,
+    VPNAccessStatusOut,
+    get_reissue_vpn_access_by_username_service,
+    get_vpn_access_status_service,
+)
 from apps.vpn.services.build_snapshot import (
     BuildVPNSnapshotService,
     ForecastVPNSnapshotCapacityService,
@@ -62,6 +69,11 @@ from apps.vpn.services.validate_subscription import (
 )
 
 __all__ = [
+    "GetVPNAccessStatusService",
+    "ReissueVPNAccessByUsernameService",
+    "VPNAccessStatusOut",
+    "get_reissue_vpn_access_by_username_service",
+    "get_vpn_access_status_service",
     "BuildVPNSnapshotService",
     "BuildVPNSubscriptionService",
     "CheckVPNSaleAvailabilityService",

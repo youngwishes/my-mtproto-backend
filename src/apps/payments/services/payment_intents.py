@@ -83,6 +83,11 @@ class CreatePaymentIntentService:
             amount=created.amount,
             provider=created.provider,
             expires_at=created.expires_at,
+            title=product.title,
+            description=product.description,
+            provider_data=product.provider_data_json,
+            send_email_to_provider=product.send_email_to_provider,
+            need_email=product.need_email,
         )
 
     def _is_product_configured(self, *, product: Product | None) -> bool:

@@ -1,6 +1,6 @@
-import json
+from __future__ import annotations
+
 import logging
-from json import JSONDecodeError
 
 logger = logging.getLogger(__name__)
 
@@ -14,16 +14,12 @@ class RequestLoggingMiddleware:
             return self.get_response(request)
 
         if request.method in ["POST", "PUT", "PATCH"] and request.body:
-            try:
-                body = json.loads(request.body)
-            except JSONDecodeError:
-                body = request.body.decode("utf-8")
             logger.info(
                 {
                     "method": request.method,
                     "path": request.path,
-                    "headers": dict(request.headers),
-                    "body": body,
+                    "headers": "[redacted]",
+                    "body": "[redacted]",
                 }
             )
 
