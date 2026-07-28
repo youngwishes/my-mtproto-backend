@@ -215,3 +215,5 @@ static/
 ansible/inventory/production.ini
 ansible/group_vars/mtproto_keys.yml
 superpowers/
+tmp/
+output/
