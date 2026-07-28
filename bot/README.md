@@ -36,6 +36,10 @@ src/
 into typed DTOs. `BackendClient` raises `APIError` on failure; the global error
 handler notifies the user (using the exception's docstring) and the admin.
 
+На первом `/start` бот read-only проверяет согласие. Новый пользователь видит
+одно сообщение со ссылками на условия и обработку персональных данных и одной
+кнопкой; после принятия то же сообщение заменяется обычным стартовым экраном.
+
 ## Commands
 
 ```bash

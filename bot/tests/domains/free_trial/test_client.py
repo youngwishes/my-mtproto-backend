@@ -6,10 +6,13 @@ import respx
 
 from src.core.backend_client import BackendClient
 from src.domains.free_trial import FreeTrialClient, FreeTrialKey
+from src.exceptions import APIError
 
 BASE = "http://backend"
 CHECK_URL = f"{BASE}/api/v1/users/check-first-free-link/"
 CLAIM_URL = f"{BASE}/api/v1/users/first-free-link/"
+CONSENT_STATUS_URL = f"{BASE}/api/v1/users/consent/status/"
+CONSENT_ACCEPT_URL = f"{BASE}/api/v1/users/consent/accept/"
 
 
 @pytest.fixture
@@ -81,3 +84,64 @@ async def test_claim_returns_key(client: FreeTrialClient):
     key = await client.claim(telegram_id="42")
 
     assert key == FreeTrialKey(expired_date="2026-07-14")
+
+
+@respx.mock
+async def test_get_consent_status_sends_only_telegram_id(client: FreeTrialClient):
+    route = respx.post(CONSENT_STATUS_URL).mock(
+        return_value=httpx.Response(200, json={"legal_terms_accepted": False})
+    )
+
+    result = await client.get_consent_status(telegram_id="42")
+
+    assert result is False
+    assert route.calls.last.request.content == b"username=42"
+
+
+@respx.mock
+async def test_accept_consent_sends_user_data(client: FreeTrialClient):
+    route = respx.post(CONSENT_ACCEPT_URL).mock(
+        return_value=httpx.Response(200, json={"legal_terms_accepted": True})
+    )
+
+    result = await client.accept_consent(
+        telegram_id="42",
+        telegram_username="bob",
+        invited_from_username="777",
+    )
+
+    assert result is True
+    body = route.calls.last.request.content
+    assert b"username=42" in body
+    assert b"telegram_username=bob" in body
+    assert b"invited_from_username=777" in body
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [None, [], "false", {}, {"legal_terms_accepted": "false"}, {"legal_terms_accepted": 0}],
+)
+@respx.mock
+async def test_get_consent_status_rejects_malformed_response(
+    client: FreeTrialClient,
+    payload,
+):
+    respx.post(CONSENT_STATUS_URL).mock(
+        return_value=httpx.Response(200, json=payload)
+    )
+
+    with pytest.raises(APIError):
+        await client.get_consent_status(telegram_id="42")
+
+
+@respx.mock
+async def test_accept_consent_rejects_false_response(client: FreeTrialClient):
+    respx.post(CONSENT_ACCEPT_URL).mock(
+        return_value=httpx.Response(200, json={"legal_terms_accepted": False})
+    )
+
+    with pytest.raises(APIError):
+        await client.accept_consent(
+            telegram_id="42",
+            telegram_username=None,
+        )

@@ -9,6 +9,11 @@ class SystemUser(AbstractUser):
     first_month_free_used = models.BooleanField(
         "бесплатный месяц использован", default=False
     )
+    legal_terms_accepted = models.BooleanField(
+        "юридические условия приняты",
+        default=False,
+        db_default=False,
+    )
     telegram_username = models.CharField(
         "имя пользователя в Telegram",
         blank=True,

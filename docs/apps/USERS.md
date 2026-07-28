@@ -6,11 +6,14 @@
 
 ## Ключевые модели
 
-- **SystemUser** — расширяет `AbstractUser`. Хранит флаг использования бесплатного периода, Telegram-username, данные о реферале и счётчик реферальных ссылок.
+- **SystemUser** — расширяет `AbstractUser`. Хранит флаги юридического согласия
+  и использования бесплатного периода, Telegram-username и данные о реферале.
 
 ## Сервисы
 
 - **CheckFirstFreeLinkService** — проверяет доступность бесплатного периода и определяет его длительность (MONTH / TWO_WEEK / WEEK / NOT_AVAILABLE)
+- **GetLegalConsentStatusService** — read-only проверяет сохранённое согласие
+- **AcceptLegalConsentService** — создаёт пользователя только после согласия
 - **FirstFreeLinkService** — выдаёт бесплатный ключ новому пользователю
 - **ReferralCabinetService** — статистика реферальной программы
 - **GetFreeLinkViaReferralsService** — выдаёт бесплатный ключ за 5+ активных рефералов
