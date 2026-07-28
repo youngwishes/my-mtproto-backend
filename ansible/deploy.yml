@@ -180,7 +180,7 @@
             repo: "{{ deploy_repository }}"
             dest: "{{ deploy_root }}"
             version: "{{ deploy_previous_revision.stdout }}"
-            update: false
+            update: true
             force: false
 
         - name: Restore previous docker compose stack

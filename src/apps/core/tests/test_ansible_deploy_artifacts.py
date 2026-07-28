@@ -89,6 +89,10 @@ class TestAnsibleDeployArtifacts(SimpleTestCase):
         self.assertIn("rescue:", self.content)
         self.assertIn("Rollback Git revision", self.content)
         self.assertIn("deploy_previous_revision.stdout", self.content)
+        rollback_task = self.content.split("- name: Rollback Git revision", maxsplit=1)[1].split(
+            "- name: Restore previous docker compose stack", maxsplit=1
+        )[0]
+        self.assertIn("update: true", rollback_task)
 
     def test_deploy_requires_every_compose_service_to_be_running(self) -> None:
         self.assertIn("Check running compose services", self.content)
