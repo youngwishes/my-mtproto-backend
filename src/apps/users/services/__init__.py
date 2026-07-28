@@ -18,8 +18,18 @@ from apps.users.services.daily_free_trial_grant_service import (
     DailyFreeTrialGrantService,
     get_daily_free_trial_grant_service,
 )
+from apps.users.services.legal_consent_service import (
+    AcceptLegalConsentService,
+    GetLegalConsentStatusService,
+    get_accept_legal_consent_service,
+    get_legal_consent_status_service,
+)
 
 __all__ = [
+    "AcceptLegalConsentService",
+    "GetLegalConsentStatusService",
+    "get_accept_legal_consent_service",
+    "get_legal_consent_status_service",
     "FirstFreeLinkService",
     "get_first_free_link_service",
     "CheckFirstFreeLinkService",

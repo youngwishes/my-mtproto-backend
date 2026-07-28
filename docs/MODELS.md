@@ -21,6 +21,7 @@
 | Поле | Тип | Описание |
 |------|-----|----------|
 | `first_month_free_used` | bool | Использовал ли бесплатный период |
+| `legal_terms_accepted` | bool | Принял соглашение и обработку персональных данных |
 | `telegram_username` | str | Username в Telegram (@username); `""` если у юзера нет @username |
 | `invited_from_username` | str? | Telegram ID пригласившего |
 | `referral_activated` | bool | Активировал ли свой бесплатный период (для подсчёта рефералов пригласившего) |
@@ -29,6 +30,8 @@
 **Свойство:** `referral_link` — формирует ссылку `{BOT_LINK}/?start={username}`.
 
 `__str__` показывает `telegram_username` либо `"-"`, если его нет.
+Миграция выставляет `legal_terms_accepted=true` существующим строкам; default
+для новых строк — `false`.
 
 ---
 

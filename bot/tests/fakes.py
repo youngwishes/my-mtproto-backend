@@ -36,13 +36,19 @@ class FakeMessage:
 
 class FakeCallback:
     def __init__(
-        self, *, chat_id: int = 42, user_id: int = 42, username: str | None = "bob"
+        self,
+        *,
+        chat_id: int = 42,
+        user_id: int = 42,
+        username: str | None = "bob",
+        data: str | None = None,
     ) -> None:
         # Сообщение с inline-кнопкой отправлено ботом, поэтому его from_user —
         # это бот, а не нажавший пользователь (как в реальном aiogram).
         self.message = FakeMessage(chat_id=chat_id, user_id=user_id, username="thebot")
         # from_user коллбэка — тот, кто нажал кнопку.
         self.from_user = SimpleNamespace(id=user_id, username=username)
+        self.data = data
         self.answers: list[tuple] = []
 
     async def answer(self, *args, **kwargs) -> None:

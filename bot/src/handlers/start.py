@@ -8,7 +8,8 @@ from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message
 
 from src import keyboards
 from src.enums import FreeAvailable
-from src.messages import FAQ_TEXT, FREE_AVAILABLE_TEXT_MAPPING
+from src.exceptions import APIError
+from src.messages import FAQ_TEXT, FREE_AVAILABLE_TEXT_MAPPING, LEGAL_CONSENT_TEXT
 
 if TYPE_CHECKING:
     from src.dependencies import Dependencies
@@ -43,13 +44,57 @@ async def cmd_start(message: Message, deps: Dependencies):
             invited_from_username = str(referrer_id)
     except ValueError:
         pass
+    telegram_id = str(message.from_user.id)
+    consent_accepted = await deps.free_trial.get_consent_status(
+        telegram_id=telegram_id
+    )
+    if not consent_accepted:
+        await message.answer(
+            text=LEGAL_CONSENT_TEXT,
+            reply_markup=keyboards.legal_consent(invited_from_username),
+        )
+        return
     text, keyboard = await _render_start_screen(
         deps=deps,
-        telegram_id=str(message.from_user.id),
+        telegram_id=telegram_id,
         telegram_username=message.from_user.username,
         invited_from_username=invited_from_username,
     )
     await message.answer(text=text, reply_markup=keyboard)
+
+
+@router.callback_query(
+    (F.data == keyboards.LEGAL_CONSENT_CALLBACK)
+    | F.data.startswith(f"{keyboards.LEGAL_CONSENT_CALLBACK}:")
+)
+async def process_legal_consent(
+    callback: CallbackQuery,
+    deps: Dependencies,
+) -> None:
+    await callback.answer()
+    telegram_id = str(callback.from_user.id)
+    _, separator, raw_referrer = (callback.data or "").partition(":")
+    invited_from_username = (
+        raw_referrer if separator and raw_referrer.isdigit() else None
+    )
+    if invited_from_username == telegram_id:
+        invited_from_username = None
+
+    accepted = await deps.free_trial.accept_consent(
+        telegram_id=telegram_id,
+        telegram_username=callback.from_user.username,
+        invited_from_username=invited_from_username,
+    )
+    if accepted is not True:
+        raise APIError(telegram_id, error="Legal consent was not saved.")
+
+    text, keyboard = await _render_start_screen(
+        deps=deps,
+        telegram_id=telegram_id,
+        telegram_username=callback.from_user.username,
+        invited_from_username=None,
+    )
+    await callback.message.edit_text(text=text, reply_markup=keyboard)
 
 
 @router.callback_query(F.data == "show_start_screen")

@@ -7,6 +7,7 @@ import pytest
 from aiogram.types import LabeledPrice
 
 from src import keyboards
+from src.exceptions import APIError
 from src.handlers import payments as payments_module
 from src.handlers.free_trial import process_boost_free
 from src.handlers.links import process_my_servers, update_link, update_link_confirm
@@ -22,7 +23,12 @@ from src.handlers.payments import (
     process_successful_payment,
 )
 from src.handlers.referrals import process_referral, process_referral_link
-from src.handlers.start import cmd_start, cmd_start_inline, process_info
+from src.handlers.start import (
+    cmd_start,
+    cmd_start_inline,
+    process_info,
+    process_legal_consent,
+)
 from src.messages import PRIVACY_URL, SITE_URL, SUPPORT_URL, TERMS_URL
 from src.domains.free_trial import FreeTrialKey
 from src.domains.links import MyServers, ReissuedKey, ServerItem
@@ -40,11 +46,34 @@ from tests.fakes import FakeBot, FakeCallback, FakeMessage, make_deps
 
 
 class FakeFreeTrial:
-    def __init__(self, *, check="MONTH", key=None) -> None:
+    def __init__(
+        self,
+        *,
+        check="MONTH",
+        key=None,
+        consent=True,
+        accept_result=True,
+    ) -> None:
         self._check = check
         self._key = key or FreeTrialKey(expired_date="2026-07-14")
+        self._consent = consent
+        self._accept_result = accept_result
         self.checked: list[tuple] = []
         self.claimed: list[str] = []
+        self.status_checked: list[str] = []
+        self.accepted: list[tuple] = []
+
+    async def get_consent_status(self, *, telegram_id):
+        self.status_checked.append(telegram_id)
+        return self._consent
+
+    async def accept_consent(
+        self, *, telegram_id, telegram_username, invited_from_username=None
+    ):
+        self.accepted.append(
+            (telegram_id, telegram_username, invited_from_username)
+        )
+        return self._accept_result
 
     async def check_availability(
         self, *, telegram_id, telegram_username, invited_from_username=None
@@ -196,6 +225,57 @@ async def test_cmd_start_ignores_self_referral():
     await cmd_start(message, make_deps(free_trial=fake))
 
     assert fake.checked[0][2] is None
+
+
+async def test_cmd_start_shows_consent_without_registering_new_user():
+    fake = FakeFreeTrial(consent=False)
+    message = FakeMessage(text="/start", user_id=42)
+
+    await cmd_start(message, make_deps(free_trial=fake))
+
+    assert fake.status_checked == ["42"]
+    assert fake.checked == []
+    text, markup = message.answers[0]
+    assert TERMS_URL in text
+    assert PRIVACY_URL in text
+    assert len(markup.inline_keyboard) == 1
+    assert markup.inline_keyboard[0][0].callback_data == "accept_legal_terms"
+
+
+async def test_cmd_start_carries_referrer_in_consent_callback():
+    fake = FakeFreeTrial(consent=False)
+    message = FakeMessage(text="/start 777", user_id=42)
+
+    await cmd_start(message, make_deps(free_trial=fake))
+
+    _, markup = message.answers[0]
+    assert markup.inline_keyboard[0][0].callback_data == "accept_legal_terms:777"
+
+
+async def test_accept_consent_registers_clicking_user_and_opens_start_screen():
+    fake = FakeFreeTrial(consent=False)
+    callback = FakeCallback(
+        user_id=42,
+        username="real_user",
+        data="accept_legal_terms:777",
+    )
+
+    await process_legal_consent(callback, make_deps(free_trial=fake))
+
+    assert fake.accepted == [("42", "real_user", "777")]
+    assert fake.checked == [("42", "real_user", None)]
+    assert callback.message.edits
+
+
+async def test_accept_consent_does_not_open_menu_when_backend_returns_false():
+    fake = FakeFreeTrial(consent=False, accept_result=False)
+    callback = FakeCallback(user_id=42, data="accept_legal_terms")
+
+    with pytest.raises(APIError):
+        await process_legal_consent(callback, make_deps(free_trial=fake))
+
+    assert fake.checked == []
+    assert callback.message.edits == []
 
 
 async def test_show_start_screen_answers_callback():

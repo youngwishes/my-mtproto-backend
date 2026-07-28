@@ -8,6 +8,43 @@
 
 ## Users
 
+### POST /users/consent/status/
+
+Read-only проверяет единое юридическое согласие. Отсутствующий пользователь
+возвращает `false` и не создаётся.
+
+```json
+{"username": "1487189460"}
+```
+
+```json
+{"legal_terms_accepted": false}
+```
+
+---
+
+### POST /users/consent/accept/
+
+Создаёт пользователя только после явного принятия или идемпотентно подтверждает
+согласие существующего пользователя. Повторный вызов не меняет сохранённого
+referrer.
+
+```json
+{
+  "username": "1487189460",
+  "telegram_username": "john_doe",
+  "invited_from_username": "9876543210"
+}
+```
+
+```json
+{"legal_terms_accepted": true}
+```
+
+Оба endpoint защищены `Bot-Auth-Token`.
+
+---
+
 ### POST /users/first-free-link/
 
 Выдаёт бесплатный ключ новому пользователю.

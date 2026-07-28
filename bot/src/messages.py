@@ -33,6 +33,14 @@ FREE_AVAILABLE_TEXT_MAPPING = {
     FreeAvailable.NOT_AVAILABLE: WELCOME_TEXT_NOT_FREE,
 }
 
+LEGAL_CONSENT_TEXT = f"""
+<b>Перед началом работы</b>
+
+Чтобы пользоваться сервисом, подтвердите, что вы принимаете
+<a href="{TERMS_URL}">Пользовательское соглашение</a> и даёте
+<a href="{PRIVACY_URL}">согласие на обработку персональных данных</a>.
+"""
+
 
 KEY_GENERATED_TEXT = """
 🎉 <b>Твой персональный ключ готов!</b>
