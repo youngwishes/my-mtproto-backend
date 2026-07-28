@@ -22,7 +22,12 @@ from src.handlers.payments import (
     process_successful_payment,
 )
 from src.handlers.referrals import process_referral, process_referral_link
-from src.handlers.start import cmd_start, cmd_start_inline, process_info
+from src.handlers.start import (
+    cmd_start,
+    cmd_start_inline,
+    process_info,
+    process_legal_consent,
+)
 from src.messages import PRIVACY_URL, SITE_URL, SUPPORT_URL, TERMS_URL
 from src.domains.free_trial import FreeTrialKey
 from src.domains.links import MyServers, ReissuedKey, ServerItem
@@ -33,6 +38,7 @@ from src.domains.payments import (
     StarsInvoice,
 )
 from src.domains.referrals import ReferralCabinet, ReferralRewardKey
+from src.exceptions import APIError
 from tests.fakes import FakeBot, FakeCallback, FakeMessage, make_deps
 
 
@@ -40,21 +46,68 @@ from tests.fakes import FakeBot, FakeCallback, FakeMessage, make_deps
 
 
 class FakeFreeTrial:
-    def __init__(self, *, check="MONTH", key=None) -> None:
+    def __init__(self, *, check="MONTH", key=None, events=None) -> None:
         self._check = check
         self._key = key or FreeTrialKey(expired_date="2026-07-14")
+        self._events = events
         self.checked: list[tuple] = []
         self.claimed: list[str] = []
 
     async def check_availability(
         self, *, telegram_id, telegram_username, invited_from_username=None
     ):
+        if self._events is not None:
+            self._events.append("free_trial")
         self.checked.append((telegram_id, telegram_username, invited_from_username))
         return self._check
 
     async def claim(self, *, telegram_id):
         self.claimed.append(telegram_id)
         return self._key
+
+
+class FakeConsent:
+    def __init__(
+        self,
+        *,
+        accepted: bool,
+        status_error: Exception | None = None,
+        accept_error: Exception | None = None,
+        accept_response: object | None = None,
+        events=None,
+    ) -> None:
+        self.accepted = accepted
+        self._status_error = status_error
+        self._accept_error = accept_error
+        self._accept_response = accept_response
+        self._events = events
+        self.status_calls: list[str] = []
+        self.accept_calls: list[tuple[str, str | None, str | None]] = []
+
+    async def get_status(self, *, telegram_id: str):
+        if self._events is not None:
+            self._events.append("consent")
+        self.status_calls.append(telegram_id)
+        if self._status_error is not None:
+            raise self._status_error
+        return SimpleNamespace(legal_terms_accepted=self.accepted)
+
+    async def accept(
+        self,
+        *,
+        telegram_id: str,
+        telegram_username: str | None,
+        invited_from_username: str | None = None,
+    ):
+        self.accept_calls.append(
+            (telegram_id, telegram_username, invited_from_username)
+        )
+        if self._accept_error is not None:
+            raise self._accept_error
+        self.accepted = True
+        if self._accept_response is not None:
+            return self._accept_response
+        return SimpleNamespace(legal_terms_accepted=True)
 
 
 class FakeLinks:
@@ -153,7 +206,10 @@ async def test_cmd_start_offers_free_boost_when_available():
     fake = FakeFreeTrial(check="MONTH")
     message = FakeMessage(text="/start", user_id=42, username="bob")
 
-    await cmd_start(message, make_deps(free_trial=fake))
+    await cmd_start(
+        message,
+        make_deps(consent=FakeConsent(accepted=True), free_trial=fake),
+    )
 
     assert fake.checked == [("42", "bob", None)]
     _, markup = message.answers[0]
@@ -164,7 +220,10 @@ async def test_cmd_start_offers_paid_boost_when_not_available():
     fake = FakeFreeTrial(check="NOT_AVAILABLE")
     message = FakeMessage(text="/start")
 
-    await cmd_start(message, make_deps(free_trial=fake))
+    await cmd_start(
+        message,
+        make_deps(consent=FakeConsent(accepted=True), free_trial=fake),
+    )
 
     _, markup = message.answers[0]
     assert markup.inline_keyboard[0][0].callback_data == "boost_paid"
@@ -175,7 +234,10 @@ async def test_cmd_start_passes_none_username_as_none_not_string():
     fake = FakeFreeTrial(check="MONTH")
     message = FakeMessage(text="/start", user_id=42, username=None)
 
-    await cmd_start(message, make_deps(free_trial=fake))
+    await cmd_start(
+        message,
+        make_deps(consent=FakeConsent(accepted=True), free_trial=fake),
+    )
 
     assert fake.checked[0][1] is None
 
@@ -184,7 +246,10 @@ async def test_cmd_start_extracts_referrer_from_payload():
     fake = FakeFreeTrial()
     message = FakeMessage(text="/start 777", user_id=42)
 
-    await cmd_start(message, make_deps(free_trial=fake))
+    await cmd_start(
+        message,
+        make_deps(consent=FakeConsent(accepted=True), free_trial=fake),
+    )
 
     assert fake.checked[0][2] == "777"  # invited_from_username
 
@@ -193,9 +258,240 @@ async def test_cmd_start_ignores_self_referral():
     fake = FakeFreeTrial()
     message = FakeMessage(text="/start 42", user_id=42)
 
-    await cmd_start(message, make_deps(free_trial=fake))
+    await cmd_start(
+        message,
+        make_deps(consent=FakeConsent(accepted=True), free_trial=fake),
+    )
 
     assert fake.checked[0][2] is None
+
+
+async def test_cmd_start_checks_consent_before_existing_onboarding():
+    events: list[str] = []
+    consent = FakeConsent(accepted=True, events=events)
+    free_trial = FakeFreeTrial(events=events)
+    message = FakeMessage(text="/start 777", user_id=42, username="bob")
+
+    await cmd_start(
+        message,
+        make_deps(consent=consent, free_trial=free_trial),
+    )
+
+    assert events == ["consent", "free_trial"]
+    assert consent.status_calls == ["42"]
+
+
+async def test_cmd_start_shows_one_consent_message_without_menu_for_new_user():
+    consent = FakeConsent(accepted=False)
+    free_trial = FakeFreeTrial()
+    message = FakeMessage(text="/start", user_id=42, username="bob")
+
+    await cmd_start(
+        message,
+        make_deps(consent=consent, free_trial=free_trial),
+    )
+
+    assert consent.status_calls == ["42"]
+    assert free_trial.checked == []
+    assert len(message.answers) == 1
+    text, markup = message.answers[0]
+    assert TERMS_URL in text
+    assert PRIVACY_URL in text
+    buttons = [button for row in markup.inline_keyboard for button in row]
+    assert len(buttons) == 1
+    assert buttons[0].callback_data == "accept_legal_terms"
+    assert buttons[0].url is None
+
+
+async def test_cmd_start_carries_numeric_referrer_in_bounded_callback():
+    referrer = "12345678901234567890"
+    message = FakeMessage(text=f"/start {referrer}", user_id=42)
+
+    await cmd_start(
+        message,
+        make_deps(
+            consent=FakeConsent(accepted=False),
+            free_trial=FakeFreeTrial(),
+        ),
+    )
+
+    _, markup = message.answers[0]
+    callback_data = markup.inline_keyboard[0][0].callback_data
+    assert callback_data == f"accept_legal_terms:{referrer}"
+    assert len(callback_data.encode()) == 39
+    assert len(callback_data.encode()) <= 64
+
+
+@pytest.mark.parametrize(
+    "payload",
+    ["not-a-number", "42", "-7", "123456789012345678901"],
+)
+async def test_cmd_start_does_not_carry_invalid_or_self_referrer(payload):
+    message = FakeMessage(text=f"/start {payload}", user_id=42)
+
+    await cmd_start(
+        message,
+        make_deps(
+            consent=FakeConsent(accepted=False),
+            free_trial=FakeFreeTrial(),
+        ),
+    )
+
+    _, markup = message.answers[0]
+    assert markup.inline_keyboard[0][0].callback_data == "accept_legal_terms"
+
+
+async def test_cmd_start_status_error_does_not_show_menu():
+    message = FakeMessage(text="/start", user_id=42)
+    free_trial = FakeFreeTrial()
+
+    with pytest.raises(RuntimeError, match="status failed"):
+        await cmd_start(
+            message,
+            make_deps(
+                consent=FakeConsent(
+                    accepted=False,
+                    status_error=RuntimeError("status failed"),
+                ),
+                free_trial=free_trial,
+            ),
+        )
+
+    assert message.answers == []
+    assert free_trial.checked == []
+
+
+async def test_accept_uses_clicking_user_and_edits_same_message_to_start():
+    consent = FakeConsent(accepted=False)
+    free_trial = FakeFreeTrial(check="MONTH")
+    callback = FakeCallback(chat_id=99, user_id=42, username="real_user")
+    callback.data = "accept_legal_terms:777"
+
+    await process_legal_consent(
+        callback,
+        make_deps(consent=consent, free_trial=free_trial),
+    )
+
+    assert consent.accept_calls == [("42", "real_user", "777")]
+    assert free_trial.checked == [("42", "real_user", None)]
+    assert callback.answers
+    assert len(callback.message.edits) == 1
+    _, markup = callback.message.edits[0]
+    assert markup.inline_keyboard[0][0].callback_data == "boost_free"
+
+
+@pytest.mark.parametrize(
+    "callback_data",
+    [
+        "accept_legal_terms:42",
+        "accept_legal_terms:not-a-number",
+        "accept_legal_terms:123456789012345678901",
+    ],
+)
+async def test_accept_does_not_send_invalid_or_self_referrer(callback_data):
+    consent = FakeConsent(accepted=False)
+    callback = FakeCallback(user_id=42)
+    callback.data = callback_data
+
+    await process_legal_consent(
+        callback,
+        make_deps(consent=consent, free_trial=FakeFreeTrial()),
+    )
+
+    assert consent.accept_calls == [("42", "bob", None)]
+
+
+async def test_accept_error_does_not_render_start_menu():
+    callback = FakeCallback(user_id=42)
+    callback.data = "accept_legal_terms"
+    free_trial = FakeFreeTrial()
+
+    with pytest.raises(RuntimeError, match="accept failed"):
+        await process_legal_consent(
+            callback,
+            make_deps(
+                consent=FakeConsent(
+                    accepted=False,
+                    accept_error=RuntimeError("accept failed"),
+                ),
+                free_trial=free_trial,
+            ),
+        )
+
+    assert callback.message.edits == []
+    assert free_trial.checked == []
+
+
+@pytest.mark.parametrize(
+    "accept_response",
+    [
+        SimpleNamespace(legal_terms_accepted=False),
+        SimpleNamespace(legal_terms_accepted="true"),
+        SimpleNamespace(),
+    ],
+    ids=["false", "non-bool", "malformed"],
+)
+async def test_accept_invalid_response_does_not_render_or_edit_start_menu(
+    accept_response: object,
+):
+    callback = FakeCallback(user_id=42)
+    callback.data = "accept_legal_terms"
+    free_trial = FakeFreeTrial()
+
+    with pytest.raises(APIError):
+        await process_legal_consent(
+            callback,
+            make_deps(
+                consent=FakeConsent(
+                    accepted=False,
+                    accept_response=accept_response,
+                ),
+                free_trial=free_trial,
+            ),
+        )
+
+    assert free_trial.checked == []
+    assert callback.message.edits == []
+
+
+async def test_repeated_accept_safely_renders_start_each_time():
+    consent = FakeConsent(accepted=False)
+    callback = FakeCallback(user_id=42)
+    callback.data = "accept_legal_terms"
+    deps = make_deps(consent=consent, free_trial=FakeFreeTrial())
+
+    await process_legal_consent(callback, deps)
+    await process_legal_consent(callback, deps)
+
+    assert consent.accept_calls == [
+        ("42", "bob", None),
+        ("42", "bob", None),
+    ]
+    assert len(callback.message.edits) == 2
+
+
+async def test_edit_error_after_accept_does_not_require_consent_on_next_start():
+    class FailingEditMessage(FakeMessage):
+        async def edit_text(self, text=None, *, reply_markup=None, **kwargs) -> None:
+            raise RuntimeError("edit failed")
+
+    consent = FakeConsent(accepted=False)
+    callback = FakeCallback(user_id=42)
+    callback.data = "accept_legal_terms"
+    callback.message = FailingEditMessage(user_id=42)
+    free_trial = FakeFreeTrial()
+    deps = make_deps(consent=consent, free_trial=free_trial)
+
+    with pytest.raises(RuntimeError, match="edit failed"):
+        await process_legal_consent(callback, deps)
+
+    next_start = FakeMessage(text="/start", user_id=42)
+    await cmd_start(next_start, deps)
+
+    assert consent.accepted is True
+    assert len(next_start.answers) == 1
+    _, markup = next_start.answers[0]
+    assert markup.inline_keyboard[0][0].callback_data == "boost_free"
 
 
 async def test_show_start_screen_answers_callback():

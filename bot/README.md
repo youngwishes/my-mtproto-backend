@@ -17,7 +17,7 @@ src/
   keyboards.py      # InlineKeyboardMarkup builders
   exceptions.py     # BaseServiceError / APIError (docstring = user message)
   handlers/         # one Router per domain, aggregated in __init__.router
-    start.py        # /start, back-to-start, info
+    start.py        # /start, legal consent, back-to-start, info
     free_trial.py   # claim free key
     links.py        # my-servers, reissue
     referrals.py    # cabinet, reward link
@@ -25,6 +25,7 @@ src/
   core/
     backend_client.py  # thin httpx client: base_url, auth header, error parsing
   domains/
+    consent/      # read-only status + atomic/idempotent accept
     free_trial/   # check availability, claim free key
     links/        # my-servers, reissue
     referrals/    # cabinet, reward link
@@ -35,6 +36,21 @@ src/
 `BackendClient` (injected via a frozen dataclass field) and maps JSON responses
 into typed DTOs. `BackendClient` raises `APIError` on failure; the global error
 handler notifies the user (using the exception's docstring) and the admin.
+
+## Legal consent flow
+
+`/start` first sends only the numeric Telegram ID to the read-only consent
+status endpoint. A user without saved consent receives one message containing
+links to the terms and privacy documents and one accept button; the main menu
+is not shown and no user data is written at this stage.
+
+A valid non-self numeric referral payload is carried only in callback data as
+`accept_legal_terms:<referrer>`; otherwise the callback is exactly
+`accept_legal_terms`. On click, the bot sends the clicking user's Telegram ID,
+optional username and valid referrer to the accept endpoint, then edits the
+same message into the regular start screen. Backend accept is idempotent, so a
+failed Telegram edit or repeated click is safe: the user can retry, and the
+next `/start` reads the saved consent and opens the regular menu.
 
 ## Commands
 

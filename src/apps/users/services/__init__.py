@@ -1,3 +1,13 @@
+from __future__ import annotations
+
+from apps.users.services.legal_consent_accept_service import (
+    AcceptLegalConsentService,
+    get_accept_legal_consent_service,
+)
+from apps.users.services.legal_consent_status_service import (
+    GetLegalConsentStatusService,
+    get_legal_consent_status_service,
+)
 from apps.users.services.first_free_link_service import (
     FirstFreeLinkService,
     get_first_free_link_service,
@@ -20,6 +30,10 @@ from apps.users.services.daily_free_trial_grant_service import (
 )
 
 __all__ = [
+    "AcceptLegalConsentService",
+    "get_accept_legal_consent_service",
+    "GetLegalConsentStatusService",
+    "get_legal_consent_status_service",
     "FirstFreeLinkService",
     "get_first_free_link_service",
     "CheckFirstFreeLinkService",

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from .first_free_link_serializer import (
     FirstFreeLinkSerializer,
     CheckFirstFreeLinkSerializer,
@@ -12,3 +14,18 @@ from .update_key_serializer import (
 from .my_servers_serializer import (
     MyServersSerializer,
 )
+from .legal_consent_serializer import (
+    AcceptLegalConsentSerializer,
+    LegalConsentStatusSerializer,
+)
+
+__all__ = [
+    "AcceptLegalConsentSerializer",
+    "CheckFirstFreeLinkSerializer",
+    "FirstFreeLinkSerializer",
+    "GetReferralLinkSerializer",
+    "LegalConsentStatusSerializer",
+    "MyServersSerializer",
+    "ReferralCabinetSerializer",
+    "UpdateKeySerializer",
+]

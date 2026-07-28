@@ -21,6 +21,7 @@
 | Поле | Тип | Описание |
 |------|-----|----------|
 | `first_month_free_used` | bool | Использовал ли бесплатный период |
+| `legal_terms_accepted` | bool | Принял единое юридическое согласие (default: `false`) |
 | `telegram_username` | str | Username в Telegram (@username); `""` если у юзера нет @username |
 | `invited_from_username` | str? | Telegram ID пригласившего |
 | `referral_activated` | bool | Активировал ли свой бесплатный период (для подсчёта рефералов пригласившего) |
@@ -29,6 +30,13 @@
 **Свойство:** `referral_link` — формирует ссылку `{BOT_LINK}/?start={username}`.
 
 `__str__` показывает `telegram_username` либо `"-"`, если его нет.
+
+Миграция `0017_systemuser_legal_terms_accepted` атомарно выставляет
+`legal_terms_accepted=true` всем строкам, существовавшим до добавления поля.
+Новые записи, созданные вне операции явного принятия, сохраняют model default
+`false`. Database default также равен `false`, поэтому предыдущая версия
+приложения может создавать `SystemUser` во время rolling deploy после применения
+миграции, не указывая ещё неизвестную ей колонку.
 
 ---
 

@@ -1,4 +1,10 @@
+from __future__ import annotations
+
 from apps.core.exceptions import BaseServiceError
+
+
+class LegalTermsNotAccepted(BaseServiceError):
+    """🔒 Сначала примите пользовательское соглашение и согласие на обработку персональных данных."""
 
 
 class AlreadyUsedFree(BaseServiceError):

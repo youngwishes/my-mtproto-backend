@@ -1,13 +1,18 @@
 from __future__ import annotations
 
+from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
-from django.conf import settings
 
 
 class SystemUser(AbstractUser):
     first_month_free_used = models.BooleanField(
         "бесплатный месяц использован", default=False
+    )
+    legal_terms_accepted = models.BooleanField(
+        "юридические условия приняты",
+        default=False,
+        db_default=False,
     )
     telegram_username = models.CharField(
         "имя пользователя в Telegram",

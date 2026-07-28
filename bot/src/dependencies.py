@@ -13,6 +13,7 @@ from typing import final
 
 from src.config import settings
 from src.core.backend_client import BackendClient
+from src.domains.consent import ConsentClient
 from src.domains.free_trial import FreeTrialClient
 from src.domains.links import LinksClient
 from src.domains.payments import PaymentsClient
@@ -22,6 +23,7 @@ from src.domains.referrals import ReferralsClient
 @final
 @dataclass(kw_only=True, slots=True, frozen=True)
 class Dependencies:
+    consent: ConsentClient
     free_trial: FreeTrialClient
     links: LinksClient
     referrals: ReferralsClient
@@ -33,6 +35,7 @@ def build_dependencies() -> Dependencies:
         base_url=settings.api_url, auth_token=settings.bot_auth_token
     )
     return Dependencies(
+        consent=ConsentClient(backend=backend),
         free_trial=FreeTrialClient(backend=backend),
         links=LinksClient(backend=backend),
         referrals=ReferralsClient(backend=backend),

@@ -62,6 +62,12 @@ class FakeBot:
 
 
 def make_deps(**overrides) -> Dependencies:
-    base = dict(free_trial=None, links=None, referrals=None, payments=None)
+    base = dict(
+        consent=None,
+        free_trial=None,
+        links=None,
+        referrals=None,
+        payments=None,
+    )
     base.update(overrides)
     return Dependencies(**base)

@@ -14,6 +14,32 @@ _BACK = InlineKeyboardButton(text="🔙 Назад", callback_data="show_start_s
 _MY_SERVERS = InlineKeyboardButton(
     text="📡 Мои серверы", callback_data="my_servers", style="primary"
 )
+LEGAL_CONSENT_CALLBACK = "accept_legal_terms"
+_MAX_REFERRER_DIGITS = 20
+
+
+def legal_consent(
+    invited_from_username: str | None = None,
+) -> InlineKeyboardMarkup:
+    callback_data = LEGAL_CONSENT_CALLBACK
+    if (
+        invited_from_username is not None
+        and invited_from_username.isascii()
+        and invited_from_username.isdigit()
+        and len(invited_from_username) <= _MAX_REFERRER_DIGITS
+    ):
+        callback_data = f"{callback_data}:{invited_from_username}"
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="✅ Принимаю оба документа",
+                    callback_data=callback_data,
+                    style="success",
+                )
+            ]
+        ]
+    )
 
 
 def main_menu(boost_callback_data: str) -> InlineKeyboardMarkup:

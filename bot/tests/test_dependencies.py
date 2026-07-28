@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from src.dependencies import Dependencies, build_dependencies
+from src.domains.consent import ConsentClient
 from src.domains.free_trial import FreeTrialClient
 from src.domains.links import LinksClient
 from src.domains.payments import PaymentsClient
@@ -11,6 +12,7 @@ def test_build_dependencies_wires_every_client():
     deps = build_dependencies()
 
     assert isinstance(deps, Dependencies)
+    assert isinstance(deps.consent, ConsentClient)
     assert isinstance(deps.free_trial, FreeTrialClient)
     assert isinstance(deps.links, LinksClient)
     assert isinstance(deps.referrals, ReferralsClient)
@@ -20,6 +22,7 @@ def test_build_dependencies_wires_every_client():
 def test_build_dependencies_shares_a_single_backend():
     deps = build_dependencies()
 
+    assert deps.consent.backend is deps.free_trial.backend
     assert deps.links.backend is deps.free_trial.backend
     assert deps.referrals.backend is deps.payments.backend
     assert deps.links.backend is deps.payments.backend

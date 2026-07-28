@@ -10,6 +10,25 @@ def get_user_by_username(*, username: str) -> SystemUser | None:
     return SystemUser.objects.filter(username=username).first()
 
 
+def accept_legal_terms(
+    *,
+    username: str,
+    telegram_username: str,
+    invited_from_username: str | None,
+) -> SystemUser:
+    """Атомарно создаёт согласившегося пользователя либо сохраняет его consent."""
+    user, _ = SystemUser.objects.update_or_create(
+        username=username,
+        defaults={"legal_terms_accepted": True},
+        create_defaults={
+            "telegram_username": telegram_username,
+            "invited_from_username": invited_from_username,
+            "legal_terms_accepted": True,
+        },
+    )
+    return user
+
+
 def get_free_used_count() -> int:
     """Количество пользователей, использовавших бесплатный период."""
     return SystemUser.objects.filter(first_month_free_used=True).count()
