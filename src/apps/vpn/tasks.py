@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Literal
 import requests
 from celery import shared_task
 from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
 from django.utils.html import escape
 
 from apps.core.telegram.transport import send_telegram_message
@@ -67,6 +68,12 @@ def deliver_vpn_profile_task(
             client.delete_profile(instance=instance, access_id=subscription.pk)
         else:
             raise UnsupportedVPNProfileOperation(operation)
+    except ImproperlyConfigured:
+        _notify_delivery_failure(
+            subscription=subscription,
+            instance=instance,
+            operation=operation,
+        )
     except requests.HTTPError as exc:
         status_code = exc.response.status_code if exc.response is not None else None
         if status_code is not None and 400 <= status_code < 500:

@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import requests
 from celery.exceptions import Retry
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from apps.vpn.tasks import deliver_vpn_profile_task
@@ -136,3 +136,41 @@ class TestDeliverVPNProfileTask(TestCase):
         self.assertIn("PUT", text)
         self.assertNotIn(str(self.subscription.vless_uuid), text)
         self.assertNotIn(self.subscription.hysteria_secret, text)
+
+    @override_settings(VPN_AGENT_TOKEN=None)
+    @patch("apps.vpn.tasks.send_telegram_message")
+    @patch("apps.vpn.services.node_client_service.requests.put")
+    def test_missing_agent_token_is_terminal_without_retry_or_http(
+        self,
+        put,
+        send_telegram_message,
+    ) -> None:
+        with patch.object(deliver_vpn_profile_task, "retry") as retry:
+            deliver_vpn_profile_task.run(
+                subscription_id=self.subscription.pk,
+                instance_id=self.instance.pk,
+                operation="put",
+            )
+
+        send_telegram_message.assert_called_once()
+        retry.assert_not_called()
+        put.assert_not_called()
+
+    @override_settings(VPN_AGENT_TOKEN="")
+    @patch("apps.vpn.tasks.send_telegram_message")
+    @patch("apps.vpn.services.node_client_service.requests.put")
+    def test_blank_agent_token_is_terminal_without_retry_or_http(
+        self,
+        put,
+        send_telegram_message,
+    ) -> None:
+        with patch.object(deliver_vpn_profile_task, "retry") as retry:
+            deliver_vpn_profile_task.run(
+                subscription_id=self.subscription.pk,
+                instance_id=self.instance.pk,
+                operation="put",
+            )
+
+        send_telegram_message.assert_called_once()
+        retry.assert_not_called()
+        put.assert_not_called()
