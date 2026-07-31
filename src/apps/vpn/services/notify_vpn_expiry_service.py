@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, time, timedelta
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Callable, Iterable, Literal, final
 
 from django.utils import timezone
@@ -62,13 +62,13 @@ class NotifyVPNExpiryService:
         window: VPNExpiryWindow,
         now: datetime,
     ) -> tuple[datetime, datetime, Literal[True, False]]:
-        today_starts_at = datetime.combine(now.date(), time.min, tzinfo=now.tzinfo)
-        tomorrow_starts_at = today_starts_at + timedelta(days=1)
         if window == "day":
-            return tomorrow_starts_at, tomorrow_starts_at + timedelta(days=1), True
+            starts_at = now + timedelta(hours=24)
+            return starts_at, starts_at + timedelta(minutes=5), True
         if window == "hour":
-            return today_starts_at, tomorrow_starts_at, True
-        return now - timedelta(days=1), now, False
+            starts_at = now + timedelta(hours=1)
+            return starts_at, starts_at + timedelta(minutes=5), True
+        return now - timedelta(minutes=7), now - timedelta(minutes=2), False
 
 
 def get_notify_vpn_expiry_service() -> NotifyVPNExpiryService:

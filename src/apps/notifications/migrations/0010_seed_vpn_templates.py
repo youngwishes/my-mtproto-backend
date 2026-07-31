@@ -7,7 +7,7 @@ TEMPLATES = [
     {
         "slug": "vpn_before_expiry_1day",
         "title": "VPN: напоминание за 1 день",
-        "text": "⚠️ <b>VPN-подписка истекает завтра.</b>\n\nПродли VPN, чтобы доступ не прерывался.",
+        "text": "⚠️ <b>VPN-подписка истечёт примерно через 24 часа.</b>\n\nПродли VPN, чтобы доступ не прерывался.",
         "button_text": "⚡ Продлить VPN",
         "button_url": "",
         "button_callback_data": "vpn",
@@ -15,7 +15,7 @@ TEMPLATES = [
     {
         "slug": "vpn_before_expiry_1hour",
         "title": "VPN: напоминание за 1 час",
-        "text": "⚠️ <b>VPN-подписка истекает сегодня.</b>\n\nПродли VPN, чтобы доступ не прерывался.",
+        "text": "⚠️ <b>VPN-подписка истечёт примерно через 1 час.</b>\n\nПродли VPN, чтобы доступ не прерывался.",
         "button_text": "⚡ Продлить VPN",
         "button_url": "",
         "button_callback_data": "vpn",

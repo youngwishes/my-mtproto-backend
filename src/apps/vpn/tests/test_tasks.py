@@ -7,6 +7,7 @@ from celery.exceptions import Retry
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
+from config.settings.celery import CELERY_BEAT_SCHEDULE
 from apps.vpn.tasks import (
     deliver_vpn_profile_task,
     expire_vpn_subscriptions_task,
@@ -194,3 +195,20 @@ class TestVPNExpiryTasks(TestCase):
 
         get_service.assert_called_once()
         get_service.return_value.assert_called_once_with(window="hour")
+
+    def test_beat_runs_pre_expiry_and_expiry_every_five_minutes_with_staggered_post_expiry_notification(
+        self,
+    ) -> None:
+        for entry_name in (
+            "notify-vpn-expiry-day",
+            "notify-vpn-expiry-hour",
+            "expire-vpn-subscriptions",
+        ):
+            self.assertEqual(
+                CELERY_BEAT_SCHEDULE[entry_name]["schedule"]._orig_minute,
+                "*/5",
+            )
+
+        expired_entry = CELERY_BEAT_SCHEDULE["notify-vpn-expiry-expired"]
+        self.assertEqual(expired_entry["schedule"]._orig_minute, "2-59/5")
+        self.assertEqual(expired_entry["kwargs"], {"window": "expired"})
