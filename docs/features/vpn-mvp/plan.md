@@ -218,6 +218,7 @@ AC-005, AC-007.
 - Modify: `src/config/urls.py`
 - Create: `src/config/settings/vpn.py`
 - Modify: `src/config/settings/base.py`
+- Modify: `src/config/settings/__init__.py`
 - Modify: `.env.example`
 - Create/Test: `src/apps/vpn/tests/test_fulfill_vpn_purchase_service.py`
 - Create/Test: `src/apps/vpn/tests/test_payment_views.py`
@@ -451,10 +452,13 @@ AC-005, AC-008, AC-011.
 ```python
 @dataclass(kw_only=True, slots=True, frozen=True)
 class VPNMenu:
-    is_active: bool
+    status: Literal["none", "active", "expired"]
     expired_at: str | None
     subscription_url: str | None
 ```
+
+- `VPNMenu(**response)` использует exact JSON P4; handler ветвится только по
+  `status`, без отдельного неявного mapping `is_active`.
 
 - Successful VPN payment вызывает только VPN buy endpoint и отвечает сроком,
   URL и краткими шагами импорта в HAPP.
