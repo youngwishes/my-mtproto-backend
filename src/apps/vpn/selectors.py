@@ -30,6 +30,11 @@ def get_vpn_subscription_for_update(*, user_id: int) -> VPNSubscription | None:
     return VPNSubscription.objects.select_for_update().filter(user_id=user_id).first()
 
 
+def get_vpn_subscription_by_user_id(*, user_id: int) -> VPNSubscription | None:
+    """Подписка пользователя без блокировки для recovery после отката транзакции."""
+    return VPNSubscription.objects.filter(user_id=user_id).first()
+
+
 def create_vpn_subscription(
     *,
     user: SystemUser,

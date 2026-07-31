@@ -16,8 +16,12 @@ from apps.payments.selectors import (
     get_vpn_payment_by_identity,
     get_vpn_payment_by_identity_for_update,
 )
-from apps.users.selectors import get_user_by_username
-from apps.vpn.selectors import create_vpn_subscription, get_vpn_subscription_for_update
+from apps.users.selectors import get_user_by_username_for_update
+from apps.vpn.selectors import (
+    create_vpn_subscription,
+    get_vpn_subscription_by_user_id,
+    get_vpn_subscription_for_update,
+)
 from apps.vpn.services.dtos import FulfillVPNPaymentIn, VPNPurchaseOut
 
 if TYPE_CHECKING:
@@ -41,12 +45,12 @@ class FulfillVPNPurchaseService:
         if payment.product_code != ProductCodeEnum.VPN_30D:
             raise BadPaymentData(telegram_id=payment.username)
 
-        user = get_user_by_username(username=payment.username)
-        if user is None:
-            raise BadPaymentData(telegram_id=payment.username)
-
         try:
             with transaction.atomic():
+                user = get_user_by_username_for_update(username=payment.username)
+                if user is None:
+                    raise BadPaymentData(telegram_id=payment.username)
+
                 existing_payment = get_vpn_payment_by_identity_for_update(
                     provider=payment.provider,
                     charge_id=payment.charge_id,
@@ -97,7 +101,7 @@ class FulfillVPNPurchaseService:
             )
             if existing_payment is None:
                 raise
-            subscription = get_vpn_subscription_for_update(user_id=existing_payment.user_id)
+            subscription = get_vpn_subscription_by_user_id(user_id=existing_payment.user_id)
             if subscription is None:
                 raise BadPaymentData(telegram_id=payment.username)
             return self._result(subscription=subscription)

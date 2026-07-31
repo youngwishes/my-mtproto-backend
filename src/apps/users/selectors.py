@@ -10,6 +10,11 @@ def get_user_by_username(*, username: str) -> SystemUser | None:
     return SystemUser.objects.filter(username=username).first()
 
 
+def get_user_by_username_for_update(*, username: str) -> SystemUser | None:
+    """Блокирует пользователя для сериализации связанных платёжных изменений."""
+    return SystemUser.objects.select_for_update().filter(username=username).first()
+
+
 def accept_legal_terms(
     *,
     username: str,
