@@ -115,8 +115,8 @@ def get_active_product_by_code(*, code: str) -> Product | None: ...
 ```
 
 - `Product.code` — unique `CharField`; data migration присваивает существующему
-  продукту `mtproto_30d` и создаёт active VPN product с `price=14900` копеек,
-  `stars_price=149` и корректным receipt provider data.
+  продукту `mtproto_30d` и создаёт `VPN_30D` с `is_active=False`,
+  `price=14900` копеек, `stars_price=149` и корректным receipt provider data.
 - UniqueConstraint `(provider, charge_id, kind)` применяется к VPN kind.
 - `GET /api/v1/payments/products/<code>/` отдаёт выбранный active product.
 - Старый `GET /api/v1/payments/` остаётся alias для `mtproto_30d`.
@@ -209,8 +209,11 @@ AC-005, AC-007.
 - Modify: `src/apps/vpn/services/__init__.py`
 - Create: `src/apps/vpn/api/__init__.py`
 - Create: `src/apps/vpn/api/urls.py`
+- Create: `src/apps/vpn/api/v1/__init__.py`
 - Create: `src/apps/vpn/api/v1/urls.py`
+- Create: `src/apps/vpn/api/v1/serializers/__init__.py`
 - Create: `src/apps/vpn/api/v1/serializers/payment_serializers.py`
+- Create: `src/apps/vpn/api/v1/views/__init__.py`
 - Create: `src/apps/vpn/api/v1/views/payment_views.py`
 - Modify: `src/config/urls.py`
 - Create: `src/config/settings/vpn.py`
@@ -228,6 +231,7 @@ class FulfillVPNPaymentIn:
     username: str
     charge_id: str
     provider: str
+    product_code: str
 
 @dataclass(kw_only=True, slots=True, frozen=True)
 class VPNPurchaseOut:
@@ -240,6 +244,8 @@ class FulfillVPNPurchaseService:
 
 - New endpoint: `POST /api/v1/vpn/payments/buy/`, protected by
   `Bot-Auth-Token`.
+- Request body точно содержит `username`, non-blank `charge_id`, `provider` и
+  `product_code="vpn_30d"`; иное значение отклоняется без Payment mutation.
 - Service атомарно создаёт `Payment(kind=VPN_SUBSCRIPTION)` и create/extends
   subscription. Повтор той же identity возвращает текущий result без продления.
 - `VPN_SUBSCRIPTION_BASE_URL` из environment используется только для построения
@@ -259,13 +265,15 @@ class FulfillVPNPurchaseService:
 
 **Requirements:** BR-005..BR-009, BR-018; AC-003..AC-006.
 
-**Depends on:** P2.
+**Depends on:** P2, P3.
 
 **Files:**
 
 - Create: `src/apps/vpn/api/v1/views/subscription_views.py`
 - Create: `src/apps/vpn/api/v1/views/menu_views.py`
 - Create: `src/apps/vpn/api/v1/serializers/menu_serializers.py`
+- Modify: `src/apps/vpn/api/v1/serializers/__init__.py`
+- Modify: `src/apps/vpn/api/v1/views/__init__.py`
 - Modify: `src/apps/vpn/api/v1/urls.py`
 - Create: `src/apps/vpn/services/get_subscription_service.py`
 - Modify: `src/apps/vpn/services/__init__.py`
@@ -286,14 +294,25 @@ GET /api/v1/vpn/subscriptions/<token>/
 - Expired/inactive/no active instances: `200` with Base64 empty payload.
 - Active: deterministic Base64 newline-separated `vless://` and `hysteria2://`.
 - View performs no write or provisioning and requires no `Bot-Auth-Token`.
-- `GET /api/v1/vpn/menu/` с `Bot-Auth-Token` возвращает active state, expiry и
-  стабильную URL для bot client; для пользователя без подписки URL отсутствует.
+- `GET /api/v1/vpn/menu/?username=<telegram_id>` с `Bot-Auth-Token` выполняет
+  только read-only lookup и возвращает exact JSON:
+
+```json
+{
+  "status": "none|active|expired",
+  "expired_at": "<ISO-8601 or null>",
+  "subscription_url": "<absolute URL or null>"
+}
+```
+
+- Для `none` оба nullable поля равны `null`; для `expired` URL остаётся
+  стабильной, но публичный endpoint отдаёт пустую subscription.
 - Nginx отключает access log только для subscription route, чтобы token не
   попадал в access logs; остальные логи не меняются.
 
 - [ ] Написать RED API tests на menu/subscription states, headers, `2 × N`
   decode и отсутствие token/credentials в app/nginx access logs.
-- [ ] Запустить targeted `make test ARGS="apps.vpn.tests.test_subscription_view apps.vpn.tests.test_get_subscription_service"`.
+- [ ] Запустить targeted `make test ARGS="apps.vpn.tests.test_subscription_view apps.vpn.tests.test_get_subscription_service apps.vpn.tests.test_menu_view apps.vpn.tests.test_subscription_logging"`; подтвердить RED.
 - [ ] Реализовать selector/service/views и точечное правило Nginx без
   глобального рефакторинга middleware или access logging.
 - [ ] Получить GREEN и commit `feat: serve VPN subscriptions`.
@@ -312,8 +331,12 @@ AC-009..AC-010.
 - Create: `src/apps/vpn/tasks.py`
 - Create: `src/apps/vpn/api/v1/views/agent_bootstrap_views.py`
 - Create: `src/apps/vpn/api/v1/serializers/agent_serializers.py`
+- Modify: `src/apps/vpn/api/v1/serializers/__init__.py`
+- Modify: `src/apps/vpn/api/v1/views/__init__.py`
 - Modify: `src/apps/vpn/api/v1/urls.py`
 - Modify: `src/apps/vpn/admin.py`
+- Modify: `src/apps/vpn/selectors.py`
+- Modify: `src/apps/vpn/services/__init__.py`
 - Modify: `src/config/settings/vpn.py`
 - Create/Test: `src/apps/vpn/tests/test_node_client_service.py`
 - Create/Test: `src/apps/vpn/tests/test_tasks.py`
@@ -342,8 +365,11 @@ Authorization: Bearer <VPN_AGENT_TOKEN>
   4xx no retry и bootstrap only-active profiles.
 - [ ] Написать RED admin test: backfill action разрешён только для выбранной
   inactive ноды и повторно ставит PUT для всех current active subscriptions.
+- [ ] Запустить `make test ARGS="apps.vpn.tests.test_node_client_service apps.vpn.tests.test_tasks apps.vpn.tests.test_agent_bootstrap_view apps.vpn.tests.test_admin"`; подтвердить RED до production-кода.
 - [ ] Реализовать frozen infra/service classes, settings, thin Celery tasks,
-  bootstrap permission и admin action без delivery models.
+  bootstrap permission и admin action без delivery models. HTTP timeout — 5
+  секунд; Celery delivery task использует `max_retries=3` и фиксированный
+  `countdown=10` секунд.
 - [ ] Запустить `make test ARGS="apps.vpn.tests.test_node_client_service apps.vpn.tests.test_tasks apps.vpn.tests.test_agent_bootstrap_view apps.vpn.tests.test_admin"` до GREEN.
 - [ ] Commit: `feat: deliver VPN profiles to nodes`.
 
@@ -357,10 +383,12 @@ Authorization: Bearer <VPN_AGENT_TOKEN>
 
 - Create: `src/apps/vpn/services/expire_vpn_subscriptions_service.py`
 - Create: `src/apps/vpn/services/notify_vpn_expiry_service.py`
+- Modify: `src/apps/vpn/services/__init__.py`
+- Modify: `src/apps/vpn/selectors.py`
 - Modify: `src/apps/vpn/tasks.py`
 - Modify: `src/apps/vpn/admin.py`
 - Modify: `src/config/settings/celery.py`
-- Create: `src/apps/notifications/migrations/0003_seed_vpn_templates.py`
+- Create: `src/apps/notifications/migrations/0010_seed_vpn_templates.py`
 - Create/Test: `src/apps/vpn/tests/test_expiry_services.py`
 - Create/Test: `src/apps/vpn/tests/test_notification_services.py`
 - Modify/Test: `src/apps/vpn/tests/test_tasks.py`
@@ -379,6 +407,7 @@ class NotifyVPNExpiryService:
 - [ ] Написать RED tests на day/hour/expired selection, VPN-specific callback,
   deactivate-before-delete scheduling, repeated admin action и MTProto template
   isolation.
+- [ ] Запустить `make test ARGS="apps.vpn.tests.test_expiry_services apps.vpn.tests.test_notification_services apps.vpn.tests.test_tasks apps.vpn.tests.test_admin"`; подтвердить RED.
 - [ ] Реализовать selectors/services, thin tasks, beat entries и три template
   slugs; использовать существующий Telegram transport.
 - [ ] Получить GREEN targeted VPN/notification tests.
@@ -406,6 +435,11 @@ AC-005, AC-008, AC-011.
 - Modify/Test: `bot/tests/domains/payments/test_client.py`
 - Modify/Test: `bot/tests/test_handlers.py`
 - Modify/Test: `bot/tests/test_dependencies.py`
+- Modify: `docs/BUSINESS.md`
+- Modify: `docs/ARCHITECTURE.md`
+- Modify: `docs/CONTRACTS.md`
+- Modify: `docs/MODELS.md`
+- Create: `docs/apps/VPN.md`
 - Modify: `docs/DEPLOY.md`
 
 **Produces:**
@@ -427,6 +461,8 @@ class VPNMenu:
 
 - [ ] Написать RED async client/handler tests для no-subscription, active,
   expired, YuKassa, Stars, distinct payload routing и прежних MTProto handlers.
+- [ ] Запустить `cd bot && uv run pytest`; подтвердить RED в новых VPN tests до
+  изменения bot production-кода.
 - [ ] Реализовать focused VPN domain/handler и минимальные изменения общей
   payment router/dependencies/keyboards/messages.
 - [ ] Запустить `cd bot && uv run pytest` до GREEN.
@@ -472,6 +508,8 @@ class InMemoryProfileStore:
 - [ ] Создать новый repository/feature branch без копирования старого agent.
 - [ ] Написать RED FastAPI tests на auth, validation, idempotent PUT/DELETE,
   health и log redaction.
+- [ ] Запустить `uv run pytest`; подтвердить RED из-за отсутствующих app/store
+  interfaces.
 - [ ] Реализовать минимальный app/store/config/factories до GREEN.
 - [ ] Запустить `uv run pytest` и commit `feat: add stateless VPN node agent`.
 
@@ -515,8 +553,14 @@ class BootstrapService:
   `{"ok": bool, "id": str}`; route не публикуется наружу.
 - Startup bootstrap получает все active profiles из Django, применяет их и
   только затем делает agent healthy. Периодического reconcile нет.
+- При временной недоступности Django bootstrap делает 5 попыток с фиксированной
+  задержкой 5 секунд; до успеха `GET /health` возвращает unhealthy. После
+  исчерпания попыток процесс остаётся unhealthy и допускает ручной restart, без
+  recovery worker.
 
 - [ ] Написать RED adapter/service/auth/bootstrap tests с fake Xray и `respx`.
+- [ ] Запустить `uv run pytest`; подтвердить RED, включая bounded retry и
+  unhealthy-until-bootstrap-success.
 - [ ] Реализовать ровно HandlerService operations, local auth и startup hook;
   не добавлять snapshot/revision/exact-set abstractions.
 - [ ] Получить GREEN `uv run pytest`.
@@ -551,6 +595,7 @@ sections 9–11.
 
 - [ ] Написать RED static contract tests на images, ports, private listeners,
   read-only secrets и отсутствие embedded credentials.
+- [ ] Запустить `uv run pytest tests/test_compose_contract.py tests/test_config_contract.py deploy/tests/test_deploy.py`; подтвердить RED до создания runtime/deploy файлов.
 - [ ] Реализовать Compose/config/Ansible/docs с нуля; не открывать production
   listeners и не запускать deploy.
 - [ ] Выполнить agent `uv run pytest` и
