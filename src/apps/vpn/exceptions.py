@@ -1,1 +1,5 @@
-"""Доменные исключения VPN появятся вместе с требующими их сценариями."""
+from __future__ import annotations
+
+
+class UnsupportedVPNProfileOperation(ValueError):
+    """Неподдерживаемая операция доставки VPN-профиля."""

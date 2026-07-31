@@ -23,6 +23,7 @@ from apps.vpn.selectors import (
     get_vpn_subscription_for_update,
 )
 from apps.vpn.services.dtos import FulfillVPNPaymentIn, VPNPurchaseOut
+from apps.vpn.services.schedule_profiles_service import get_schedule_profiles_service
 
 if TYPE_CHECKING:
     from apps.vpn.models import VPNSubscription
@@ -116,12 +117,8 @@ class FulfillVPNPurchaseService:
         )
 
 
-def _schedule_profiles(*, subscription_id: int) -> None:
-    """P5 заменит эту injected boundary реальным планировщиком provisioning."""
-
-
 def get_fulfill_vpn_purchase_service() -> FulfillVPNPurchaseService:
     return FulfillVPNPurchaseService(
-        schedule_profiles=_schedule_profiles,
+        schedule_profiles=get_schedule_profiles_service(),
         subscription_base_url=settings.VPN_SUBSCRIPTION_BASE_URL,
     )

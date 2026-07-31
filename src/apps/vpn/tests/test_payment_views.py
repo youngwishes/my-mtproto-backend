@@ -4,12 +4,14 @@ from django.conf import settings
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
+from unittest.mock import patch
 
 from apps.payments.enums import PaymentKindEnum, PaymentProviderEnum, ProductCodeEnum
 from apps.payments.models import Payment
 from apps.users.tests.factories import SystemUserFactory
 from apps.vds.tests.factories import MTPRotoKeyFactory
 from apps.vpn.models import VPNSubscription
+from apps.vpn.tests.factories import VPNInstanceFactory
 
 
 class TestVPNPaymentView(APITestCase):
@@ -82,3 +84,19 @@ class TestVPNPaymentView(APITestCase):
         key.refresh_from_db()
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(key.expired_date, previous_expired_date)
+
+    @patch("apps.vpn.tasks.deliver_vpn_profile_task.delay")
+    def test_purchase_enqueues_provisioning_after_payment_without_http(self, delay) -> None:
+        instance = VPNInstanceFactory()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self._post(self._payment_data())
+
+        subscription = VPNSubscription.objects.get(user=self.user)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        delay.assert_called_once_with(
+            subscription_id=subscription.pk,
+            instance_id=instance.pk,
+            operation="put",
+        )
+        self.assertEqual(subscription.user, self.user)

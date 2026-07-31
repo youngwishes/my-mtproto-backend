@@ -25,6 +25,11 @@ def get_active_vpn_subscription(*, user: SystemUser) -> VPNSubscription | None:
     ).first()
 
 
+def get_active_vpn_subscriptions() -> QuerySet[VPNSubscription]:
+    """Рабочие VPN-подписки для delivery и bootstrap node-agent."""
+    return VPNSubscription.objects.active().filter(expired_at__gt=timezone.now())
+
+
 def get_vpn_subscription_for_update(*, user_id: int) -> VPNSubscription | None:
     """Подписка пользователя с блокировкой, включая истёкшие и неактивные."""
     return VPNSubscription.objects.select_for_update().filter(user_id=user_id).first()
@@ -33,6 +38,16 @@ def get_vpn_subscription_for_update(*, user_id: int) -> VPNSubscription | None:
 def get_vpn_subscription_by_user_id(*, user_id: int) -> VPNSubscription | None:
     """Подписка пользователя без блокировки для recovery после отката транзакции."""
     return VPNSubscription.objects.filter(user_id=user_id).first()
+
+
+def get_vpn_subscription_by_id(*, subscription_id: int) -> VPNSubscription | None:
+    """VPN-подписка по ID для асинхронной delivery-задачи."""
+    return VPNSubscription.objects.select_related("user").filter(pk=subscription_id).first()
+
+
+def get_vpn_instance_by_id(*, instance_id: int) -> VPNInstance | None:
+    """VPN-нода по ID для асинхронной delivery-задачи."""
+    return VPNInstance.objects.filter(pk=instance_id).first()
 
 
 def create_vpn_subscription(
