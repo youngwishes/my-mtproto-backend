@@ -9,8 +9,8 @@ from django.contrib.sessions.middleware import SessionMiddleware
 from django.test import RequestFactory, TestCase
 from django.utils import timezone
 
-from apps.vpn.admin import VPNInstanceAdmin
-from apps.vpn.models import VPNInstance
+from apps.vpn.admin import VPNInstanceAdmin, VPNSubscriptionAdmin
+from apps.vpn.models import VPNInstance, VPNSubscription
 from apps.vpn.tasks import deliver_vpn_profile_task
 from apps.vpn.tests.factories import VPNInstanceFactory, VPNSubscriptionFactory
 
@@ -72,3 +72,36 @@ class TestVPNInstanceAdmin(TestCase):
             )
 
         delay.assert_not_called()
+
+
+class TestVPNSubscriptionAdmin(TestCase):
+    def setUp(self) -> None:
+        self.admin = VPNSubscriptionAdmin(VPNSubscription, AdminSite())
+        self.request = RequestFactory().post("/admin/apps/vpn/vpnsubscription/")
+        SessionMiddleware(lambda request: None).process_request(self.request)
+        setattr(self.request, "_messages", FallbackStorage(self.request))
+
+    def test_deactivation_is_idempotent_and_enqueues_deletes_after_commit(self) -> None:
+        subscription = VPNSubscriptionFactory()
+        active_instance = VPNInstanceFactory(is_active=True)
+        VPNInstanceFactory(is_active=False)
+
+        with patch.object(deliver_vpn_profile_task, "delay") as delay:
+            with self.captureOnCommitCallbacks(execute=True):
+                self.admin.deactivate_subscriptions(
+                    self.request,
+                    VPNSubscription.objects.filter(pk=subscription.pk),
+                )
+            with self.captureOnCommitCallbacks(execute=True):
+                self.admin.deactivate_subscriptions(
+                    self.request,
+                    VPNSubscription.objects.filter(pk=subscription.pk),
+                )
+
+        subscription.refresh_from_db()
+        self.assertFalse(subscription.is_active)
+        delay.assert_called_once_with(
+            subscription_id=subscription.pk,
+            instance_id=active_instance.pk,
+            operation="delete",
+        )

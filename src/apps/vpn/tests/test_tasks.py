@@ -7,7 +7,11 @@ from celery.exceptions import Retry
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
-from apps.vpn.tasks import deliver_vpn_profile_task
+from apps.vpn.tasks import (
+    deliver_vpn_profile_task,
+    expire_vpn_subscriptions_task,
+    notify_vpn_expiry_task,
+)
 from apps.vpn.tests.factories import VPNInstanceFactory, VPNSubscriptionFactory
 
 
@@ -174,3 +178,19 @@ class TestDeliverVPNProfileTask(TestCase):
         send_telegram_message.assert_called_once()
         retry.assert_not_called()
         put.assert_not_called()
+
+
+class TestVPNExpiryTasks(TestCase):
+    @patch("apps.vpn.tasks.get_expire_vpn_subscriptions_service")
+    def test_expiry_task_delegates_current_time_to_service(self, get_service) -> None:
+        expire_vpn_subscriptions_task.run()
+
+        get_service.assert_called_once()
+        self.assertIn("now", get_service.return_value.call_args.kwargs)
+
+    @patch("apps.vpn.tasks.get_notify_vpn_expiry_service")
+    def test_notification_task_delegates_window_to_service(self, get_service) -> None:
+        notify_vpn_expiry_task.run(window="hour")
+
+        get_service.assert_called_once()
+        get_service.return_value.assert_called_once_with(window="hour")

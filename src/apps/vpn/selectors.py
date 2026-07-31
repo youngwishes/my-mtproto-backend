@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from django.db.models import QuerySet
 from django.utils import timezone
@@ -28,6 +28,27 @@ def get_active_vpn_subscription(*, user: SystemUser) -> VPNSubscription | None:
 def get_active_vpn_subscriptions() -> QuerySet[VPNSubscription]:
     """Рабочие VPN-подписки для delivery и bootstrap node-agent."""
     return VPNSubscription.objects.active().filter(expired_at__gt=timezone.now())
+
+
+def get_expired_active_vpn_subscriptions(*, now: datetime) -> QuerySet[VPNSubscription]:
+    """Активные VPN-подписки, фактически истёкшие к переданному моменту."""
+    return VPNSubscription.objects.active().filter(expired_at__lte=now)
+
+
+def get_vpn_subscriptions_expiring_between(
+    *,
+    starts_at: datetime,
+    ends_at: datetime,
+    is_active: Literal[True, False],
+) -> QuerySet[VPNSubscription]:
+    """VPN-подписки в ограниченном окне истечения для lifecycle-уведомления."""
+    queryset = VPNSubscription.objects.active() if is_active else VPNSubscription.objects.filter(
+        is_active=False,
+    )
+    return queryset.select_related("user").filter(
+        expired_at__gte=starts_at,
+        expired_at__lt=ends_at,
+    )
 
 
 def get_vpn_subscription_for_update(*, user_id: int) -> VPNSubscription | None:

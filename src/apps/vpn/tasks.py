@@ -6,6 +6,7 @@ import requests
 from celery import shared_task
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
+from django.utils import timezone
 from django.utils.html import escape
 
 from apps.core.telegram.transport import send_telegram_message
@@ -13,12 +14,29 @@ from apps.vpn.exceptions import UnsupportedVPNProfileOperation
 from apps.vpn.selectors import get_vpn_instance_by_id, get_vpn_subscription_by_id
 from apps.vpn.services.dtos import NodeProfileDTO
 from apps.vpn.services.node_client_service import get_node_client_service
+from apps.vpn.services import (
+    get_expire_vpn_subscriptions_service,
+    get_notify_vpn_expiry_service,
+)
 
 if TYPE_CHECKING:
     from apps.vpn.models import VPNInstance, VPNSubscription
 
 
 ProfileOperation = Literal["put", "delete"]
+VPNExpiryWindow = Literal["day", "hour", "expired"]
+
+
+@shared_task
+def expire_vpn_subscriptions_task() -> int:
+    """Отключает истёкшие VPN-подписки и ставит удаление профилей."""
+    return get_expire_vpn_subscriptions_service()(now=timezone.now())
+
+
+@shared_task
+def notify_vpn_expiry_task(*, window: VPNExpiryWindow) -> int:
+    """Отправляет VPN-уведомление для одного lifecycle-окна."""
+    return get_notify_vpn_expiry_service()(window=window)
 
 
 def _notify_delivery_failure(
