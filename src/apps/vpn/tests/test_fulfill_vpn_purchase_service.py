@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import timedelta
-from typing import TYPE_CHECKING
 from unittest import mock
 
 from django.test import TestCase
@@ -9,16 +8,12 @@ from django.utils import timezone
 
 from apps.payments.enums import PaymentKindEnum, PaymentProviderEnum, ProductCodeEnum
 from apps.payments.models import Payment
-from apps.payments.selectors import get_vpn_payment_by_identity_for_update
 from apps.users.tests.factories import SystemUserFactory
 from apps.vds.tests.factories import MTPRotoKeyFactory
 from apps.vpn.models import VPNSubscription
 from apps.vpn.services.fulfill_vpn_purchase_service import FulfillVPNPurchaseService
 from apps.vpn.services.dtos import FulfillVPNPaymentIn
 from apps.vpn.tests.factories import VPNSubscriptionFactory
-
-if TYPE_CHECKING:
-    from apps.users.models import SystemUser
 
 
 class TestFulfillVPNPurchaseService(TestCase):
@@ -78,40 +73,13 @@ class TestFulfillVPNPurchaseService(TestCase):
         self.assertEqual(subscription.expired_at, previous_expired_at + timedelta(days=30))
         self.assertEqual(result.expired_at, subscription.expired_at)
 
-    def test_different_charge_ids_are_serialized_by_locked_user(self) -> None:
-        in_atomic_block: list[bool] = []
-        selector_order: list[str] = []
-
-        def get_locked_user(*, username: str) -> SystemUser:
-            self.assertEqual(username, self.user.username)
-            from django.db import connection
-
-            in_atomic_block.append(connection.in_atomic_block)
-            selector_order.append("user")
-            return self.user
-
-        def get_payment_for_update(*, provider: str, charge_id: str) -> Payment | None:
-            selector_order.append("payment")
-            return get_vpn_payment_by_identity_for_update(
-                provider=provider,
-                charge_id=charge_id,
-            )
-
-        with mock.patch(
-            "apps.vpn.services.fulfill_vpn_purchase_service.get_user_by_username_for_update",
-            side_effect=get_locked_user,
-        ), mock.patch(
-            "apps.vpn.services.fulfill_vpn_purchase_service.get_vpn_payment_by_identity_for_update",
-            side_effect=get_payment_for_update,
-        ):
-            with self.captureOnCommitCallbacks(execute=True):
-                self.service(payment=self._payment(charge_id="charge-1"))
-            with self.captureOnCommitCallbacks(execute=True):
-                self.service(payment=self._payment(charge_id="charge-2"))
+    def test_distinct_payments_extend_subscription_once_each(self) -> None:
+        with self.captureOnCommitCallbacks(execute=True):
+            self.service(payment=self._payment(charge_id="charge-1"))
+        with self.captureOnCommitCallbacks(execute=True):
+            self.service(payment=self._payment(charge_id="charge-2"))
 
         subscription = VPNSubscription.objects.get(user=self.user)
-        self.assertEqual(in_atomic_block, [True, True])
-        self.assertEqual(selector_order, ["user", "payment", "user", "payment"])
         self.assertEqual(Payment.objects.filter(user=self.user).count(), 2)
         self.assertAlmostEqual(
             subscription.expired_at,

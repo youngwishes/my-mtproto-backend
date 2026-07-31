@@ -16,7 +16,7 @@ from apps.payments.selectors import (
     get_vpn_payment_by_identity,
     get_vpn_payment_by_identity_for_update,
 )
-from apps.users.selectors import get_user_by_username_for_update
+from apps.users.selectors import get_user_by_username
 from apps.vpn.selectors import (
     create_vpn_subscription,
     get_vpn_subscription_by_user_id,
@@ -47,7 +47,7 @@ class FulfillVPNPurchaseService:
 
         try:
             with transaction.atomic():
-                user = get_user_by_username_for_update(username=payment.username)
+                user = get_user_by_username(username=payment.username)
                 if user is None:
                     raise BadPaymentData(telegram_id=payment.username)
 
