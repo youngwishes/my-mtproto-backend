@@ -80,7 +80,7 @@ Batch C4 и N1 могут выполняться параллельно: реп�
 
 ---
 
-### P1: Явная идентичность товаров и VPN-платежа
+### Task 1: P1 — Явная идентичность товаров и VPN-платежа
 
 **Requirements:** BR-002..BR-004; AC-001..AC-002; MTProto non-regression.
 
@@ -131,7 +131,7 @@ def get_active_product_by_code(*, code: str) -> Product | None: ...
   на зелёных тестах.
 - [ ] Commit: `feat: add explicit VPN product identity`.
 
-### P2: VPN domain models и чистый генератор профилей
+### Task 2: P2 — VPN domain models и чистый генератор профилей
 
 **Requirements:** BR-005, BR-007..BR-009, BR-018..BR-019; AC-003..AC-005.
 
@@ -195,7 +195,7 @@ class BuildSubscriptionService:
   `cd src && python manage.py makemigrations --check --dry-run`.
 - [ ] Commit: `feat: add VPN subscription domain`.
 
-### P3: Идемпотентная покупка и продление VPN
+### Task 3: P3 — Идемпотентная покупка и продление VPN
 
 **Requirements:** BR-002..BR-006, BR-008, BR-012..BR-013; AC-001, AC-003,
 AC-005, AC-007.
@@ -262,7 +262,7 @@ class FulfillVPNPurchaseService:
 - [ ] Получить GREEN targeted tests, затем payments regression tests.
 - [ ] Commit: `feat: fulfill VPN purchases`.
 
-### P4: Публичная HAPP subscription API
+### Task 4: P4 — Публичная HAPP subscription API
 
 **Requirements:** BR-005..BR-009, BR-018; AC-003..AC-006.
 
@@ -318,7 +318,7 @@ GET /api/v1/vpn/subscriptions/<token>/
   глобального рефакторинга middleware или access logging.
 - [ ] Получить GREEN и commit `feat: serve VPN subscriptions`.
 
-### P5: Node contract, provisioning tasks и повторяемый backfill
+### Task 5: P5 — Node contract, provisioning tasks и повторяемый backfill
 
 **Requirements:** BR-010..BR-012, BR-015..BR-017, BR-019; AC-006..AC-007,
 AC-009..AC-010.
@@ -374,7 +374,7 @@ Authorization: Bearer <VPN_AGENT_TOKEN>
 - [ ] Запустить `make test ARGS="apps.vpn.tests.test_node_client_service apps.vpn.tests.test_tasks apps.vpn.tests.test_agent_bootstrap_view apps.vpn.tests.test_admin"` до GREEN.
 - [ ] Commit: `feat: deliver VPN profiles to nodes`.
 
-### P6: Expiry, уведомления и административная деактивация
+### Task 6: P6 — Expiry, уведомления и административная деактивация
 
 **Requirements:** BR-014..BR-016; AC-006, AC-008..AC-009.
 
@@ -414,7 +414,7 @@ class NotifyVPNExpiryService:
 - [ ] Получить GREEN targeted VPN/notification tests.
 - [ ] Commit: `feat: expire and notify VPN subscriptions`.
 
-### P7: Telegram-бот — VPN menu и оба payment flow
+### Task 7: P7 — Telegram-бот: VPN menu и оба payment flow
 
 **Requirements:** BR-001..BR-006, BR-009, BR-013..BR-014; AC-001..AC-003,
 AC-005, AC-008, AC-011.
@@ -474,7 +474,7 @@ class VPNMenu:
   `docs/MODELS.md` и создать `docs/apps/VPN.md`; не менять MTProto rules.
 - [ ] Commit: `feat: add VPN bot experience`.
 
-### A1: Новый stateless FastAPI agent и management contract
+### Task 8: A1 — Новый stateless FastAPI agent и management contract
 
 **Requirements:** BR-007..BR-012, BR-019; AC-004, AC-007.
 
@@ -517,7 +517,7 @@ class InMemoryProfileStore:
 - [ ] Реализовать минимальный app/store/config/factories до GREEN.
 - [ ] Запустить `uv run pytest` и commit `feat: add stateless VPN node agent`.
 
-### A2: Xray adapter, Hysteria auth и startup bootstrap
+### Task 9: A2 — Xray adapter, Hysteria auth и startup bootstrap
 
 **Requirements:** BR-007..BR-012, BR-019; AC-004, AC-007, AC-010.
 
@@ -570,7 +570,7 @@ class BootstrapService:
 - [ ] Получить GREEN `uv run pytest`.
 - [ ] Commit: `feat: manage Xray and Hysteria profiles`.
 
-### A3: Runtime Compose и воспроизводимый deploy
+### Task 10: A3 — Runtime Compose и воспроизводимый deploy
 
 **Requirements:** AC-004, AC-006..AC-007, AC-010; approved architecture
 sections 9–11.
