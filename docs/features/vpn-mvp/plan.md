@@ -5,7 +5,7 @@
 > `superpowers:executing-plans` to implement this plan task-by-task. Steps use
 > checkbox (`- [ ]`) syntax for tracking.
 
-- **Status:** ready_for_architecture_review
+- **Status:** approved
 - **Scope revision:** 1
 
 **Goal:** Добавить в существующий Telegram-бот самостоятельную 30-дневную
