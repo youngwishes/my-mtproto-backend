@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from django.db.models import QuerySet
@@ -22,6 +23,20 @@ def get_active_vpn_subscription(*, user: SystemUser) -> VPNSubscription | None:
         user=user,
         expired_at__gt=timezone.now(),
     ).first()
+
+
+def get_vpn_subscription_for_update(*, user_id: int) -> VPNSubscription | None:
+    """Подписка пользователя с блокировкой, включая истёкшие и неактивные."""
+    return VPNSubscription.objects.select_for_update().filter(user_id=user_id).first()
+
+
+def create_vpn_subscription(
+    *,
+    user: SystemUser,
+    expired_at: datetime,
+) -> VPNSubscription:
+    """Создаёт первую VPN-подписку с постоянными credentials модели."""
+    return VPNSubscription.objects.create(user=user, expired_at=expired_at)
 
 
 def get_vpn_subscription_by_token(*, token: str) -> VPNSubscription | None:
