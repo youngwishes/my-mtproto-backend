@@ -64,6 +64,7 @@ src/
 │   ├── users/                   # SystemUser, бесплатные ссылки, рефералы
 │   ├── vds/                     # VDSInstance, MTPRotoKey, инфра-сервисы, Celery-задачи
 │   ├── payments/                # Product, Payment, YuKassa/Stars
+│   ├── vpn/                     # VPNSubscription, VPNInstance, API и lifecycle
 │   └── music/                   # Заглушка для FakeTLS-маскировки (не трогать, бизнес-логики нет)
 └── manage.py
 
@@ -146,6 +147,20 @@ apps/notifications/
 ## Аутентификация
 
 Все API-эндпоинты защищены заголовком `Bot-Auth-Token`, проверяемым через permission `BotAuthToken` против `settings.BOT_AUTH_TOKEN`.
+
+## VPN
+
+`apps.vpn` хранит единственную VPN-подписку пользователя, стабильные credentials
+и subscription token. Бот запрашивает read-only menu endpoint, получает цены
+только из активного `Product(code="vpn_30d")`, а successful payment направляет
+исключительно в `/api/v1/vpn/payments/buy/`. Ответ покупки содержит срок и
+внешнюю постоянную subscription URL; бот показывает её сразу и не ждёт фоновой
+выдачи профилей на VPN-ноды.
+
+VPN callbacks и invoice payload отделены от MTProto: `vpn`,
+`vpn_pay_yukassa`/`vpn_pay_stars` и `vpn_yukassa`/`vpn_stars`. Статусы меню
+`none`, `active`, `expired` формирует backend; бот ветвится только по этому
+полю. Уведомления VPN ведут в callback `vpn`.
 
 ## Деплой
 

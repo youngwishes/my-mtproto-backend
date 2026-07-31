@@ -40,6 +40,7 @@ def main_menu(boost_callback_data: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="⚡️ Ускорить Telegram", callback_data=boost_callback_data, style="success")],
+            [InlineKeyboardButton(text="🔐 VPN", callback_data="vpn", style="primary")],
             [InlineKeyboardButton(text="🎁 Подарить подписку", callback_data="gift_certificate", style="primary")],
             [_MY_SERVERS],
             [InlineKeyboardButton(text="🤝 Реферальный кабинет", callback_data="referral")],
@@ -94,6 +95,28 @@ def payment_methods() -> InlineKeyboardMarkup:
         ],
     )
     return keyboard.adjust(1).as_markup()
+
+
+def vpn_payment_methods() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="💳 Оплатить через ЮKassa",
+                    callback_data="vpn_pay_yukassa",
+                    style="primary",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="⭐ Оплатить Telegram Stars",
+                    callback_data="vpn_pay_stars",
+                    style="primary",
+                )
+            ],
+            [_BACK],
+        ]
+    )
 
 
 def gift_certificate_payment_methods() -> InlineKeyboardMarkup:

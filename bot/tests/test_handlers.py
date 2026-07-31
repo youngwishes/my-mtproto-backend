@@ -22,6 +22,7 @@ from src.handlers.payments import (
     process_pre_checkout_query,
     process_successful_payment,
 )
+from src.handlers.vpn import process_vpn, process_vpn_pay_stars, process_vpn_pay_yukassa
 from src.handlers.referrals import process_referral, process_referral_link
 from src.handlers.start import (
     cmd_start,
@@ -39,6 +40,7 @@ from src.domains.payments import (
     StarsInvoice,
 )
 from src.domains.referrals import ReferralCabinet, ReferralRewardKey
+from src.domains.vpn import VPNMenu, VPNPurchase
 from tests.fakes import FakeBot, FakeCallback, FakeMessage, make_deps
 
 
@@ -149,6 +151,12 @@ class FakePayments:
     async def get_stars_invoice(self):
         return self._stars
 
+    async def get_vpn_card_invoice(self):
+        return self._card
+
+    async def get_vpn_stars_invoice(self):
+        return self._stars
+
     async def confirm_purchase(self, *, telegram_id, charge_id, provider):
         self.confirmed.append((telegram_id, charge_id, provider))
         if self._confirm_error is not None:
@@ -165,6 +173,37 @@ class FakePayments:
         if self._activation_error is not None:
             raise self._activation_error
         return self._activation
+
+
+class FakeVPN:
+    def __init__(self, *, menu: VPNMenu, purchase: VPNPurchase | None = None) -> None:
+        self._menu = menu
+        self._purchase = purchase or VPNPurchase(
+            expired_at="2026-08-31T12:00:00+00:00",
+            subscription_url="https://vpn.example/subscriptions/token/",
+        )
+        self.menu_calls: list[str] = []
+        self.purchase_calls: list[tuple] = []
+
+    async def get_menu(self, *, telegram_id):
+        self.menu_calls.append(telegram_id)
+        return self._menu
+
+    async def confirm_purchase(self, *, telegram_id, charge_id, provider):
+        self.purchase_calls.append((telegram_id, charge_id, provider))
+        return self._purchase
+
+
+def _deps_with_vpn(*, vpn: FakeVPN, payments: FakePayments | None = None):
+    from src.dependencies import Dependencies
+
+    return Dependencies(
+        free_trial=None,
+        links=None,
+        referrals=None,
+        payments=payments,
+        vpn=vpn,
+    )
 
 
 @pytest.fixture
@@ -347,6 +386,13 @@ def test_main_menu_has_support_button():
     assert SUPPORT_URL in urls
 
 
+def test_main_menu_opens_vpn_subscription_management():
+    markup = keyboards.main_menu("boost_free")
+
+    callbacks = [button.callback_data for row in markup.inline_keyboard for button in row]
+    assert "vpn" in callbacks
+
+
 def test_info_keyboard_links_to_legal_docs_and_drops_offer():
     markup = keyboards.info()
 
@@ -448,6 +494,99 @@ async def test_referral_link_claims_reward():
 
 
 # --- payments ---------------------------------------------------------------
+
+
+@pytest.mark.parametrize("status", ["none", "expired"])
+async def test_vpn_menu_offers_two_payment_methods_for_unavailable_subscription(status):
+    callback = FakeCallback(chat_id=42)
+    vpn = FakeVPN(
+        menu=VPNMenu(
+            status=status,
+            expired_at="2026-07-31T12:00:00+00:00" if status == "expired" else None,
+            subscription_url="https://vpn.example/subscriptions/token/" if status == "expired" else None,
+        )
+    )
+
+    await process_vpn(callback, _deps_with_vpn(vpn=vpn))
+
+    text, markup = callback.message.edits[0]
+    callbacks = [button.callback_data for row in markup.inline_keyboard for button in row]
+    assert vpn.menu_calls == ["42"]
+    assert "vpn_pay_yukassa" in callbacks
+    assert "vpn_pay_stars" in callbacks
+    if status == "expired":
+        assert "2026-07-31T12:00:00+00:00" in text
+
+
+async def test_vpn_menu_shows_active_expiry_and_stable_subscription_url():
+    callback = FakeCallback(chat_id=42)
+    vpn = FakeVPN(
+        menu=VPNMenu(
+            status="active",
+            expired_at="2026-08-31T12:00:00+00:00",
+            subscription_url="https://vpn.example/subscriptions/token/",
+        )
+    )
+
+    await process_vpn(callback, _deps_with_vpn(vpn=vpn))
+
+    text, _ = callback.message.edits[0]
+    assert "2026-08-31T12:00:00+00:00" in text
+    assert "https://vpn.example/subscriptions/token/" in text
+    _, markup = callback.message.edits[0]
+    callbacks = [button.callback_data for row in markup.inline_keyboard for button in row]
+    assert "vpn_pay_yukassa" in callbacks
+    assert "vpn_pay_stars" in callbacks
+
+
+async def test_vpn_yukassa_invoice_uses_distinct_payload_and_vpn_product(monkeypatch):
+    fake_bot = FakeBot()
+    monkeypatch.setattr("src.handlers.vpn.bot", fake_bot)
+    card = CardInvoice(
+        title="VPN на месяц",
+        description="VPN-подписка",
+        currency="RUB",
+        provider_data="{}",
+        send_email_to_provider=False,
+        need_email=False,
+        prices=[LabeledPrice(label="VPN на месяц", amount=14900)],
+        provider_token="PROV",
+    )
+
+    await process_vpn_pay_yukassa(
+        FakeCallback(chat_id=42),
+        _deps_with_vpn(
+            vpn=FakeVPN(menu=VPNMenu(status="none", expired_at=None, subscription_url=None)),
+            payments=FakePayments(card=card),
+        ),
+    )
+
+    invoice = fake_bot.invoices[0]
+    assert invoice["payload"] == "vpn_yukassa"
+    assert invoice["prices"][0].amount == 14900
+
+
+async def test_vpn_stars_invoice_uses_distinct_payload_and_vpn_product(monkeypatch):
+    fake_bot = FakeBot()
+    monkeypatch.setattr("src.handlers.vpn.bot", fake_bot)
+    stars = StarsInvoice(
+        title="VPN на месяц",
+        description="VPN-подписка",
+        prices=[LabeledPrice(label="VPN на месяц", amount=149)],
+    )
+
+    await process_vpn_pay_stars(
+        FakeCallback(chat_id=42),
+        _deps_with_vpn(
+            vpn=FakeVPN(menu=VPNMenu(status="none", expired_at=None, subscription_url=None)),
+            payments=FakePayments(stars=stars),
+        ),
+    )
+
+    invoice = fake_bot.invoices[0]
+    assert invoice["payload"] == "vpn_stars"
+    assert invoice["currency"] == "XTR"
+    assert invoice["prices"][0].amount == 149
 
 
 async def test_pay_yukassa_sends_card_invoice(monkeypatch):
@@ -597,6 +736,36 @@ async def test_successful_regular_payment_ignores_gift_confirmation():
 
     assert payments.confirmed == [(42, "ch_stars", "stars")]
     assert payments.gift_confirmed == []
+
+
+async def test_successful_vpn_payment_routes_only_to_vpn_buy_and_shows_happ_import():
+    payments = FakePayments()
+    vpn = FakeVPN(
+        menu=VPNMenu(status="none", expired_at=None, subscription_url=None),
+        purchase=VPNPurchase(
+            expired_at="2026-08-31T12:00:00+00:00",
+            subscription_url="https://vpn.example/subscriptions/token/",
+        ),
+    )
+    message = FakeMessage(user_id=42)
+    message.successful_payment = SimpleNamespace(
+        currency="XTR",
+        invoice_payload="vpn_stars",
+        telegram_payment_charge_id="vpn_ch_stars",
+        provider_payment_charge_id="vpn_ch_card",
+    )
+
+    await process_successful_payment(message, _deps_with_vpn(vpn=vpn, payments=payments))
+
+    assert vpn.purchase_calls == [(42, "vpn_ch_stars", "stars")]
+    assert payments.confirmed == []
+    text, _ = message.answers[0]
+    assert "2026-08-31T12:00:00+00:00" in text
+    assert "https://vpn.example/subscriptions/token/" in text
+    assert "Android" in text
+    assert "iOS" in text
+    assert "Windows" in text
+    assert "macOS" in text
 
 
 async def test_gift_certificate_code_message_activates_certificate():
