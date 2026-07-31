@@ -14,9 +14,12 @@ from apps.vpn.selectors import get_active_vpn_subscriptions
 
 class VPNAgentTokenPermission(BasePermission):
     def has_permission(self, request: Request, view: APIView) -> bool:
+        agent_token = settings.VPN_AGENT_TOKEN
+        if not isinstance(agent_token, str) or not agent_token.strip():
+            return False
         return compare_digest(
             request.headers.get("Authorization", ""),
-            f"Bearer {settings.VPN_AGENT_TOKEN}",
+            f"Bearer {agent_token}",
         )
 
 

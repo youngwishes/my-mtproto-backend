@@ -5,10 +5,12 @@ from unittest.mock import patch
 
 import requests
 import responses
+from django.core.exceptions import ImproperlyConfigured
+from django.test import override_settings
 from django.test import SimpleTestCase
 
 from apps.vpn.services.dtos import NodeProfileDTO
-from apps.vpn.services.node_client_service import NodeClientService
+from apps.vpn.services.node_client_service import NodeClientService, get_node_client_service
 from apps.vpn.tests.factories import VPNInstanceFactory
 
 
@@ -104,3 +106,11 @@ class TestNodeClientService(SimpleTestCase):
             self.service.put_profile(instance=self.instance, profile=self.profile)
 
         self.assertEqual(put.call_args.kwargs["timeout"], 5)
+
+    @override_settings(VPN_AGENT_TOKEN="")
+    @patch("apps.vpn.services.node_client_service.requests.put")
+    def test_factory_rejects_blank_agent_token_without_sending_request(self, put) -> None:
+        with self.assertRaises(ImproperlyConfigured):
+            get_node_client_service()
+
+        put.assert_not_called()

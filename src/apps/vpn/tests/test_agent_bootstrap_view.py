@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import timedelta
 
 from django.conf import settings
+from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
@@ -11,6 +12,7 @@ from rest_framework.test import APITestCase
 from apps.vpn.tests.factories import VPNSubscriptionFactory
 
 
+@override_settings(VPN_AGENT_TOKEN="test-vpn-agent-token")
 class TestAgentBootstrapView(APITestCase):
     url = reverse("vpn-agent-profiles")
 
@@ -38,5 +40,23 @@ class TestAgentBootstrapView(APITestCase):
 
     def test_rejects_request_without_agent_bearer_token(self) -> None:
         response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    @override_settings(VPN_AGENT_TOKEN=None)
+    def test_denies_bootstrap_when_agent_token_is_missing(self) -> None:
+        response = self.client.get(
+            self.url,
+            headers={"Authorization": "Bearer None"},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    @override_settings(VPN_AGENT_TOKEN="")
+    def test_denies_bootstrap_when_agent_token_is_blank(self) -> None:
+        response = self.client.get(
+            self.url,
+            headers={"Authorization": "Bearer "},
+        )
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

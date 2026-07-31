@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, final
 
 import requests
 from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
 
 from apps.vpn.services.dtos import NodeProfileDTO
 
@@ -68,4 +69,7 @@ class NodeClientService:
 
 
 def get_node_client_service() -> NodeClientService:
-    return NodeClientService(agent_token=settings.VPN_AGENT_TOKEN, timeout=5)
+    agent_token = settings.VPN_AGENT_TOKEN
+    if not isinstance(agent_token, str) or not agent_token.strip():
+        raise ImproperlyConfigured("VPN_AGENT_TOKEN must be configured")
+    return NodeClientService(agent_token=agent_token, timeout=5)
