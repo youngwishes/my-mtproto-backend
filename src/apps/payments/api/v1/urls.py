@@ -9,6 +9,7 @@ from apps.payments.api.v1.views import (
 
 urlpatterns = [
     path("", ProductAPIView.as_view(), name="product"),
+    path("products/<str:code>/", ProductAPIView.as_view(), name="product-by-code"),
     path("buy/", CreatePaymentView.as_view(), name="product-buy"),
     path(
         "gift-certificates/buy/",

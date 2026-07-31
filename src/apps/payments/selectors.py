@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 from apps.payments.enums import PaymentKindEnum
-from apps.payments.models import GiftCertificate
+from apps.payments.models import GiftCertificate, Product
+
+
+def get_active_product_by_code(*, code: str) -> Product | None:
+    return Product.objects.active().filter(code=code).first()
 
 
 def normalize_gift_certificate_code(*, code: str) -> str:

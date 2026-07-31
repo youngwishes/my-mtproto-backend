@@ -5,12 +5,13 @@ import json
 from django.db import models
 
 from apps.core import ActiveQuerySet, BaseDjangoModel
-from apps.payments.enums import PaymentKindEnum, PaymentProviderEnum
+from apps.payments.enums import ProductCodeEnum, PaymentKindEnum, PaymentProviderEnum
 
 
 class ProductQuerySet(ActiveQuerySet):
     def create_test_product(self) -> "Product":
         return self.create(
+            code=ProductCodeEnum.MTPROTO_30D,
             title="MTPRoto Proxy Key",
             price=99 * 100,
             stars_price=80,
@@ -36,6 +37,7 @@ class ProductQuerySet(ActiveQuerySet):
 
 
 class Product(BaseDjangoModel):
+    code = models.CharField("код", max_length=32, unique=True)
     title = models.CharField("название")
     description = models.TextField("описание")
     currency = models.CharField("валюта", default="RUB")
@@ -99,6 +101,11 @@ class Payment(BaseDjangoModel):
                 fields=("provider", "charge_id", "kind"),
                 condition=models.Q(kind=PaymentKindEnum.GIFT_CERTIFICATE),
                 name="uniq_gift_certificate_payment_identity",
+            ),
+            models.UniqueConstraint(
+                fields=("provider", "charge_id", "kind"),
+                condition=models.Q(kind=PaymentKindEnum.VPN_SUBSCRIPTION),
+                name="uniq_vpn_subscription_payment_identity",
             ),
         ]
 
