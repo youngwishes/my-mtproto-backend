@@ -598,8 +598,8 @@ async def test_vpn_product_menu_uses_approved_copy_and_actions():
         ]
         for row in markup.inline_keyboard
     ] == [
-        [("Купить VPN", "vpn", "success")],
-        [("Моя подписка", "vpn_subscription", None)],
+        [("💳 Купить VPN", "vpn", "success")],
+        [("🔑 Моя подписка", "vpn_subscription", "primary")],
         [("🔙 Назад", "show_start_screen", None)],
     ]
 

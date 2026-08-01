@@ -70,15 +70,16 @@ def vpn_menu() -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="Купить VPN",
+                    text="💳 Купить VPN",
                     callback_data="vpn",
                     style="success",
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text="Моя подписка",
+                    text="🔑 Моя подписка",
                     callback_data="vpn_subscription",
+                    style="primary",
                 )
             ],
             [_ROOT_BACK],
