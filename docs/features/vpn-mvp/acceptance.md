@@ -6,17 +6,17 @@
 - Product review: `accepted`.
 - Дата автоматизированной приёмки: 31 июля 2026 года.
 - Проверенные implementation heads:
-  - backend и bot: `18813d2debcff168dc66f2b118344bed46331e24`;
-  - node-agent: `6799b27f21689ff57b11ca69f0148337b45f51ae`.
+  - backend и bot: `2d5640a368e3df07b667acb4206982d13318a52f`;
+  - node-agent: `48e269dcccc56846dae14663b3bdc0a8fc5c2516`.
 - Production deploy и ручные release-проверки не выполнялись.
 
 ## Автоматизированная приёмка
 
 | Область | Результат |
 |---|---|
-| Django backend | `make test` — 365 tests, OK |
+| Django backend | `make test` — 366 tests, OK |
 | Telegram bot | `uv run pytest` — 90 passed |
-| Node-agent и deploy contracts | `uv run pytest` — 45 passed |
+| Node-agent и deploy contracts | `uv run pytest` — 58 passed |
 | Backend Compose | production config valid |
 | Node-agent Compose | production и local configs valid |
 | Node-agent deploy | Ansible syntax-check valid |
@@ -36,7 +36,8 @@
   backfill неактивной ноды;
 - stateless agent, bounded startup bootstrap, Xray runtime API и локальную
   Hysteria HTTP auth;
-- exact-revision deploy, private management bind и allow-list backend source;
+- exact-revision deploy, private path-filtered management proxy, allow-list
+  backend source и недоступность Hysteria `/auth` через management ingress;
 - отсутствие WebSocket и сохранность существующих MTProto-сценариев.
 
 Независимый product review не выявил `blocking_in_scope`,
