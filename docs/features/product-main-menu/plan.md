@@ -6,31 +6,34 @@
 > checkbox (`- [ ]`) syntax for tracking.
 
 - **Status:** approved
-- **Scope revision:** 1
+- **Scope revision:** 2 (current, approved requirements)
 - **Route:** small local feature; the root agent approved the conclusion that
   no architecture document or architecture review stage is required.
 
-**Goal:** После действующего юридического согласия показывать корневой выбор
-между MTProxy и VPN, открывать отдельные продуктовые меню и возвращать
-пользователя назад в контексте выбранного продукта.
+**Goal:** Сохранить реализованное корневое и MTProxy-меню, а внутри VPN разделить
+путь покупки или продления и путь просмотра собственной подписки с утверждённым
+friendly copy и контекстным возвратом.
 
 **Architecture:** Изменение остаётся внутри aiogram presentation layer. Текущий
-callback `vpn` продолжает открывать существующий экран статуса/покупки/продления,
-а новые callbacks `show_mtproxy_menu` и `show_vpn_menu` открывают продуктовые
-меню; `show_start_screen` остаётся возвратом в корень. Backend API, модели,
-платёжные handlers и domain clients не меняются.
+callback `vpn`, включая существующие VPN-уведомления, становится buy-only и
+использует только invoice methods; новый `vpn_subscription` использует только
+существующий VPN menu endpoint. Отсутствующая подписка выражается локальным
+`BaseServiceError`, который существующий глобальный error handler отправляет
+отдельным сообщением, не редактируя открытое VPN-меню.
 
 **Tech Stack:** Python 3.13, aiogram 3, pytest/pytest-asyncio, существующие
 `FakeMessage`, `FakeCallback`, `FakeFreeTrial` и `FakeVPN`.
 
-## Global Constraints
+## Current Global Constraints
 
 - Единственный источник обязательных требований — approved
-  `docs/features/product-main-menu/business.md`, `scope_revision: 1`.
+  `docs/features/product-main-menu/business.md`, `scope_revision: 2`;
+  дальнейшая реализация по revision 1 запрещена.
 - Production-код изменяется только после соответствующего RED-теста: RED →
   минимальный GREEN → локальный refactor только на зелёном тесте.
-- Существующие тексты MTProxy и VPN status/purchase/renewal не переписывать;
-  новые тексты ограничены утверждёнными точками продуктовой навигации.
+- `VPN_PRODUCT_MENU_TEXT` заменяется exact copy из S-004; status texts содержат
+  только утверждённые status/expiry/subscription URL, а `VPN_MENU_TEXT` и
+  `VPN_PURCHASED_TEXT` остаются без изменений.
 - Не менять backend API, модели, migrations, цены, payment payloads, invoice
   routing, юридическое согласие или регистрацию реферала.
 - Не добавлять VPN-тарифы, статусы, зависимости, новые модули или общие
@@ -45,34 +48,51 @@ callback `vpn` продолжает открывать существующий 
 - Implementers не создают ветки, commits, push, PR, merge или deploy; эти gates
   остаются у главного оркестратора по `docs/DEVELOPMENT_WORKFLOW.md`.
 
-## File and Interface Map
+## Revision History and Execution Scope
 
-- `bot/src/messages.py` — только два новых presentation constants:
-  `PRODUCT_MENU_TEXT` и `VPN_PRODUCT_MENU_TEXT`; существующие welcome/VPN
-  status constants остаются byte-for-byte неизменными.
-- `bot/src/keyboards.py` — корневое, MTProxy и VPN product menus, а также три
-  явных направления возврата: root, MTProxy и VPN.
-- `bot/src/handlers/start.py` — `/start`, consent completion, root callback и
-  вход в MTProxy с free-period check на каждом входе.
-- `bot/src/handlers/vpn.py` — новый лёгкий product-menu handler; существующий
-  `process_vpn` остаётся единственной точкой загрузки VPN status/prices.
-- `bot/tests/test_handlers.py` — RED/GREEN handler и keyboard contracts с
-  существующими fakes; новый test framework или новые fake-модули не нужны.
-- `docs/features/product-main-menu/acceptance.md` — создаётся главным
-  оркестратором после реализации и независимого product review; implementer
-  batches этим файлом не владеют.
+| Scope revision | Plan items | Status |
+|---|---|---|
+| 1 | PMM-001..PMM-003 | Implemented and independently batch-reviewed; retained below as closed history. Revision 1 VPN behavior is superseded by revision 2. |
+| 2 | PMM-004..PMM-005 | Current executable plan; only these two tasks may be assigned. |
+
+Unchecked boxes inside PMM-001..PMM-003 preserve the original approved plan
+text and are not open work. The current implementer receives only task packet
+PMM-B3 with `scope_revision: 2`.
+
+## Current File and Interface Map
+
+- `bot/src/messages.py` — exact VPN product copy и status-only active/expired
+  texts; purchase/success texts не меняются.
+- `bot/src/keyboards.py` — три строки VPN menu и одно-кнопочный status keyboard.
+- `bot/src/handlers/vpn.py` — buy-only `process_vpn` и status-only
+  `process_vpn_subscription`.
+- `bot/src/exceptions.py` — один domain service error для отсутствующей
+  VPN-подписки, использующий существующий global error-handler contract.
+- `bot/tests/test_handlers.py` — exact menu, call-isolation, status и error
+  contracts; call counters добавляются в существующий `FakePayments` этого же
+  файла, новый fake/test framework не создаётся.
+- `docs/features/product-main-menu/acceptance.md` — обновляется главным
+  оркестратором после реализации revision 2 и независимого product review;
+  implementer этим файлом не владеет.
 
 ## Dependency and Batch Graph
 
 ```text
-Batch PMM-B1 (one implementer): PMM-001 -> PMM-002 -> read-only batch review
-Batch PMM-B2 (one implementer): PMM-003             -> read-only batch review
+Closed revision 1:
+PMM-B1: PMM-001 -> PMM-002 -> reviewed
+PMM-B2: PMM-003             -> reviewed
 
-PMM-B1 -> PMM-B2 -> full verification -> product review -> acceptance.md
+Current revision 2:
+PMM-B3 (one implementer): PMM-004 -> PMM-005 -> read-only batch review
+    -> full verification -> product review -> acceptance.md -> PR #14 update
 ```
 
-Параллельных batches нет: оба изменяют `bot/src/keyboards.py` и
-`bot/tests/test_handlers.py`.
+Параллельной работы нет: PMM-004 и PMM-005 разделяют
+`bot/src/messages.py`, `bot/src/keyboards.py`, `bot/src/handlers/vpn.py` и
+`bot/tests/test_handlers.py`, поэтому один implementer выполняет их строго
+последовательно.
+
+## Closed Revision 1 Tasks — Historical, Do Not Execute
 
 ---
 
@@ -532,7 +552,7 @@ callback value `show_vpn_menu`; его полное тело задано в GRE
 menu/prices и показывает byte-for-byte прежний status text; Back с этого экрана
 имеет callback `show_vpn_menu`, а VPN product Back — `show_start_screen`.
 
-## Task Packets
+## Closed Revision 1 Task Packets — Historical
 
 ### PMM-B1 — Root/MTProxy navigation
 
@@ -590,7 +610,7 @@ menu/prices и показывает byte-for-byte прежний status text; Ba
   После implementer остановить writes и передать batch новому read-only
   `code-reviewer`.
 
-## Integration, Product Review and Release Gates
+## Closed Revision 1 Gates — Historical
 
 После обоих batch reviews главный оркестратор выполняет:
 
@@ -617,7 +637,7 @@ git diff --check
 PR head SHA по `docs/DEVELOPMENT_WORKFLOW.md`. PR остаётся открытым. Merge и
 production deploy — явные non-goals текущего Scope Contract.
 
-## Coverage Check
+## Closed Revision 1 Coverage — Historical
 
 | Requirement | Plan evidence |
 |---|---|
@@ -632,7 +652,7 @@ production deploy — явные non-goals текущего Scope Contract.
 | BR-010, AC-008 | PMM-001/PMM-002 callback preservation + PMM-003 VPN regression suite |
 | AC-009 | Full bot, full Django, Compose and diff integration gates |
 
-## Self-Review
+## Closed Revision 1 Self-Review — Historical
 
 - Spec coverage: BR-001..BR-010 and AC-001..AC-009 each map to at least one
   task or mandatory integration gate; no risk from `business.md` was promoted
@@ -647,3 +667,533 @@ production deploy — явные non-goals текущего Scope Contract.
   shared files are edited sequentially.
 - Scope safety: no backend, contract, model, migration, payment, price, product
   status, dependency, unrelated refactor, merge or deploy work is planned.
+
+## Current Revision 2 Tasks
+
+### Task 4 (PMM-004): Friendly VPN menu and buy-only callback
+
+**Result:** `show_vpn_menu` показывает exact approved copy и три утверждённые
+строки. Кнопка `Купить VPN` и существующие VPN-уведомления продолжают вызывать
+`vpn`, но этот callback получает только оба актуальных invoice и всегда
+показывает неизменённый `VPN_MENU_TEXT` с payment methods, не запрашивая VPN
+status или subscription URL.
+
+**Requirements:** BR-006..BR-007, BR-014..BR-015; AC-005..AC-006, AC-008,
+AC-010.
+
+**Dependencies:** PMM-001..PMM-003 реализованы и batch-reviewed; approved
+`business.md`, `scope_revision: 2`.
+
+**Files and ownership:**
+
+- Modify: `bot/src/messages.py` — только exact `VPN_PRODUCT_MENU_TEXT`; не
+  менять `VPN_MENU_TEXT` или `VPN_PURCHASED_TEXT`.
+- Modify: `bot/src/keyboards.py` — только `vpn_menu()`; не менять MTProxy
+  keyboards, payment callbacks или price formatting.
+- Modify: `bot/src/handlers/vpn.py` — только buy-only тело `process_vpn`; не
+  переименовывать handler и не менять filter `F.data == "vpn"`.
+- Modify/Test: `bot/tests/test_handlers.py` — exact product-menu contract,
+  buy-only call-isolation contract и два call counters в существующем
+  `FakePayments`.
+
+**Interfaces produced:**
+
+```python
+VPN_PRODUCT_MENU_TEXT = """🔐 <b>VPN от MTProto Keys</b>
+
+🌐 Защищённое подключение к интернету
+📱 Работает на Android, iOS, Windows и macOS
+🔗 Постоянная subscription-ссылка
+⚙️ Подключение через приложение HAPP
+
+👇 Выберите действие:"""
+```
+
+```python
+def vpn_menu() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="Купить VPN",
+                    callback_data="vpn",
+                    style="success",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="Моя подписка",
+                    callback_data="vpn_subscription",
+                )
+            ],
+            [_ROOT_BACK],
+        ]
+    )
+```
+
+- [ ] **RED — instrument existing fake and replace superseded VPN menu/buy
+  assertions.** В `FakePayments.__init__` добавить integer counters
+  `vpn_card_invoice_calls = 0` и `vpn_stars_invoice_calls = 0`; соответствующие
+  getter methods увеличивают свой counter перед возвратом invoice:
+
+  ```python
+  # inside FakePayments.__init__
+  self.vpn_card_invoice_calls = 0
+  self.vpn_stars_invoice_calls = 0
+
+  async def get_vpn_card_invoice(self):
+      self.vpn_card_invoice_calls += 1
+      return self._card
+
+  async def get_vpn_stars_invoice(self):
+      self.vpn_stars_invoice_calls += 1
+      return self._stars
+  ```
+
+  Переписать revision 1 product-menu test в exact revision 2 contract:
+
+  ```python
+  async def test_vpn_product_menu_uses_approved_copy_and_actions():
+      callback = FakeCallback(data="show_vpn_menu")
+
+      await process_vpn_menu(callback)
+
+      assert callback.answers
+      text, markup = callback.message.edits[0]
+      assert text == VPN_PRODUCT_MENU_TEXT
+      assert [
+          [
+              (button.text, button.callback_data, button.style)
+              for button in row
+          ]
+          for row in markup.inline_keyboard
+      ] == [
+          [("Купить VPN", "vpn", "success")],
+          [("Моя подписка", "vpn_subscription", None)],
+          [("🔙 Назад", "show_start_screen", None)],
+      ]
+  ```
+
+  Старые tests
+  `test_vpn_menu_offers_two_payment_methods_for_unavailable_subscription`,
+  `test_vpn_menu_shows_current_prices_for_every_subscription_state` и
+  `test_vpn_menu_shows_active_expiry_and_stable_subscription_url` описывают
+  superseded объединённый callback revision 1. Их заменить одним buy-only
+  contract; status cases переходят в PMM-005:
+
+  ```python
+  async def test_vpn_purchase_fetches_only_invoices_and_shows_purchase_screen():
+      callback = FakeCallback(chat_id=42, user_id=42, data="vpn")
+      vpn = FakeVPN(
+          menu=VPNMenu(
+              status="active",
+              expired_at="2026-08-31T12:00:00+00:00",
+              subscription_url="https://vpn.example/subscriptions/token/",
+          )
+      )
+      deps = _deps_with_vpn(vpn=vpn)
+
+      await process_vpn(callback, deps)
+
+      assert callback.answers
+      assert vpn.menu_calls == []
+      assert deps.payments.vpn_card_invoice_calls == 1
+      assert deps.payments.vpn_stars_invoice_calls == 1
+      text, markup = callback.message.edits[0]
+      assert text == VPN_MENU_TEXT
+      assert "https://vpn.example/subscriptions/token/" not in text
+      assert [
+          [button.callback_data for button in row]
+          for row in markup.inline_keyboard
+      ] == [
+          ["vpn_pay_yukassa"],
+          ["vpn_pay_stars"],
+          ["show_vpn_menu"],
+      ]
+      assert markup.inline_keyboard[0][0].text == "💳 ЮKassa — 149 ₽"
+      assert markup.inline_keyboard[1][0].text == "⭐ Telegram Stars — 149 ★"
+  ```
+
+  Существующие invoice payload tests и
+  `test_successful_vpn_payment_routes_only_to_vpn_buy_and_shows_happ_import`
+  оставить без изменения как regression evidence BR-015/AC-008.
+
+- [ ] **Запустить RED.**
+
+  ```bash
+  cd bot && uv run pytest tests/test_handlers.py \
+    -k "vpn_product_menu or vpn_purchase_fetches_only" -q
+  ```
+
+  Ожидаемый результат до production-изменений: product-menu test FAIL на старом
+  copy и двух строках вместо трёх; buy-only test FAIL, потому что текущий
+  `process_vpn` вызывает `vpn.get_menu()` и для active fixture показывает
+  `VPN_ACTIVE_TEXT` вместо `VPN_MENU_TEXT`.
+
+- [ ] **GREEN — внести минимальные presentation и buy-path изменения.** Точно
+  заменить `VPN_PRODUCT_MENU_TEXT`, заменить только тело `vpn_menu()` на
+  интерфейс выше и свести `process_vpn` к следующему потоку:
+
+  ```python
+  @router.callback_query(F.data == "vpn")
+  async def process_vpn(callback: CallbackQuery, deps: Dependencies) -> None:
+      await callback.answer()
+      card_invoice = await deps.payments.get_vpn_card_invoice()
+      stars_invoice = await deps.payments.get_vpn_stars_invoice()
+      payment_methods = keyboards.vpn_payment_methods(
+          card_price_kopecks=card_invoice.prices[0].amount,
+          stars_price=stars_invoice.prices[0].amount,
+      )
+      await callback.message.edit_text(
+          text=VPN_MENU_TEXT,
+          reply_markup=payment_methods,
+      )
+  ```
+
+  Удалить из `process_vpn` только `deps.vpn` configuration check,
+  `get_menu()` и status branches. Не менять decorator, invoice handlers,
+  payloads, successful-payment handler или `VPN_MENU_TEXT`.
+
+- [ ] **Documentation:** implementer не меняет docs. Approved copy и behavior
+  уже зафиксированы в `business.md`; `acceptance.md` обновляет только root после
+  product review.
+
+- [ ] **GREEN verification.**
+
+  ```bash
+  cd bot && uv run pytest tests/test_handlers.py \
+    -k "vpn_product_menu or vpn_purchase_fetches_only or vpn_yukassa_invoice or vpn_stars_invoice or successful_vpn_payment" -q
+  ```
+
+  Ожидаемый результат: выбранные tests PASS; `vpn.menu_calls == []`, оба invoice
+  counters равны `1`, payment callbacks/payloads и successful result остались
+  прежними.
+
+**Completion criterion:** Exact S-004 copy и exact three-row keyboard проходят
+assertions; `process_vpn` не обращается к `deps.vpn`, делает ровно по одному
+invoice call каждого типа и показывает только `VPN_MENU_TEXT` с текущими ценами;
+notification callback name `vpn` и successful-payment result не изменены.
+
+---
+
+### Task 5 (PMM-005): Status-only VPN subscription and missing-subscription error
+
+**Result:** `vpn_subscription` единственный раз получает VPN menu DTO и не
+получает invoices. Active/expired состояния показывают status, expiry и URL с
+ровно одной кнопкой Back; `none` не редактирует открытое VPN-меню и поднимает
+bot domain service error с exact approved user message.
+
+**Requirements:** BR-008, BR-011..BR-014; AC-006, AC-011..AC-013.
+
+**Dependencies:** PMM-004 GREEN; counters `FakePayments` и callback
+`vpn_subscription` из нового `vpn_menu()` доступны в том же sequential batch.
+
+**Files and ownership:**
+
+- Modify: `bot/src/messages.py` — только status-only `VPN_ACTIVE_TEXT` и
+  `VPN_EXPIRED_TEXT`; не менять purchase/success copy.
+- Modify: `bot/src/keyboards.py` — только новый `vpn_subscription()` keyboard;
+  не менять payment methods.
+- Modify: `bot/src/handlers/vpn.py` — новый
+  `process_vpn_subscription(callback, deps)`; не менять PMM-004 buy handler.
+- Modify: `bot/src/exceptions.py` — только один новый public domain service
+  error subclass.
+- Modify/Test: `bot/tests/test_handlers.py` — active/expired parameterized
+  contract и exact `none` error contract.
+
+**Interfaces produced:**
+
+```python
+class VPNSubscriptionDoesNotExist(BaseServiceError):
+    """🔒 У вас нет активной VPN-подписки. Если вы думаете, что это ошибка, пожалуйста, свяжитесь с нами через сообщения канала — @mtproto_keys."""
+```
+
+```python
+VPN_ACTIVE_TEXT = """🔐 <b>Твоя VPN-подписка активна</b>
+
+Действует до: <b>{expired_at}</b>
+
+Subscription-ссылка:
+<code>{subscription_url}</code>"""
+
+VPN_EXPIRED_TEXT = """🔐 <b>VPN-подписка закончилась</b>
+
+Она действовала до: <b>{expired_at}</b>
+
+Subscription-ссылка:
+<code>{subscription_url}</code>"""
+```
+
+```python
+def vpn_subscription() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[[_VPN_BACK]])
+```
+
+- [ ] **RED — add active/expired isolation contract.** Импортировать
+  `VPNSubscriptionDoesNotExist` и новый `process_vpn_subscription`. Добавить:
+
+  ```python
+  @pytest.mark.parametrize(
+      ("menu", "expected_text"),
+      [
+          (
+              VPNMenu(
+                  status="active",
+                  expired_at="2026-08-31T12:00:00+00:00",
+                  subscription_url="https://vpn.example/subscriptions/active/",
+              ),
+              VPN_ACTIVE_TEXT.format(
+                  expired_at="2026-08-31T12:00:00+00:00",
+                  subscription_url="https://vpn.example/subscriptions/active/",
+              ),
+          ),
+          (
+              VPNMenu(
+                  status="expired",
+                  expired_at="2026-07-31T12:00:00+00:00",
+                  subscription_url="https://vpn.example/subscriptions/expired/",
+              ),
+              VPN_EXPIRED_TEXT.format(
+                  expired_at="2026-07-31T12:00:00+00:00",
+                  subscription_url="https://vpn.example/subscriptions/expired/",
+              ),
+          ),
+      ],
+  )
+  async def test_vpn_subscription_shows_status_without_invoice_calls(
+      menu, expected_text
+  ):
+      callback = FakeCallback(chat_id=42, user_id=42, data="vpn_subscription")
+      vpn = FakeVPN(menu=menu)
+      deps = _deps_with_vpn(vpn=vpn)
+
+      await process_vpn_subscription(callback, deps)
+
+      assert callback.answers
+      assert vpn.menu_calls == ["42"]
+      assert deps.payments.vpn_card_invoice_calls == 0
+      assert deps.payments.vpn_stars_invoice_calls == 0
+      text, markup = callback.message.edits[0]
+      assert text == expected_text
+      assert [
+          [(button.text, button.callback_data) for button in row]
+          for row in markup.inline_keyboard
+      ] == [[("🔙 Назад", "show_vpn_menu")]]
+  ```
+
+- [ ] **RED — add exact missing-subscription service-error contract.**
+
+  ```python
+  async def test_vpn_subscription_without_subscription_keeps_menu_and_raises_error():
+      callback = FakeCallback(chat_id=42, user_id=42, data="vpn_subscription")
+      vpn = FakeVPN(
+          menu=VPNMenu(status="none", expired_at=None, subscription_url=None)
+      )
+      deps = _deps_with_vpn(vpn=vpn)
+
+      with pytest.raises(VPNSubscriptionDoesNotExist) as exc_info:
+          await process_vpn_subscription(callback, deps)
+
+      assert callback.answers
+      assert vpn.menu_calls == ["42"]
+      assert deps.payments.vpn_card_invoice_calls == 0
+      assert deps.payments.vpn_stars_invoice_calls == 0
+      assert callback.message.edits == []
+      assert exc_info.value.telegram_id == "42"
+      assert exc_info.value.message == (
+          "🔒 У вас нет активной VPN-подписки. Если вы думаете, что это ошибка, "
+          "пожалуйста, свяжитесь с нами через сообщения канала — @mtproto_keys."
+      )
+  ```
+
+  Отдельный user message не эмулировать внутри handler test: существующий
+  `handle_service_errors` уже отправляет `BaseServiceError.message` отдельным
+  `bot.send_message`; handler contract обязан поднять этот error до framework
+  boundary и не вызвать `edit_text`.
+
+- [ ] **Запустить RED.**
+
+  ```bash
+  cd bot && uv run pytest tests/test_handlers.py \
+    -k "vpn_subscription_shows_status or vpn_subscription_without" -q
+  ```
+
+  Ожидаемый результат до production-изменений: collection/import FAIL, потому
+  что `VPNSubscriptionDoesNotExist` и `process_vpn_subscription` отсутствуют;
+  также отсутствует одно-кнопочный `keyboards.vpn_subscription()` contract.
+
+- [ ] **GREEN — implement exact error, status copy, keyboard and handler.**
+  Добавить три interfaces выше и handler:
+
+  ```python
+  @router.callback_query(F.data == "vpn_subscription")
+  async def process_vpn_subscription(
+      callback: CallbackQuery,
+      deps: Dependencies,
+  ) -> None:
+      await callback.answer()
+      if deps.vpn is None:
+          raise RuntimeError("VPN client is not configured")
+
+      menu = await deps.vpn.get_menu(
+          telegram_id=str(callback.from_user.id)
+      )
+      if menu.status == "none":
+          raise VPNSubscriptionDoesNotExist(str(callback.from_user.id))
+
+      if menu.status == "active":
+          text = VPN_ACTIVE_TEXT.format(
+              expired_at=menu.expired_at,
+              subscription_url=menu.subscription_url,
+          )
+      else:
+          text = VPN_EXPIRED_TEXT.format(
+              expired_at=menu.expired_at,
+              subscription_url=menu.subscription_url,
+          )
+
+      await callback.message.edit_text(
+          text=text,
+          reply_markup=keyboards.vpn_subscription(),
+      )
+  ```
+
+  Импортировать error из `src.exceptions`. Не добавлять branch для новых
+  statuses: существующий `VPNMenu.status` contract содержит только `none`,
+  `active`, `expired`, а новые statuses являются non-goal.
+
+- [ ] **Documentation:** implementer не меняет docs. Error docstring является
+  exact user message по принятому bot pattern; root позднее отражает результат
+  product review в `acceptance.md`.
+
+- [ ] **GREEN verification.**
+
+  ```bash
+  cd bot && uv run pytest tests/test_handlers.py \
+    -k "vpn_subscription or vpn_purchase_fetches_only or vpn_product_menu" -q
+  ```
+
+  Ожидаемый результат: active, expired, none, buy-only и menu tests PASS; status
+  path имеет один VPN call, ноль invoice calls и один Back; none имеет ноль
+  edits и exact `BaseServiceError.message`.
+
+**Completion criterion:** `vpn_subscription` делает ровно один `get_menu` и
+ноль invoice calls; active/expired exact texts включают свои expiry и URL и
+ровно `[[Back -> show_vpn_menu]]`; none отвечает на callback, не редактирует
+меню и поднимает `VPNSubscriptionDoesNotExist("42")` с exact approved message.
+
+## Current Revision 2 Task Packet
+
+### PMM-B3 — Split VPN purchase and subscription paths
+
+- `scope_revision`: 2.
+- Plan IDs: `PMM-004`, затем `PMM-005`; один `plan-implementer`, не более двух
+  пунктов, строго последовательное выполнение.
+- Assigned BR/AC: PMM-004 — BR-006..BR-007, BR-014..BR-015, AC-005..AC-006,
+  AC-008, AC-010; PMM-005 — BR-008, BR-011..BR-014, AC-006, AC-011..AC-013.
+- Allowed and expected files: `bot/src/messages.py`, `bot/src/keyboards.py`,
+  `bot/src/handlers/vpn.py`, `bot/src/exceptions.py`,
+  `bot/tests/test_handlers.py`.
+- Ownership boundary: exact VPN product copy/rows, разделение существующих
+  invoice/status client calls, одно-кнопочный subscription keyboard и один
+  missing-subscription bot service error. PMM-004 не меняет exceptions/status
+  handler; PMM-005 не меняет buy/payment handlers.
+- Forbidden neighboring work: `bot/src/domains/**`,
+  `bot/src/handlers/payments.py`, `bot/src/error_handler.py`, backend `src/**`,
+  другие tests/docs, dependency or shared abstraction refactors,
+  branch/commit/push/PR/merge/deploy.
+- Non-goals: backend/API/models/migrations, цены, payloads, payment/success
+  behavior, новые VPN tariffs/statuses, MTProxy/legal/referral changes,
+  architecture, unrelated refactors, `apps/music/`, merge/deploy.
+- Dependencies: PMM-001..PMM-003 implemented/reviewed; PMM-005 starts only
+  after PMM-004 targeted GREEN. `scope_revision: 1` packets are closed and may
+  not be reused.
+- Budget: максимум пять изменяемых files, ноль новых files/modules/dependencies;
+  один error subclass, один keyboard factory, один handler, одно focused
+  упрощение существующего handler и exact copy replacements. Не создавать
+  helper/service layers.
+- Verifiable completion: обе targeted GREEN commands и
+  `cd bot && uv run pytest tests/test_handlers.py -q` PASS; diff ограничен пятью
+  allowed files и не меняет payment payload/success code. После implementer
+  остановить все writes и передать batch отдельному read-only `code-reviewer`.
+
+## Current Revision 2 Integration, Product Review and PR #14 Gates
+
+После PMM-B3 batch review главный оркестратор выполняет:
+
+```bash
+(cd bot && uv run pytest)
+make test
+docker compose -f docker-compose.yml config --quiet
+git diff --check
+```
+
+Ожидания: весь bot suite и Django suite PASS, production Compose config valid,
+`git diff --check` без вывода. Baseline перед revision 2 implementation:
+`cd bot && uv run pytest tests/test_handlers.py -q` — `45 passed`.
+
+Отдельный `product-reviewer` затем проверяет полную текущую спецификацию
+BR-001..BR-015 и AC-001..AC-013, включая сохранённый revision 1 baseline и
+новые call-isolation contracts. Только после принятия root обновляет
+`docs/features/product-main-menu/acceptance.md` с `scope_revision: 2`, exact
+командами/результатами, BR/AC coverage и классификацией findings. Implementer и
+batch reviewer этим файлом не владеют.
+
+После product acceptance root обновляет существующий PR #14, не создавая новый
+PR и не переписывая remote history:
+
+```bash
+test "$(git branch --show-current)" = "codex/product-main-menu"
+gh auth status
+git push origin codex/product-main-menu
+PR_HEAD_SHA="$(gh pr view 14 --json headRefOid --jq '.headRefOid')"
+test "$PR_HEAD_SHA" = "$(git rev-parse HEAD)"
+gh pr checks 14 --watch
+```
+
+Новый `code-reviewer` проверяет exact `PR_HEAD_SHA` через `gh pr view 14`,
+`gh pr diff 14` и `gh pr checks 14`, затем публикует один structured
+`gh pr review 14 --comment` с `VERDICT: approved` или при наличии подтверждённых
+`blocking_in_scope` — `VERDICT: changes_requested`. После любого fix commit/push
+нужен новый reviewer нового head SHA. Перед handoff root повторно подтверждает:
+
+```bash
+test "$(gh pr view 14 --json headRefOid --jq '.headRefOid')" = "$PR_HEAD_SHA"
+gh pr checks 14
+```
+
+PR #14 остаётся открытым. Merge и production deploy не выполняются.
+
+## Current Revision 2 Coverage Check
+
+| Requirement | Plan evidence |
+|---|---|
+| BR-001..BR-004, BR-009; AC-001..AC-003, AC-007 | Implemented/reviewed PMM-001; full regression and product review |
+| BR-005, BR-010; AC-004, AC-008 (MTProxy) | Implemented/reviewed PMM-002; full regression and product review |
+| BR-006; AC-005 | PMM-004 exact copy, style and three-row keyboard contract |
+| BR-007; AC-010 | PMM-004 buy-only call counters, exact purchase text/payment keyboard, preserved `vpn` callback |
+| BR-008, BR-011, BR-014; AC-006, AC-011 | PMM-005 active isolation/text/one-Back contract |
+| BR-008, BR-012, BR-014; AC-006, AC-012 | PMM-005 expired isolation/text/one-Back contract |
+| BR-008, BR-013; AC-013 | PMM-005 no-edit exact domain-error contract |
+| BR-015; AC-008 (VPN success) | PMM-004 preserves existing successful-payment regression test |
+| BR-001..BR-015; AC-009 | Full bot, full Django, Compose and diff integration gates |
+
+PMM-003 остаётся историческим implementation baseline меню/возврата, но его
+superseded объединённый VPN status/purchase behavior не используется как
+evidence revision 2.
+
+## Current Revision 2 Self-Review
+
+- Spec coverage: каждый BR-001..BR-015 и AC-001..AC-013 имеет прямую ссылку на
+  закрытый baseline item, current task или mandatory integration gate.
+- Completeness scan: PMM-004/PMM-005 содержат exact copy, callback values,
+  styles, types, test assertions, RED reasons, minimal production bodies,
+  commands и completion criteria; неопределённых interfaces нет.
+- Type consistency: `vpn_subscription` одинаково назван в product keyboard,
+  router filter, handler test и status keyboard; error принимает
+  `telegram_id: str` через унаследованный `BaseServiceError` constructor.
+- Batch safety: всего пять plan tasks; current implementer получает ровно два
+  последовательных tasks, пересекающиеся files не редактируются параллельно.
+- Scope safety: план не добавляет backend/API/model/migration/price/payload,
+  payment/success, tariff/status, architecture, unrelated refactor,
+  `apps/music/`, merge или deploy work.
