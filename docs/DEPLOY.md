@@ -83,3 +83,8 @@ Playbook сам запускает миграции через entrypoint Django
 smoke-check и активировать ноду вручную; только затем включить товар и выполнить
 реальную smoke-покупку с импортом subscription URL в HAPP. Эти действия не
 являются разрешением на merge или production deploy.
+
+Для первого MVP rollout `VPNInstance.management_url` указывает на публичный
+plaintext HTTP management proxy ноды. Host firewall отсутствует; bearer token
+и route allowlist остаются. Риск перехвата token/profile payload принят
+пользователем до deploy.

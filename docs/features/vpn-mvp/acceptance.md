@@ -2,7 +2,7 @@
 
 ## Статус
 
-- Scope Contract: `scope_revision: 1`.
+- Scope Contract: `scope_revision: 2`.
 - Product review: `accepted`.
 - Дата автоматизированной приёмки: 31 июля 2026 года.
 - Проверенные implementation heads:
@@ -36,8 +36,8 @@
   backfill неактивной ноды;
 - stateless agent, bounded startup bootstrap, Xray runtime API и локальную
   Hysteria HTTP auth;
-- exact-revision deploy, private path-filtered management proxy, allow-list
-  backend source и недоступность Hysteria `/auth` через management ingress;
+- exact-revision deploy, публичный path-filtered management proxy с bearer
+  auth и недоступность Hysteria `/auth` через management ingress;
 - отсутствие WebSocket и сохранность существующих MTProto-сценариев.
 
 Независимый product review не выявил `blocking_in_scope`,
@@ -49,8 +49,8 @@ AC-001…AC-011 приняты на уровне кода и автоматиз�
 После отдельного разрешения на merge и нового отдельного разрешения на deploy
 нужно выполнить на первой ноде и записать результат:
 
-1. развернуть exact release SHA и проверить bootstrap, private management route
-   и firewall allow-list;
+1. развернуть exact release SHA и проверить bootstrap и публичный management
+   route; plaintext HTTP и отсутствие host firewall приняты как риск MVP;
 2. создать неактивную `VPNInstance`, выполнить повторяемый backfill и проверить
    PUT профиля;
 3. импортировать одну subscription URL в HAPP и подтвердить `2 × N` профилей;
