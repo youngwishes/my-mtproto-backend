@@ -5,19 +5,18 @@
 - Scope Contract: `scope_revision: 2`.
 - Product review: `accepted`.
 - Дата автоматизированной приёмки: 1 августа 2026 года.
-- Проверенные implementation heads:
-  - backend и bot release: `706a445534b868f99610882db319d9c2397b5f44`;
-  - node-agent public-management fix:
-    `3b0cb094833452ff5f897eb86e2849a878b6ca86`.
-- Production deploy и ручные release-проверки не выполнялись.
+- Production releases:
+  - backend и bot: `5f53902d5bef27d7fa128b1980361bd10a7bbb58`;
+  - node-agent: `a877e985c7d1611c7dc4d78ce85044ab62a738ae`.
+- Production deploy и control-plane smoke выполнены 1 августа 2026 года.
 
 ## Автоматизированная приёмка
 
 | Область | Результат |
 |---|---|
-| Django backend | `make test` — 366 tests, OK |
+| Django backend | `make test` — 367 tests, OK |
 | Telegram bot | `uv run pytest` — 90 passed |
-| Node-agent и deploy contracts | `uv run --python 3.13 pytest` — 59 passed |
+| Node-agent и deploy contracts | `uv run pytest` — 62 passed |
 | Backend Compose | production config valid |
 | Node-agent Compose | production и local configs valid |
 | Node-agent deploy | Ansible syntax-check valid |
@@ -45,23 +44,33 @@
 `scope_change_request` или `follow_up` findings. Все BR-001…BR-019 и
 AC-001…AC-011 приняты на уровне кода и автоматизированных контрактов.
 
-## Ручные release-gates
+## Production release
 
-После отдельного разрешения на merge и нового отдельного разрешения на deploy
-нужно выполнить на первой ноде и записать результат:
+Выполнено после отдельных разрешений на merge и deploy:
 
-1. развернуть exact release SHA и проверить bootstrap и публичный management
-   route; plaintext HTTP и отсутствие host firewall приняты как риск MVP;
-2. создать неактивную `VPNInstance`, выполнить повторяемый backfill и проверить
-   PUT профиля;
-3. импортировать одну subscription URL в HAPP и подтвердить `2 × N` профилей;
-4. проверить TCP/443 VLESS+REALITY и UDP/443 Hysteria 2;
-5. выполнить реальные оплаты ЮKassa и Stars, подтвердив немедленную выдачу URL;
-6. проверить продление, административную деактивацию и expiry DELETE;
-7. активировать ноду и продажи только после успешного smoke.
+1. На первой ноде развёрнут exact node-agent release. Публичный management
+   ingress отвечает на TCP/8443; plaintext HTTP и отсутствие host firewall
+   приняты как риск MVP. Bearer auth возвращает `401` без токена, а `/auth`
+   недоступен через management proxy (`404`).
+2. Создана неактивная `VPNInstance` `VPN-1`, выполнен backfill. Активных
+   подписок на момент backfill не было.
+3. Сквозной временный профиль успешно прошёл PUT (`200`), появился в Xray и
+   прошёл Hysteria auth. DELETE вернул `204`, после чего профиль исчез из Xray
+   и перестал проходить Hysteria auth.
+4. Подтверждены listeners TCP/443 для VLESS+REALITY, UDP/443 для Hysteria 2 и
+   TCP/8443 для management proxy; Xray healthcheck зелёный.
+5. После успешного control-plane smoke активированы `VPN-1` и товар `vpn_30d`
+   с утверждёнными ценами 149 рублей и 149 Stars. Продажи разрешены в рамках
+   принятого MVP-решения.
+6. Backend release и все центральные Compose-сервисы запущены; production
+   backend успешно обращается к публичному health endpoint VPN-ноды.
 
-Ни один из этих пунктов не отмечен выполненным в pre-PR приёмке. Первый сервер
-не изменялся и production deploy не запускался.
+Не выполнялись и остаются ручными post-release проверками:
+
+- импорт реальной subscription URL в HAPP и data-plane трафик через оба
+  транспорта;
+- реальные оплаты ЮKassa и Stars;
+- продление, административная деактивация и expiry на реальной подписке.
 
 ## Отложено за рамки MVP
 
