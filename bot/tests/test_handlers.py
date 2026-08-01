@@ -7,7 +7,7 @@ import pytest
 from aiogram.types import LabeledPrice
 
 from src import keyboards
-from src.exceptions import APIError
+from src.exceptions import APIError, VPNSubscriptionDoesNotExist
 from src.handlers import payments as payments_module
 from src.handlers.free_trial import process_boost_free
 from src.handlers.links import process_my_servers, update_link, update_link_confirm
@@ -22,15 +22,32 @@ from src.handlers.payments import (
     process_pre_checkout_query,
     process_successful_payment,
 )
-from src.handlers.vpn import process_vpn, process_vpn_pay_stars, process_vpn_pay_yukassa
+from src.handlers.vpn import (
+    process_vpn,
+    process_vpn_menu,
+    process_vpn_pay_stars,
+    process_vpn_pay_yukassa,
+    process_vpn_subscription,
+)
 from src.handlers.referrals import process_referral, process_referral_link
 from src.handlers.start import (
     cmd_start,
     cmd_start_inline,
     process_info,
     process_legal_consent,
+    process_mtproxy_menu,
 )
-from src.messages import PRIVACY_URL, SITE_URL, SUPPORT_URL, TERMS_URL
+from src.messages import (
+    PRIVACY_URL,
+    PRODUCT_MENU_TEXT,
+    SITE_URL,
+    SUPPORT_URL,
+    TERMS_URL,
+    VPN_MENU_TEXT,
+    VPN_PRODUCT_MENU_TEXT,
+    WELCOME_TEXT_MONTH,
+    WELCOME_TEXT_NOT_FREE,
+)
 from src.domains.free_trial import FreeTrialKey
 from src.domains.links import MyServers, ReissuedKey, ServerItem
 from src.domains.payments import (
@@ -144,6 +161,8 @@ class FakePayments:
         self.confirmed: list[tuple] = []
         self.gift_confirmed: list[tuple] = []
         self.activated: list[tuple] = []
+        self.vpn_card_invoice_calls = 0
+        self.vpn_stars_invoice_calls = 0
 
     async def get_card_invoice(self):
         return self._card
@@ -152,9 +171,11 @@ class FakePayments:
         return self._stars
 
     async def get_vpn_card_invoice(self):
+        self.vpn_card_invoice_calls += 1
         return self._card
 
     async def get_vpn_stars_invoice(self):
+        self.vpn_stars_invoice_calls += 1
         return self._stars
 
     async def confirm_purchase(self, *, telegram_id, charge_id, provider):
@@ -235,53 +256,79 @@ def servers() -> MyServers:
 # --- start screen -----------------------------------------------------------
 
 
-async def test_cmd_start_offers_free_boost_when_available():
+async def test_cmd_start_shows_only_product_root_without_free_trial_check():
     fake = FakeFreeTrial(check="MONTH")
     message = FakeMessage(text="/start", user_id=42, username="bob")
 
     await cmd_start(message, make_deps(free_trial=fake))
 
-    assert fake.checked == [("42", "bob", None)]
-    _, markup = message.answers[0]
-    assert markup.inline_keyboard[0][0].callback_data == "boost_free"
+    assert fake.status_checked == ["42"]
+    assert fake.checked == []
+    text, markup = message.answers[0]
+    assert text == PRODUCT_MENU_TEXT
+    assert [[button.text for button in row] for row in markup.inline_keyboard] == [
+        ["⚡ MTProxy"],
+        ["🔐 VPN"],
+    ]
+    assert [
+        [button.callback_data for button in row]
+        for row in markup.inline_keyboard
+    ] == [["show_mtproxy_menu"], ["show_vpn_menu"]]
 
 
-async def test_cmd_start_offers_paid_boost_when_not_available():
-    fake = FakeFreeTrial(check="NOT_AVAILABLE")
-    message = FakeMessage(text="/start")
+@pytest.mark.parametrize(
+    ("period", "expected_text", "boost_callback"),
+    [
+        ("MONTH", WELCOME_TEXT_MONTH, "boost_free"),
+        ("NOT_AVAILABLE", WELCOME_TEXT_NOT_FREE, "boost_paid"),
+    ],
+)
+async def test_mtproxy_menu_checks_free_period_on_every_entry(
+    period, expected_text, boost_callback
+):
+    fake = FakeFreeTrial(check=period)
+    callback = FakeCallback(user_id=42, username="real_user")
+    deps = make_deps(free_trial=fake)
 
-    await cmd_start(message, make_deps(free_trial=fake))
+    await process_mtproxy_menu(callback, deps)
+    await process_mtproxy_menu(callback, deps)
 
-    _, markup = message.answers[0]
-    assert markup.inline_keyboard[0][0].callback_data == "boost_paid"
+    assert fake.checked == [
+        ("42", "real_user", None),
+        ("42", "real_user", None),
+    ]
+    text, markup = callback.message.edits[-1]
+    assert text == expected_text
+    assert markup.inline_keyboard[0][0].callback_data == boost_callback
+    assert [[button.text for button in row] for row in markup.inline_keyboard] == [
+        ["⚡️ Ускорить Telegram"],
+        ["📡 Мои серверы"],
+        ["🎁 Подарить подписку"],
+        ["🤝 Реферальный кабинет"],
+        ["📋 Информация"],
+        ["💬 Поддержка", "🌐 Наш сайт"],
+        ["🔙 Назад"],
+    ]
 
 
 async def test_cmd_start_passes_none_username_as_none_not_string():
     # У юзера нет @username в Telegram → шлём None, а не str(None) == "None"
     fake = FakeFreeTrial(check="MONTH")
-    message = FakeMessage(text="/start", user_id=42, username=None)
+    callback = FakeCallback(user_id=42, username=None)
 
-    await cmd_start(message, make_deps(free_trial=fake))
+    await process_mtproxy_menu(callback, make_deps(free_trial=fake))
 
-    assert fake.checked[0][1] is None
-
-
-async def test_cmd_start_extracts_referrer_from_payload():
-    fake = FakeFreeTrial()
-    message = FakeMessage(text="/start 777", user_id=42)
-
-    await cmd_start(message, make_deps(free_trial=fake))
-
-    assert fake.checked[0][2] == "777"  # invited_from_username
+    assert fake.checked == [("42", None, None)]
 
 
 async def test_cmd_start_ignores_self_referral():
-    fake = FakeFreeTrial()
+    fake = FakeFreeTrial(consent=False)
     message = FakeMessage(text="/start 42", user_id=42)
 
     await cmd_start(message, make_deps(free_trial=fake))
 
-    assert fake.checked[0][2] is None
+    _, markup = message.answers[0]
+    assert markup.inline_keyboard[0][0].callback_data == "accept_legal_terms"
 
 
 async def test_cmd_start_shows_consent_without_registering_new_user():
@@ -320,8 +367,13 @@ async def test_accept_consent_registers_clicking_user_and_opens_start_screen():
     await process_legal_consent(callback, make_deps(free_trial=fake))
 
     assert fake.accepted == [("42", "real_user", "777")]
-    assert fake.checked == [("42", "real_user", None)]
-    assert callback.message.edits
+    assert fake.checked == []
+    text, markup = callback.message.edits[0]
+    assert text == PRODUCT_MENU_TEXT
+    assert [[button.text for button in row] for row in markup.inline_keyboard] == [
+        ["⚡ MTProxy"],
+        ["🔐 VPN"],
+    ]
 
 
 async def test_accept_consent_does_not_open_menu_when_backend_returns_false():
@@ -337,25 +389,24 @@ async def test_accept_consent_does_not_open_menu_when_backend_returns_false():
 
 async def test_show_start_screen_answers_callback():
     # «🔙 Назад» (show_start_screen) must close the loading spinner in Telegram
-    fake = FakeFreeTrial(check="MONTH")
     callback = FakeCallback(chat_id=42)
 
-    await cmd_start_inline(callback, make_deps(free_trial=fake))
+    await cmd_start_inline(callback)
 
     assert callback.answers, "callback.answer() was not called — spinner hangs"
 
 
-async def test_show_start_screen_passes_clicking_user_not_bot():
-    # id и username берутся у нажавшего (callback.from_user), а не из
-    # сообщения с кнопкой (callback.message), которое принадлежит боту
-    fake = FakeFreeTrial(check="MONTH")
+async def test_show_start_screen_shows_product_root():
     callback = FakeCallback(chat_id=99, user_id=42, username="real_user")
 
-    await cmd_start_inline(callback, make_deps(free_trial=fake))
+    await cmd_start_inline(callback)
 
-    telegram_id, telegram_username, _ = fake.checked[0]
-    assert telegram_id == "42"
-    assert telegram_username == "real_user"
+    text, markup = callback.message.edits[0]
+    assert text == PRODUCT_MENU_TEXT
+    assert [
+        [button.callback_data for button in row]
+        for row in markup.inline_keyboard
+    ] == [["show_mtproxy_menu"], ["show_vpn_menu"]]
 
 
 async def test_info_answers_callback():
@@ -390,25 +441,11 @@ async def test_payment_screen_includes_legal_links():
     assert PRIVACY_URL in text
 
 
-def test_main_menu_last_button_links_to_site():
-    markup = keyboards.main_menu("boost_free")
-
-    last_button = markup.inline_keyboard[-1][-1]
-    assert last_button.url == SITE_URL
-
-
-def test_main_menu_has_support_button():
-    markup = keyboards.main_menu("boost_free")
+def test_mtproxy_menu_links_to_site_and_support():
+    markup = keyboards.mtproxy_menu("boost_free")
 
     urls = [btn.url for row in markup.inline_keyboard for btn in row if btn.url]
-    assert SUPPORT_URL in urls
-
-
-def test_main_menu_opens_vpn_subscription_management():
-    markup = keyboards.main_menu("boost_free")
-
-    callbacks = [button.callback_data for row in markup.inline_keyboard for button in row]
-    assert "vpn" in callbacks
+    assert set(urls) >= {SITE_URL, SUPPORT_URL}
 
 
 def test_info_keyboard_links_to_legal_docs_and_drops_offer():
@@ -418,6 +455,31 @@ def test_info_keyboard_links_to_legal_docs_and_drops_offer():
     assert TERMS_URL in urls
     assert PRIVACY_URL in urls
     assert not any("drive.google.com" in url for url in urls)
+
+
+def test_mtproxy_internal_back_buttons_return_to_mtproxy_menu(
+    servers: MyServers,
+):
+    markups = {
+        "key_generated": keyboards.key_generated(),
+        "my_servers": keyboards.my_servers(servers.servers),
+        "info": keyboards.info(),
+        "payment_methods": keyboards.payment_methods(),
+        "gift_certificate": keyboards.gift_certificate_payment_methods(),
+        "referral_cabinet": keyboards.referral_cabinet(
+            active_referrals_count=4,
+            referral_link="https://t.me/bot?start=42",
+        ),
+    }
+
+    assert {
+        name: markup.inline_keyboard[-1][0].callback_data
+        for name, markup in markups.items()
+    } == {name: "show_mtproxy_menu" for name in markups}
+    assert (
+        keyboards.confirm_reissue().inline_keyboard[-1][0].callback_data
+        == "my_servers"
+    )
 
 
 # --- links ------------------------------------------------------------------
@@ -514,47 +576,43 @@ async def test_referral_link_claims_reward():
 # --- payments ---------------------------------------------------------------
 
 
-@pytest.mark.parametrize("status", ["none", "expired"])
-async def test_vpn_menu_offers_two_payment_methods_for_unavailable_subscription(status):
-    callback = FakeCallback(chat_id=42)
+async def test_vpn_product_menu_uses_approved_copy_and_actions():
+    callback = FakeCallback(data="show_vpn_menu")
+
+    await process_vpn_menu(callback)
+
+    assert callback.answers
+    text, markup = callback.message.edits[0]
+    assert text == """🔐 <b>VPN от MTProto Keys</b>
+
+🌐 Защищённое подключение к интернету
+📱 Работает на Android, iOS, Windows и macOS
+🔗 Постоянная subscription-ссылка
+⚙️ Подключение через приложение HAPP
+
+👇 Выберите действие:"""
+    assert [
+        [
+            (button.text, button.callback_data, button.style)
+            for button in row
+        ]
+        for row in markup.inline_keyboard
+    ] == [
+        [("Купить VPN", "vpn", "success")],
+        [("Моя подписка", "vpn_subscription", None)],
+        [("🔙 Назад", "show_start_screen", None)],
+    ]
+
+
+async def test_vpn_purchase_fetches_only_invoices_and_shows_purchase_screen():
+    callback = FakeCallback(chat_id=42, user_id=42, data="vpn")
     vpn = FakeVPN(
         menu=VPNMenu(
-            status=status,
-            expired_at="2026-07-31T12:00:00+00:00" if status == "expired" else None,
-            subscription_url="https://vpn.example/subscriptions/token/" if status == "expired" else None,
+            status="active",
+            expired_at="2026-08-31T12:00:00+00:00",
+            subscription_url="https://vpn.example/subscriptions/token/",
         )
     )
-
-    await process_vpn(callback, _deps_with_vpn(vpn=vpn))
-
-    text, markup = callback.message.edits[0]
-    callbacks = [button.callback_data for row in markup.inline_keyboard for button in row]
-    assert vpn.menu_calls == ["42"]
-    assert "vpn_pay_yukassa" in callbacks
-    assert "vpn_pay_stars" in callbacks
-    if status == "expired":
-        assert "2026-07-31T12:00:00+00:00" in text
-
-
-@pytest.mark.parametrize(
-    ("status", "expired_at", "subscription_url"),
-    [
-        ("none", None, None),
-        (
-            "expired",
-            "2026-07-31T12:00:00+00:00",
-            "https://vpn.example/subscriptions/token/",
-        ),
-        (
-            "active",
-            "2026-08-31T12:00:00+00:00",
-            "https://vpn.example/subscriptions/token/",
-        ),
-    ],
-)
-async def test_vpn_menu_shows_current_prices_for_every_subscription_state(
-    status, expired_at, subscription_url
-):
     card = CardInvoice(
         title="VPN на месяц",
         description="VPN-подписка",
@@ -570,51 +628,104 @@ async def test_vpn_menu_shows_current_prices_for_every_subscription_state(
         description="VPN-подписка",
         prices=[LabeledPrice(label="VPN на месяц", amount=237)],
     )
-    callback = FakeCallback(chat_id=42)
-
-    await process_vpn(
-        callback,
-        _deps_with_vpn(
-            vpn=FakeVPN(
-                menu=VPNMenu(
-                    status=status,
-                    expired_at=expired_at,
-                    subscription_url=subscription_url,
-                )
-            ),
-            payments=FakePayments(card=card, stars=stars),
-        ),
+    deps = _deps_with_vpn(
+        vpn=vpn,
+        payments=FakePayments(card=card, stars=stars),
     )
 
-    _, markup = callback.message.edits[0]
-    buttons = {
-        button.callback_data: button.text
+    await process_vpn(callback, deps)
+
+    assert callback.answers
+    assert vpn.menu_calls == []
+    assert deps.payments.vpn_card_invoice_calls == 1
+    assert deps.payments.vpn_stars_invoice_calls == 1
+    text, markup = callback.message.edits[0]
+    assert text == VPN_MENU_TEXT
+    assert "https://vpn.example/subscriptions/token/" not in text
+    assert [
+        [button.callback_data for button in row]
         for row in markup.inline_keyboard
-        for button in row
-    }
-    assert buttons["vpn_pay_yukassa"] == "💳 ЮKassa — 173,45 ₽"
-    assert buttons["vpn_pay_stars"] == "⭐ Telegram Stars — 237 ★"
+    ] == [
+        ["vpn_pay_yukassa"],
+        ["vpn_pay_stars"],
+        ["show_vpn_menu"],
+    ]
+    assert markup.inline_keyboard[0][0].text == "💳 ЮKassa — 173,45 ₽"
+    assert markup.inline_keyboard[1][0].text == "⭐ Telegram Stars — 237 ★"
 
 
-async def test_vpn_menu_shows_active_expiry_and_stable_subscription_url():
-    callback = FakeCallback(chat_id=42)
+@pytest.mark.parametrize(
+    ("menu", "expected_text"),
+    [
+        (
+            VPNMenu(
+                status="active",
+                expired_at="2026-08-31T12:00:00+00:00",
+                subscription_url="https://vpn.example/subscriptions/active/",
+            ),
+            """🔐 <b>Твоя VPN-подписка активна</b>
+
+Действует до: <b>2026-08-31T12:00:00+00:00</b>
+
+Subscription-ссылка:
+<code>https://vpn.example/subscriptions/active/</code>""",
+        ),
+        (
+            VPNMenu(
+                status="expired",
+                expired_at="2026-07-31T12:00:00+00:00",
+                subscription_url="https://vpn.example/subscriptions/expired/",
+            ),
+            """🔐 <b>VPN-подписка закончилась</b>
+
+Она действовала до: <b>2026-07-31T12:00:00+00:00</b>
+
+Subscription-ссылка:
+<code>https://vpn.example/subscriptions/expired/</code>""",
+        ),
+    ],
+)
+async def test_vpn_subscription_shows_status_without_invoice_calls(
+    menu, expected_text
+):
+    callback = FakeCallback(chat_id=42, user_id=42, data="vpn_subscription")
+    vpn = FakeVPN(menu=menu)
+    deps = _deps_with_vpn(vpn=vpn)
+
+    await process_vpn_subscription(callback, deps)
+
+    assert callback.answers
+    assert vpn.menu_calls == ["42"]
+    assert deps.payments.vpn_card_invoice_calls == 0
+    assert deps.payments.vpn_stars_invoice_calls == 0
+    text, markup = callback.message.edits[0]
+    assert text == expected_text
+    assert [
+        [(button.text, button.callback_data) for button in row]
+        for row in markup.inline_keyboard
+    ] == [[("🔙 Назад", "show_vpn_menu")]]
+
+
+async def test_vpn_subscription_without_subscription_keeps_menu_and_raises_error():
+    callback = FakeCallback(chat_id=42, user_id=42, data="vpn_subscription")
     vpn = FakeVPN(
-        menu=VPNMenu(
-            status="active",
-            expired_at="2026-08-31T12:00:00+00:00",
-            subscription_url="https://vpn.example/subscriptions/token/",
-        )
+        menu=VPNMenu(status="none", expired_at=None, subscription_url=None)
     )
+    deps = _deps_with_vpn(vpn=vpn)
 
-    await process_vpn(callback, _deps_with_vpn(vpn=vpn))
+    with pytest.raises(VPNSubscriptionDoesNotExist) as exc_info:
+        await process_vpn_subscription(callback, deps)
 
-    text, _ = callback.message.edits[0]
-    assert "2026-08-31T12:00:00+00:00" in text
-    assert "https://vpn.example/subscriptions/token/" in text
-    _, markup = callback.message.edits[0]
-    callbacks = [button.callback_data for row in markup.inline_keyboard for button in row]
-    assert "vpn_pay_yukassa" in callbacks
-    assert "vpn_pay_stars" in callbacks
+    assert callback.answers
+    assert vpn.menu_calls == ["42"]
+    assert deps.payments.vpn_card_invoice_calls == 0
+    assert deps.payments.vpn_stars_invoice_calls == 0
+    assert callback.message.edits == []
+    assert exc_info.value.telegram_id == "42"
+    assert exc_info.value.message == (
+        "🔒 У вас нет активной VPN-подписки. Если вы думаете, что это ошибка, "
+        "пожалуйста, свяжитесь с нами через сообщения канала — @mtproto_keys."
+    )
 
 
 async def test_vpn_yukassa_invoice_uses_distinct_payload_and_vpn_product(monkeypatch):

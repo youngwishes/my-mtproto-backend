@@ -18,4 +18,5 @@ class VPNSubscriptionView(APIView):
         response = HttpResponse(subscription, content_type="text/plain")
         response["Cache-Control"] = "private, no-store"
         response["X-Content-Type-Options"] = "nosniff"
+        response["profile-title"] = "mtprotokeys.ru"
         return response

@@ -16,3 +16,7 @@ class BaseServiceError(Exception):
 
 class APIError(BaseServiceError):
     """MTPRoto API not available now. Please try again later."""
+
+
+class VPNSubscriptionDoesNotExist(BaseServiceError):
+    """🔒 У вас нет активной VPN-подписки. Если вы думаете, что это ошибка, пожалуйста, свяжитесь с нами через сообщения канала — @mtproto_keys."""

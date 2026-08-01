@@ -245,6 +245,12 @@ referrer.
 У `none` оба nullable-поля равны `null`; у `expired` URL сохраняется, но не
 выдаёт рабочую конфигурацию.
 
+### GET /api/v1/vpn/subscriptions/<token>/
+
+Публичный endpoint. Успешный ответ имеет `200 OK`, `Content-Type: text/plain` и
+`profile-title: mtprotokeys.ru`; новый заголовок не изменяет существующие
+subscription URL или Base64 payload.
+
 ### POST /vpn/payments/buy/
 
 Защищён `Bot-Auth-Token`. Фиксирует только VPN-платёж и принимает:

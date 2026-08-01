@@ -5,6 +5,8 @@ SUPPORT_URL = "https://t.me/mtproto_keys"
 TERMS_URL = "https://mtprotokeys.ru/terms"
 PRIVACY_URL = "https://mtprotokeys.ru/privacy"
 
+PRODUCT_MENU_TEXT = "Выберите продукт"
+
 _WELCOME_BODY = """
 <b>⚡️ MTProto Keys Bot</b>
 
@@ -160,6 +162,15 @@ GIFT_CERTIFICATE_ACTIVATED_TEXT = """✅ <b>Сертификат активир�
 Нажми «Мои серверы», чтобы подключить прокси.
 """
 
+VPN_PRODUCT_MENU_TEXT = """🔐 <b>VPN от MTProto Keys</b>
+
+🌐 Защищённое подключение к интернету
+📱 Работает на Android, iOS, Windows и macOS
+🔗 Постоянная subscription-ссылка
+⚙️ Подключение через приложение HAPP
+
+👇 Выберите действие:"""
+
 VPN_MENU_TEXT = """🔐 <b>VPN</b>
 
 Защищённое подключение на 30 дней. После оплаты ты сразу получишь постоянную subscription-ссылку для HAPP.
@@ -170,16 +181,15 @@ VPN_EXPIRED_TEXT = """🔐 <b>VPN-подписка закончилась</b>
 
 Она действовала до: <b>{expired_at}</b>
 
-Продли VPN, чтобы снова использовать прежнюю subscription-ссылку:"""
+Subscription-ссылка:
+<code>{subscription_url}</code>"""
 
 VPN_ACTIVE_TEXT = """🔐 <b>Твоя VPN-подписка активна</b>
 
 Действует до: <b>{expired_at}</b>
 
 Subscription-ссылка:
-<code>{subscription_url}</code>
-
-Продли подписку заранее, чтобы сохранить непрерывный доступ."""
+<code>{subscription_url}</code>"""
 
 VPN_PURCHASED_TEXT = """✅ <b>VPN-подписка активирована</b>
 
