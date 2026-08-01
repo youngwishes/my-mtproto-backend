@@ -68,10 +68,26 @@ def product_menu() -> InlineKeyboardMarkup:
 def vpn_menu() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="Купить ВПН", callback_data="vpn")],
+            [
+                InlineKeyboardButton(
+                    text="Купить VPN",
+                    callback_data="vpn",
+                    style="success",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="Моя подписка",
+                    callback_data="vpn_subscription",
+                )
+            ],
             [_ROOT_BACK],
         ]
     )
+
+
+def vpn_subscription() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[[_VPN_BACK]])
 
 
 def mtproxy_menu(boost_callback_data: str) -> InlineKeyboardMarkup:
