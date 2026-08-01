@@ -1,0 +1,1 @@
+"""VPN subscription domain."""

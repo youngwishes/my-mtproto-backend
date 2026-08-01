@@ -223,6 +223,52 @@ referrer.
 
 ## Payments
 
+`GET /payments/products/vpn_30d/` возвращает активный VPN-товар в том же
+формате, что и legacy `GET /payments/`; legacy route остаётся MTProto alias.
+
+---
+
+## VPN
+
+### GET /vpn/menu/?username=<telegram_id>
+
+Защищён `Bot-Auth-Token`; выполняет только read-only поиск и возвращает ровно:
+
+```json
+{
+  "status": "none|active|expired",
+  "expired_at": "ISO-8601 or null",
+  "subscription_url": "absolute URL or null"
+}
+```
+
+У `none` оба nullable-поля равны `null`; у `expired` URL сохраняется, но не
+выдаёт рабочую конфигурацию.
+
+### POST /vpn/payments/buy/
+
+Защищён `Bot-Auth-Token`. Фиксирует только VPN-платёж и принимает:
+
+```json
+{
+  "username": "1487189460",
+  "charge_id": "vpn_charge_001",
+  "provider": "stars",
+  "product_code": "vpn_30d"
+}
+```
+
+Ответ содержит срок и постоянную внешнюю subscription-ссылку:
+
+```json
+{
+  "expired_at": "2026-08-31T12:00:00+00:00",
+  "subscription_url": "https://example.com/api/v1/vpn/subscriptions/token/"
+}
+```
+
+---
+
 ### GET /payments/
 
 Возвращает данные о товаре для формирования Telegram-инвойса.

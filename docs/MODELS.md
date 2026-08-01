@@ -121,7 +121,33 @@
 | `key` | OneToOne → MTPRotoKey? | За какой ключ (nullable) |
 | `charge_id` | str | ID платежа от провайдера |
 | `provider` | str | `YUKASSA` или `STARS` |
-| `kind` | str | `SUBSCRIPTION` или `GIFT_CERTIFICATE`; отличает обычную покупку подписки от покупки подарочного сертификата |
+| `kind` | str | `SUBSCRIPTION`, `VPN_SUBSCRIPTION` или `GIFT_CERTIFICATE`; отличает MTProto, VPN и подарочную покупку |
+
+Для VPN-платежа `key` остаётся `NULL`; уникальность `(provider, charge_id, kind)`
+не даёт обработать один successful payment повторно.
+
+---
+
+## VPNSubscription (apps/vpn)
+
+Одна VPN-подписка на `SystemUser`. Наследует `BaseDjangoModel`.
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `user` | OneToOne → SystemUser | Владелец |
+| `token` | str (unique) | Непредсказуемый token постоянной subscription URL |
+| `vless_uuid` | UUID | Стабильный credential VLESS |
+| `hysteria_secret` | str | Стабильный credential Hysteria 2 |
+| `expired_at` | DateTimeField | Точный срок доступа |
+
+При продлении, повторной покупке после истечения и повторной обработке платежа
+token и credentials не меняются.
+
+## VPNInstance (apps/vpn)
+
+VPN-нода. Наследует `BaseDjangoModel`; хранит публичные параметры VLESS+REALITY
+и Hysteria 2, а также внутренний management URL. Новая нода неактивна до
+подготовки и ручной активации. Private keys и bearer token в модели не хранятся.
 
 ## GiftCertificate (apps/payments)
 

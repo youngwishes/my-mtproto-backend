@@ -28,4 +28,23 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.users.tasks.grant_daily_free_trials_task",
         "schedule": crontab(hour=12, minute=0),
     },
+    "notify-vpn-expiry-day": {
+        "task": "apps.vpn.tasks.notify_vpn_expiry_task",
+        "schedule": crontab(minute="*/5"),
+        "kwargs": {"window": "day"},
+    },
+    "notify-vpn-expiry-hour": {
+        "task": "apps.vpn.tasks.notify_vpn_expiry_task",
+        "schedule": crontab(minute="*/5"),
+        "kwargs": {"window": "hour"},
+    },
+    "expire-vpn-subscriptions": {
+        "task": "apps.vpn.tasks.expire_vpn_subscriptions_task",
+        "schedule": crontab(minute="*/5"),
+    },
+    "notify-vpn-expiry-expired": {
+        "task": "apps.vpn.tasks.notify_vpn_expiry_task",
+        "schedule": crontab(minute="2-59/5"),
+        "kwargs": {"window": "expired"},
+    },
 }

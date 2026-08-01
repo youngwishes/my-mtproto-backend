@@ -34,6 +34,7 @@ class ProductAdmin(admin.ModelAdmin):
     list_display = [
         "id",
         "is_active",
+        "code",
         "title",
         "price",
         "stars_price",

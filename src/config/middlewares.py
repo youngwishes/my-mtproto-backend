@@ -1,8 +1,12 @@
 import json
 import logging
 from json import JSONDecodeError
+from re import compile
 
 logger = logging.getLogger(__name__)
+
+_VPN_SUBSCRIPTION_PATH = compile(r"^/api/v1/vpn/subscriptions/[^/]+/$")
+_REDACTED_VPN_SUBSCRIPTION_PATH = "/api/v1/vpn/subscriptions/[REDACTED]/"
 
 
 class RequestLoggingMiddleware:
@@ -28,5 +32,8 @@ class RequestLoggingMiddleware:
             )
 
         response = self.get_response(request)
+
+        if _VPN_SUBSCRIPTION_PATH.fullmatch(request.path):
+            request.path = _REDACTED_VPN_SUBSCRIPTION_PATH
 
         return response

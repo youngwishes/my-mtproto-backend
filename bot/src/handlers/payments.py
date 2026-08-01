@@ -13,6 +13,7 @@ from src.messages import (
     GIFT_CERTIFICATE_PURCHASED_TEXT,
     GIFT_CERTIFICATE_TEXT,
     PAYMENT_METHODS_TEXT,
+    VPN_PURCHASED_TEXT,
 )
 
 if TYPE_CHECKING:
@@ -119,6 +120,21 @@ async def process_successful_payment(message: Message, deps: Dependencies):
     payload = getattr(message.successful_payment, "invoice_payload", "")
 
     try:
+        if payload in {"vpn_yukassa", "vpn_stars"}:
+            if deps.vpn is None:
+                raise RuntimeError("VPN client is not configured")
+            purchase = await deps.vpn.confirm_purchase(
+                telegram_id=message.from_user.id,
+                charge_id=charge_id,
+                provider=provider,
+            )
+            await message.answer(
+                VPN_PURCHASED_TEXT.format(
+                    expired_at=purchase.expired_at,
+                    subscription_url=purchase.subscription_url,
+                )
+            )
+            return
         if payload.startswith("gift_certificate"):
             certificate = await deps.payments.confirm_gift_certificate_purchase(
                 telegram_id=message.from_user.id,
@@ -135,7 +151,13 @@ async def process_successful_payment(message: Message, deps: Dependencies):
             provider=provider,
         )
     except Exception:
-        purchase_item = "сертификата" if payload.startswith("gift_certificate") else "ключа"
+        purchase_item = (
+            "VPN-подписки"
+            if payload in {"vpn_yukassa", "vpn_stars"}
+            else "сертификата"
+            if payload.startswith("gift_certificate")
+            else "ключа"
+        )
         await message.answer(
             f"⚠️ Оплата получена, но произошла ошибка при выдаче {purchase_item}.\n"
             "Пожалуйста, обратитесь в поддержку: @mtproto_keys"

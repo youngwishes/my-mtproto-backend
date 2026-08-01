@@ -3,11 +3,12 @@ from datetime import timedelta
 
 from django.utils import timezone
 
-from apps.payments.enums import PaymentProviderEnum
+from apps.payments.enums import PaymentProviderEnum, ProductCodeEnum
 from apps.payments.models import GiftCertificate, Payment, Product
 
 
 class ProductFactory(factory.django.DjangoModelFactory):
+    code = factory.Sequence(lambda n: f"product_{n}")
     title = factory.Sequence(function=lambda n: f"title{n}")
     provider_data = factory.Sequence(function=lambda n: '{"key": "value"}')
     description = factory.Sequence(function=lambda n: f"description_{n}")

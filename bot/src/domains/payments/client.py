@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     from src.core.backend_client import BackendClient
 
 _PRODUCT_PATH = "/api/v1/payments/"
+_VPN_PRODUCT_PATH = "/api/v1/payments/products/vpn_30d/"
 _BUY_PATH = "/api/v1/payments/buy/"
 _GIFT_BUY_PATH = "/api/v1/payments/gift-certificates/buy/"
 _GIFT_ACTIVATE_PATH = "/api/v1/payments/gift-certificates/activate/"
@@ -60,7 +61,13 @@ class PaymentsClient:
     provider_token: str
 
     async def get_card_invoice(self) -> CardInvoice:
-        data = await self.backend.get(_PRODUCT_PATH)
+        return await self._get_card_invoice(path=_PRODUCT_PATH)
+
+    async def get_vpn_card_invoice(self) -> CardInvoice:
+        return await self._get_card_invoice(path=_VPN_PRODUCT_PATH)
+
+    async def _get_card_invoice(self, *, path: str) -> CardInvoice:
+        data = await self.backend.get(path)
         return CardInvoice(
             title=data["title"],
             description=data["description"],
@@ -73,7 +80,13 @@ class PaymentsClient:
         )
 
     async def get_stars_invoice(self) -> StarsInvoice:
-        data = await self.backend.get(_PRODUCT_PATH)
+        return await self._get_stars_invoice(path=_PRODUCT_PATH)
+
+    async def get_vpn_stars_invoice(self) -> StarsInvoice:
+        return await self._get_stars_invoice(path=_VPN_PRODUCT_PATH)
+
+    async def _get_stars_invoice(self, *, path: str) -> StarsInvoice:
+        data = await self.backend.get(path)
         return StarsInvoice(
             title=data["title"],
             description=data["description"],

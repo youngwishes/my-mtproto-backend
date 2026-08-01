@@ -6,3 +6,4 @@ from .vds import *
 from .rest_framework_settings import *
 from .referrals import *
 from .payments import *
+from .vpn import *
