@@ -6,8 +6,8 @@
 - Product review: `accepted`.
 - Дата автоматизированной приёмки: 31 июля 2026 года.
 - Проверенные implementation heads:
-  - backend и bot: `2d5640a368e3df07b667acb4206982d13318a52f`;
-  - node-agent: `48e269dcccc56846dae14663b3bdc0a8fc5c2516`.
+  - backend и bot: `809203ca555419fa06ff6616f63c8bb234cbf593`;
+  - node-agent: `686772065a1a7d2b1f4cc9d622b4a6593ad77383`.
 - Production deploy и ручные release-проверки не выполнялись.
 
 ## Автоматизированная приёмка
@@ -16,7 +16,7 @@
 |---|---|
 | Django backend | `make test` — 366 tests, OK |
 | Telegram bot | `uv run pytest` — 90 passed |
-| Node-agent и deploy contracts | `uv run pytest` — 58 passed |
+| Node-agent и deploy contracts | `uv run --python 3.13 pytest` — 59 passed |
 | Backend Compose | production config valid |
 | Node-agent Compose | production и local configs valid |
 | Node-agent deploy | Ansible syntax-check valid |
