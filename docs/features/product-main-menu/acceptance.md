@@ -1,28 +1,34 @@
 # Главное меню продуктов — приёмка
 
 - **Статус:** accepted
-- **Scope revision:** 1
+- **Scope revision:** 2
 - **Проверенный base:** `c0c84a8f2bee26efeba6d3a5f18274b49c94b665`
-- **Проверенный feature head:** `1aed9437ae5559ed741a8b548f5a9a8b054c4082`
+- **Проверенный implementation head:** `1bda808730d74c22f2cea511250529231e140017`
 
 ## Результат
 
 Корневой экран Telegram-бота показывает нейтральный выбор между MTProxy и VPN.
-MTProxy открывает существующий текст и утверждённое меню действий, VPN — меню с
-кнопкой «Купить ВПН». Все внутренние кнопки возврата сохраняют контекст
-выбранного продукта. Существующие юридический, реферальный, платёжный и
-продуктовые сценарии не изменены за пределами утверждённой навигации.
+MTProxy открывает существующий дружелюбный текст и утверждённое меню действий.
+VPN открывает отдельный дружелюбный экран с зелёной кнопкой «Купить VPN»,
+кнопками «Моя подписка» и «Назад».
+
+Покупка VPN предлагает только оплату картой и Telegram Stars, не запрашивая
+статус подписки. Экран «Моя подписка» отдельно показывает активный или истёкший
+статус, дату окончания и сохранённую subscription-ссылку. Если подписки нет,
+бот сохраняет меню VPN и отправляет отдельное сообщение с каналом связи
+`@mtproto_keys`. Успешная оплата и инструкция подключения через HAPP не
+изменены.
 
 ## Покрытие требований
 
 | Требования | Доказательство | Результат |
 |---|---|---|
-| BR-001–BR-004; AC-001–AC-003 | Тесты `/start`, consent completion, root callback, repeated MTProxy entry и точного порядка строк | passed |
-| BR-005; AC-004 | Контракт всех шести существующих MTProxy Back-кнопок, root Back и сохранённый reissue cancel | passed |
-| BR-006–BR-008; AC-005–AC-006 | Точный состав VPN product menu, прежний VPN status/payment screen и оба контекстных возврата | passed |
-| BR-009; AC-007 | Тесты referrer callback, consent acceptance, self-referral и backend error | passed |
-| BR-010; AC-008 | Регрессионные тесты серверов, reissue, free claim, gift, referral, invoice payloads и payment routing | passed |
-| AC-009 | Полные bot и Django suites, Compose validation и diff check | passed |
+| BR-001–BR-005; AC-001–AC-004 | Тесты `/start`, consent completion, root callback, repeated MTProxy entry, точного порядка строк и всех MTProxy Back-кнопок | passed |
+| BR-006; AC-005–AC-006 | Точный дружелюбный текст VPN, три строки кнопок, `success`-стиль покупки и контекстные возвраты | passed |
+| BR-007; AC-010 | Buy callback создаёт card и Stars invoices, не читает VPN status; callback уведомления о продлении сохранён | passed |
+| BR-008, BR-011–BR-012; AC-011–AC-012 | Subscription callback читает status без invoices; active/expired показывают дату, URL и ровно одну Back-кнопку | passed |
+| BR-013–BR-014; AC-013 | При отсутствии подписки нет invoices/edit; отдельное точное service-error сообщение содержит `@mtproto_keys` | passed |
+| BR-009–BR-010, BR-015; AC-007–AC-009 | Юридические, referral, MTProxy и VPN payment-success/HAPP сценарии сохранены; полные regression suites зелёные | passed |
 
 ## TDD и batch review
 
@@ -32,14 +38,18 @@ MTProxy открывает существующий текст и утвержд
 - PMM-B2: RED на отсутствующем `process_vpn_menu`; GREEN — VPN `10 passed` и
   полный `test_handlers.py` `45 passed`; batch commit `1aed943`;
   независимый `code-reviewer`: `VERDICT: approved`, findings отсутствуют.
+- PMM-B3: RED на прежнем VPN menu/status flow и отсутствующем subscription
+  handler; GREEN — целевые `5 passed`, полный `test_handlers.py` `43 passed`;
+  batch commit `1bda808`; независимый `code-reviewer` проверил exact SHA и
+  завершил с `VERDICT: approved`, findings отсутствуют.
 
 ## Интеграционные проверки
 
-Выполнены на `1aed9437ae5559ed741a8b548f5a9a8b054c4082`:
+Выполнены на `1bda808730d74c22f2cea511250529231e140017`:
 
 ```text
-cd bot && uv run pytest
-90 passed
+cd bot && uv run pytest -q
+88 passed
 
 make test
 367 passed; System check identified no issues
@@ -54,7 +64,8 @@ exit 0, output empty
 ## Product review
 
 Независимый `product-reviewer` сопоставил интегрированный diff с
-BR-001–BR-010 и AC-001–AC-009:
+BR-001–BR-015 и AC-001–AC-013 на exact SHA
+`1bda808730d74c22f2cea511250529231e140017`:
 
 - `blocking_in_scope`: нет;
 - `scope_change_request`: нет;
@@ -62,5 +73,6 @@ BR-001–BR-010 и AC-001–AC-009:
 - итог: `VERDICT: accepted`.
 
 Backend API, модели, миграции, цены, payment handlers, глобальные архитектурные
-контракты и `apps/music/` не изменялись. Отдельный архитектурный документ не
-требовался согласно утверждённому Scope Contract.
+контракты и `apps/music/` не изменялись. Пользовательские изменения заголовка
+`VPNSubscriptionView` не входят в feature diff. Отдельный архитектурный документ
+не требовался согласно утверждённому Scope Contract.
