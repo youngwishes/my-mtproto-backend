@@ -26,3 +26,8 @@ successful payment только в `POST /api/v1/vpn/payments/buy/` с
 статистики, лимитов устройств/трафика, перевыпуска URL, download-кнопок или
 readiness/error state для пользователя. Недоступность VPN-ноды не откатывает
 успешный платёж и не скрывает subscription URL.
+
+Для первого production rollout management proxy ноды опубликован по публичному
+HTTP без host firewall. Backend продолжает передавать обязательный bearer token,
+а proxy допускает только health и profile management routes. Plaintext exposure
+является явно принятой временной границей MVP.

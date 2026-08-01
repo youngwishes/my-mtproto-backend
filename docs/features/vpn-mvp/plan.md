@@ -6,7 +6,7 @@
 > checkbox (`- [ ]`) syntax for tracking.
 
 - **Status:** approved
-- **Scope revision:** 1
+- **Scope revision:** 2
 
 **Goal:** Добавить в существующий Telegram-бот самостоятельную 30-дневную
 VPN-подписку с VLESS+REALITY и Hysteria 2 на нескольких VPN-нодах и новый
@@ -22,7 +22,10 @@ pytest/unittest, `responses`/`respx`, Docker Compose, Xray, Hysteria 2.
 
 ## Global Constraints
 
-- Scope Contract: только `scope_revision: 1`, BR-001..BR-019 и AC-001..AC-011.
+- Scope Contract: `scope_revision: 2`, BR-001..BR-019 и AC-001..AC-011.
+- Revision 2 меняет только первый production rollout: management proxy
+  публикуется по публичному HTTP без host firewall; bearer token и route
+  allowlist сохраняются. Пользователь явно принял plaintext exposure risk.
 - Реализация production-кода только через TDD: RED → GREEN → REFACTOR.
 - Сервисы backend — `@final` frozen dataclass с `kw_only=True, slots=True,
   frozen=True`; зависимости передаются через поля и module-level factories.
@@ -594,11 +597,13 @@ sections 9–11.
 - pinned Xray and Hysteria image digests;
 - Xray gRPC and Hysteria auth only on internal network;
 - public TCP/443 for VLESS+REALITY and UDP/443 for Hysteria;
-- agent management TLS/network restriction and secret files;
+- public plaintext agent management proxy without host firewall for the first
+  MVP rollout; bearer auth, route allowlist and secret files remain;
 - no credentials or test-server address committed.
 
-- [ ] Написать RED static contract tests на images, ports, private listeners,
-  read-only secrets и отсутствие embedded credentials.
+- [ ] Написать RED static contract tests на images, ports, public management
+  bind, internal-only `/auth`/Xray API, read-only secrets и отсутствие embedded
+  credentials.
 - [ ] Запустить `uv run pytest tests/test_compose_contract.py tests/test_config_contract.py deploy/tests/test_deploy.py`; подтвердить RED до создания runtime/deploy файлов.
 - [ ] Реализовать Compose/config/Ansible/docs с нуля; не открывать production
   listeners и не запускать deploy.

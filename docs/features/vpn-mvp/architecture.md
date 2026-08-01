@@ -1,10 +1,12 @@
 # VPN MVP — архитектура
 
 - **Статус:** approved
-- **Scope revision:** 1
+- **Scope revision:** 2
 - **Основание:** пользователь утвердил продуктовые требования и обе части
   архитектурного дизайна. Node-agent не хранит постоянную копию профилей;
-  Django остаётся единственным постоянным источником истины.
+  Django остаётся единственным постоянным источником истины. Для первого MVP
+  rollout пользователь отдельно принял риск публичного plaintext HTTP
+  management API без host firewall; bearer token и route allowlist остаются.
 
 ## 1. Принципы MVP
 
@@ -57,9 +59,11 @@ Agent не содержит SQLite, Redis, Celery или иной постоян
 - Xray с одним управляемым VLESS+REALITY inbound;
 - Hysteria 2 с HTTP-аутентификацией через node-agent.
 
-Xray management API, Hysteria auth endpoint и management API agent доступны
-только внутри разрешённого сетевого контура. Публичны только VPN listeners.
-VLESS WebSocket отсутствует.
+Xray management API и Hysteria auth endpoint доступны только внутри Docker
+network ноды. Management proxy agent для первого MVP rollout публикуется по
+публичному IPv4 без TLS и host firewall, но пропускает только health и
+management routes; FastAPI продолжает требовать bearer token. VLESS WebSocket
+отсутствует.
 
 ## 3. Модель данных
 
@@ -275,8 +279,9 @@ backfill нет. Это осознанная операционная грани
 ## 9. Безопасность
 
 - Subscription token, UUID, Hysteria credential и bearer token не логируются.
-- Node-agent management API не выставляется в публичный интернет без сетевого
-  ограничения и TLS.
+- Для первого MVP rollout node-agent management proxy доступен по публичному
+  plaintext HTTP без host firewall. Принят риск перехвата bearer token и
+  profile payload; bearer authentication и proxy route allowlist сохраняются.
 - Xray gRPC API и Hysteria auth endpoint доступны только внутри ноды.
 - REALITY/TLS private keys передаются node runtime через secret files и никогда
   не хранятся в Django или Git.
