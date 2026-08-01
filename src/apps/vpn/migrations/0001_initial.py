@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import apps.vpn.models
 import django.db.models.deletion
+from django.conf import settings
 from django.db import migrations, models
 import uuid
 
@@ -12,7 +13,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ("users", "0010_normalize_none_telegram_usernames"),
+        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
