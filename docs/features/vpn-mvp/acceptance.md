@@ -4,10 +4,11 @@
 
 - Scope Contract: `scope_revision: 2`.
 - Product review: `accepted`.
-- Дата автоматизированной приёмки: 31 июля 2026 года.
+- Дата автоматизированной приёмки: 1 августа 2026 года.
 - Проверенные implementation heads:
-  - backend и bot: `809203ca555419fa06ff6616f63c8bb234cbf593`;
-  - node-agent: `686772065a1a7d2b1f4cc9d622b4a6593ad77383`.
+  - backend и bot release: `706a445534b868f99610882db319d9c2397b5f44`;
+  - node-agent public-management fix:
+    `3b0cb094833452ff5f897eb86e2849a878b6ca86`.
 - Production deploy и ручные release-проверки не выполнялись.
 
 ## Автоматизированная приёмка
