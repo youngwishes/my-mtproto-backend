@@ -29,8 +29,17 @@ from src.handlers.start import (
     cmd_start_inline,
     process_info,
     process_legal_consent,
+    process_mtproxy_menu,
 )
-from src.messages import PRIVACY_URL, SITE_URL, SUPPORT_URL, TERMS_URL
+from src.messages import (
+    PRIVACY_URL,
+    PRODUCT_MENU_TEXT,
+    SITE_URL,
+    SUPPORT_URL,
+    TERMS_URL,
+    WELCOME_TEXT_MONTH,
+    WELCOME_TEXT_NOT_FREE,
+)
 from src.domains.free_trial import FreeTrialKey
 from src.domains.links import MyServers, ReissuedKey, ServerItem
 from src.domains.payments import (
@@ -235,53 +244,79 @@ def servers() -> MyServers:
 # --- start screen -----------------------------------------------------------
 
 
-async def test_cmd_start_offers_free_boost_when_available():
+async def test_cmd_start_shows_only_product_root_without_free_trial_check():
     fake = FakeFreeTrial(check="MONTH")
     message = FakeMessage(text="/start", user_id=42, username="bob")
 
     await cmd_start(message, make_deps(free_trial=fake))
 
-    assert fake.checked == [("42", "bob", None)]
-    _, markup = message.answers[0]
-    assert markup.inline_keyboard[0][0].callback_data == "boost_free"
+    assert fake.status_checked == ["42"]
+    assert fake.checked == []
+    text, markup = message.answers[0]
+    assert text == PRODUCT_MENU_TEXT
+    assert [[button.text for button in row] for row in markup.inline_keyboard] == [
+        ["⚡ MTProxy"],
+        ["🔐 VPN"],
+    ]
+    assert [
+        [button.callback_data for button in row]
+        for row in markup.inline_keyboard
+    ] == [["show_mtproxy_menu"], ["show_vpn_menu"]]
 
 
-async def test_cmd_start_offers_paid_boost_when_not_available():
-    fake = FakeFreeTrial(check="NOT_AVAILABLE")
-    message = FakeMessage(text="/start")
+@pytest.mark.parametrize(
+    ("period", "expected_text", "boost_callback"),
+    [
+        ("MONTH", WELCOME_TEXT_MONTH, "boost_free"),
+        ("NOT_AVAILABLE", WELCOME_TEXT_NOT_FREE, "boost_paid"),
+    ],
+)
+async def test_mtproxy_menu_checks_free_period_on_every_entry(
+    period, expected_text, boost_callback
+):
+    fake = FakeFreeTrial(check=period)
+    callback = FakeCallback(user_id=42, username="real_user")
+    deps = make_deps(free_trial=fake)
 
-    await cmd_start(message, make_deps(free_trial=fake))
+    await process_mtproxy_menu(callback, deps)
+    await process_mtproxy_menu(callback, deps)
 
-    _, markup = message.answers[0]
-    assert markup.inline_keyboard[0][0].callback_data == "boost_paid"
+    assert fake.checked == [
+        ("42", "real_user", None),
+        ("42", "real_user", None),
+    ]
+    text, markup = callback.message.edits[-1]
+    assert text == expected_text
+    assert markup.inline_keyboard[0][0].callback_data == boost_callback
+    assert [[button.text for button in row] for row in markup.inline_keyboard] == [
+        ["⚡️ Ускорить Telegram"],
+        ["📡 Мои серверы"],
+        ["🎁 Подарить подписку"],
+        ["🤝 Реферальный кабинет"],
+        ["📋 Информация"],
+        ["💬 Поддержка", "🌐 Наш сайт"],
+        ["🔙 Назад"],
+    ]
 
 
 async def test_cmd_start_passes_none_username_as_none_not_string():
     # У юзера нет @username в Telegram → шлём None, а не str(None) == "None"
     fake = FakeFreeTrial(check="MONTH")
-    message = FakeMessage(text="/start", user_id=42, username=None)
+    callback = FakeCallback(user_id=42, username=None)
 
-    await cmd_start(message, make_deps(free_trial=fake))
+    await process_mtproxy_menu(callback, make_deps(free_trial=fake))
 
-    assert fake.checked[0][1] is None
-
-
-async def test_cmd_start_extracts_referrer_from_payload():
-    fake = FakeFreeTrial()
-    message = FakeMessage(text="/start 777", user_id=42)
-
-    await cmd_start(message, make_deps(free_trial=fake))
-
-    assert fake.checked[0][2] == "777"  # invited_from_username
+    assert fake.checked == [("42", None, None)]
 
 
 async def test_cmd_start_ignores_self_referral():
-    fake = FakeFreeTrial()
+    fake = FakeFreeTrial(consent=False)
     message = FakeMessage(text="/start 42", user_id=42)
 
     await cmd_start(message, make_deps(free_trial=fake))
 
-    assert fake.checked[0][2] is None
+    _, markup = message.answers[0]
+    assert markup.inline_keyboard[0][0].callback_data == "accept_legal_terms"
 
 
 async def test_cmd_start_shows_consent_without_registering_new_user():
@@ -320,8 +355,13 @@ async def test_accept_consent_registers_clicking_user_and_opens_start_screen():
     await process_legal_consent(callback, make_deps(free_trial=fake))
 
     assert fake.accepted == [("42", "real_user", "777")]
-    assert fake.checked == [("42", "real_user", None)]
-    assert callback.message.edits
+    assert fake.checked == []
+    text, markup = callback.message.edits[0]
+    assert text == PRODUCT_MENU_TEXT
+    assert [[button.text for button in row] for row in markup.inline_keyboard] == [
+        ["⚡ MTProxy"],
+        ["🔐 VPN"],
+    ]
 
 
 async def test_accept_consent_does_not_open_menu_when_backend_returns_false():
@@ -337,25 +377,24 @@ async def test_accept_consent_does_not_open_menu_when_backend_returns_false():
 
 async def test_show_start_screen_answers_callback():
     # «🔙 Назад» (show_start_screen) must close the loading spinner in Telegram
-    fake = FakeFreeTrial(check="MONTH")
     callback = FakeCallback(chat_id=42)
 
-    await cmd_start_inline(callback, make_deps(free_trial=fake))
+    await cmd_start_inline(callback)
 
     assert callback.answers, "callback.answer() was not called — spinner hangs"
 
 
-async def test_show_start_screen_passes_clicking_user_not_bot():
-    # id и username берутся у нажавшего (callback.from_user), а не из
-    # сообщения с кнопкой (callback.message), которое принадлежит боту
-    fake = FakeFreeTrial(check="MONTH")
+async def test_show_start_screen_shows_product_root():
     callback = FakeCallback(chat_id=99, user_id=42, username="real_user")
 
-    await cmd_start_inline(callback, make_deps(free_trial=fake))
+    await cmd_start_inline(callback)
 
-    telegram_id, telegram_username, _ = fake.checked[0]
-    assert telegram_id == "42"
-    assert telegram_username == "real_user"
+    text, markup = callback.message.edits[0]
+    assert text == PRODUCT_MENU_TEXT
+    assert [
+        [button.callback_data for button in row]
+        for row in markup.inline_keyboard
+    ] == [["show_mtproxy_menu"], ["show_vpn_menu"]]
 
 
 async def test_info_answers_callback():
@@ -390,25 +429,11 @@ async def test_payment_screen_includes_legal_links():
     assert PRIVACY_URL in text
 
 
-def test_main_menu_last_button_links_to_site():
-    markup = keyboards.main_menu("boost_free")
-
-    last_button = markup.inline_keyboard[-1][-1]
-    assert last_button.url == SITE_URL
-
-
-def test_main_menu_has_support_button():
-    markup = keyboards.main_menu("boost_free")
+def test_mtproxy_menu_links_to_site_and_support():
+    markup = keyboards.mtproxy_menu("boost_free")
 
     urls = [btn.url for row in markup.inline_keyboard for btn in row if btn.url]
-    assert SUPPORT_URL in urls
-
-
-def test_main_menu_opens_vpn_subscription_management():
-    markup = keyboards.main_menu("boost_free")
-
-    callbacks = [button.callback_data for row in markup.inline_keyboard for button in row]
-    assert "vpn" in callbacks
+    assert set(urls) >= {SITE_URL, SUPPORT_URL}
 
 
 def test_info_keyboard_links_to_legal_docs_and_drops_offer():
@@ -418,6 +443,31 @@ def test_info_keyboard_links_to_legal_docs_and_drops_offer():
     assert TERMS_URL in urls
     assert PRIVACY_URL in urls
     assert not any("drive.google.com" in url for url in urls)
+
+
+def test_mtproxy_internal_back_buttons_return_to_mtproxy_menu(
+    servers: MyServers,
+):
+    markups = {
+        "key_generated": keyboards.key_generated(),
+        "my_servers": keyboards.my_servers(servers.servers),
+        "info": keyboards.info(),
+        "payment_methods": keyboards.payment_methods(),
+        "gift_certificate": keyboards.gift_certificate_payment_methods(),
+        "referral_cabinet": keyboards.referral_cabinet(
+            active_referrals_count=4,
+            referral_link="https://t.me/bot?start=42",
+        ),
+    }
+
+    assert {
+        name: markup.inline_keyboard[-1][0].callback_data
+        for name, markup in markups.items()
+    } == {name: "show_mtproxy_menu" for name in markups}
+    assert (
+        keyboards.confirm_reissue().inline_keyboard[-1][0].callback_data
+        == "my_servers"
+    )
 
 
 # --- links ------------------------------------------------------------------

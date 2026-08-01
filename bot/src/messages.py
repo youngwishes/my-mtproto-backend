@@ -5,6 +5,8 @@ SUPPORT_URL = "https://t.me/mtproto_keys"
 TERMS_URL = "https://mtprotokeys.ru/terms"
 PRIVACY_URL = "https://mtprotokeys.ru/privacy"
 
+PRODUCT_MENU_TEXT = "Выберите продукт"
+
 _WELCOME_BODY = """
 <b>⚡️ MTProto Keys Bot</b>
 

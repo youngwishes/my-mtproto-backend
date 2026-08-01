@@ -9,7 +9,12 @@ from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message
 from src import keyboards
 from src.enums import FreeAvailable
 from src.exceptions import APIError
-from src.messages import FAQ_TEXT, FREE_AVAILABLE_TEXT_MAPPING, LEGAL_CONSENT_TEXT
+from src.messages import (
+    FAQ_TEXT,
+    FREE_AVAILABLE_TEXT_MAPPING,
+    LEGAL_CONSENT_TEXT,
+    PRODUCT_MENU_TEXT,
+)
 
 if TYPE_CHECKING:
     from src.dependencies import Dependencies
@@ -17,22 +22,25 @@ if TYPE_CHECKING:
 router = Router()
 
 
-async def _render_start_screen(
+def _render_start_screen() -> tuple[str, InlineKeyboardMarkup]:
+    return PRODUCT_MENU_TEXT, keyboards.product_menu()
+
+
+async def _render_mtproxy_menu(
     *,
     deps: Dependencies,
     telegram_id: str,
     telegram_username: str | None,
-    invited_from_username: str | None,
 ) -> tuple[str, InlineKeyboardMarkup]:
     available_free_period = await deps.free_trial.check_availability(
         telegram_id=telegram_id,
         telegram_username=telegram_username,
-        invited_from_username=invited_from_username,
+        invited_from_username=None,
     )
     text = FREE_AVAILABLE_TEXT_MAPPING.get(available_free_period)
     is_free = available_free_period != FreeAvailable.NOT_AVAILABLE
     boost_callback_data = "boost_free" if is_free else "boost_paid"
-    return text, keyboards.main_menu(boost_callback_data)
+    return text, keyboards.mtproxy_menu(boost_callback_data)
 
 
 @router.message(Command("start"))
@@ -54,12 +62,7 @@ async def cmd_start(message: Message, deps: Dependencies):
             reply_markup=keyboards.legal_consent(invited_from_username),
         )
         return
-    text, keyboard = await _render_start_screen(
-        deps=deps,
-        telegram_id=telegram_id,
-        telegram_username=message.from_user.username,
-        invited_from_username=invited_from_username,
-    )
+    text, keyboard = _render_start_screen()
     await message.answer(text=text, reply_markup=keyboard)
 
 
@@ -88,23 +91,26 @@ async def process_legal_consent(
     if accepted is not True:
         raise APIError(telegram_id, error="Legal consent was not saved.")
 
-    text, keyboard = await _render_start_screen(
-        deps=deps,
-        telegram_id=telegram_id,
-        telegram_username=callback.from_user.username,
-        invited_from_username=None,
-    )
+    text, keyboard = _render_start_screen()
     await callback.message.edit_text(text=text, reply_markup=keyboard)
 
 
 @router.callback_query(F.data == "show_start_screen")
-async def cmd_start_inline(callback: CallbackQuery, deps: Dependencies):
+async def cmd_start_inline(callback: CallbackQuery) -> None:
     await callback.answer()
-    text, keyboard = await _render_start_screen(
+    text, keyboard = _render_start_screen()
+    await callback.message.edit_text(text=text, reply_markup=keyboard)
+
+
+@router.callback_query(F.data == "show_mtproxy_menu")
+async def process_mtproxy_menu(
+    callback: CallbackQuery, deps: Dependencies
+) -> None:
+    await callback.answer()
+    text, keyboard = await _render_mtproxy_menu(
         deps=deps,
         telegram_id=str(callback.from_user.id),
         telegram_username=callback.from_user.username,
-        invited_from_username=None,
     )
     await callback.message.edit_text(text=text, reply_markup=keyboard)
 
