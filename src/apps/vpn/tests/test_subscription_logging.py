@@ -27,7 +27,23 @@ class TestVPNSubscriptionApplicationLogging(APITestCase):
             hysteria_secret="private-hysteria-secret",
         )
 
-        with self.assertNoLogs("config.middlewares", level="INFO"):
+        with (
+            self.assertNoLogs("config.middlewares", level="INFO"),
+            self.assertNoLogs("django.request", level="WARNING"),
+        ):
             response = self.client.get(f"/api/v1/vpn/subscriptions/{subscription.token}/")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_unknown_subscription_warning_redacts_token(self) -> None:
+        token = "unknown-private-subscription-token"
+
+        with self.assertLogs("django.request", level="WARNING") as captured_logs:
+            response = self.client.get(f"/api/v1/vpn/subscriptions/{token}/")
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertNotIn(token, "\n".join(captured_logs.output))
+        self.assertIn(
+            "/api/v1/vpn/subscriptions/[REDACTED]/",
+            "\n".join(captured_logs.output),
+        )
