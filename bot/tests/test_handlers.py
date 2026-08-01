@@ -197,6 +197,24 @@ class FakeVPN:
 def _deps_with_vpn(*, vpn: FakeVPN, payments: FakePayments | None = None):
     from src.dependencies import Dependencies
 
+    if payments is None:
+        payments = FakePayments(
+            card=CardInvoice(
+                title="VPN на месяц",
+                description="VPN-подписка",
+                currency="RUB",
+                provider_data="{}",
+                send_email_to_provider=False,
+                need_email=False,
+                prices=[LabeledPrice(label="VPN на месяц", amount=14900)],
+                provider_token="PROV",
+            ),
+            stars=StarsInvoice(
+                title="VPN на месяц",
+                description="VPN-подписка",
+                prices=[LabeledPrice(label="VPN на месяц", amount=149)],
+            ),
+        )
     return Dependencies(
         free_trial=None,
         links=None,
@@ -516,6 +534,66 @@ async def test_vpn_menu_offers_two_payment_methods_for_unavailable_subscription(
     assert "vpn_pay_stars" in callbacks
     if status == "expired":
         assert "2026-07-31T12:00:00+00:00" in text
+
+
+@pytest.mark.parametrize(
+    ("status", "expired_at", "subscription_url"),
+    [
+        ("none", None, None),
+        (
+            "expired",
+            "2026-07-31T12:00:00+00:00",
+            "https://vpn.example/subscriptions/token/",
+        ),
+        (
+            "active",
+            "2026-08-31T12:00:00+00:00",
+            "https://vpn.example/subscriptions/token/",
+        ),
+    ],
+)
+async def test_vpn_menu_shows_current_prices_for_every_subscription_state(
+    status, expired_at, subscription_url
+):
+    card = CardInvoice(
+        title="VPN на месяц",
+        description="VPN-подписка",
+        currency="RUB",
+        provider_data="{}",
+        send_email_to_provider=False,
+        need_email=False,
+        prices=[LabeledPrice(label="VPN на месяц", amount=17345)],
+        provider_token="PROV",
+    )
+    stars = StarsInvoice(
+        title="VPN на месяц",
+        description="VPN-подписка",
+        prices=[LabeledPrice(label="VPN на месяц", amount=237)],
+    )
+    callback = FakeCallback(chat_id=42)
+
+    await process_vpn(
+        callback,
+        _deps_with_vpn(
+            vpn=FakeVPN(
+                menu=VPNMenu(
+                    status=status,
+                    expired_at=expired_at,
+                    subscription_url=subscription_url,
+                )
+            ),
+            payments=FakePayments(card=card, stars=stars),
+        ),
+    )
+
+    _, markup = callback.message.edits[0]
+    buttons = {
+        button.callback_data: button.text
+        for row in markup.inline_keyboard
+        for button in row
+    }
+    assert buttons["vpn_pay_yukassa"] == "💳 ЮKassa — 173,45 ₽"
+    assert buttons["vpn_pay_stars"] == "⭐ Telegram Stars — 237 ★"
 
 
 async def test_vpn_menu_shows_active_expiry_and_stable_subscription_url():

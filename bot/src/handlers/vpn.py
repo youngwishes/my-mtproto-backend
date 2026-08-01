@@ -22,24 +22,30 @@ async def process_vpn(callback: CallbackQuery, deps: Dependencies) -> None:
         raise RuntimeError("VPN client is not configured")
 
     menu = await deps.vpn.get_menu(telegram_id=str(callback.from_user.id))
+    card_invoice = await deps.payments.get_vpn_card_invoice()
+    stars_invoice = await deps.payments.get_vpn_stars_invoice()
+    payment_methods = keyboards.vpn_payment_methods(
+        card_price_kopecks=card_invoice.prices[0].amount,
+        stars_price=stars_invoice.prices[0].amount,
+    )
     if menu.status == "active":
         await callback.message.edit_text(
             text=VPN_ACTIVE_TEXT.format(
                 expired_at=menu.expired_at,
                 subscription_url=menu.subscription_url,
             ),
-            reply_markup=keyboards.vpn_payment_methods(),
+            reply_markup=payment_methods,
         )
         return
     if menu.status == "expired":
         await callback.message.edit_text(
             text=VPN_EXPIRED_TEXT.format(expired_at=menu.expired_at),
-            reply_markup=keyboards.vpn_payment_methods(),
+            reply_markup=payment_methods,
         )
         return
     await callback.message.edit_text(
         text=VPN_MENU_TEXT,
-        reply_markup=keyboards.vpn_payment_methods(),
+        reply_markup=payment_methods,
     )
 
 

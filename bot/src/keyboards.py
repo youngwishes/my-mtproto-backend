@@ -97,19 +97,23 @@ def payment_methods() -> InlineKeyboardMarkup:
     return keyboard.adjust(1).as_markup()
 
 
-def vpn_payment_methods() -> InlineKeyboardMarkup:
+def vpn_payment_methods(
+    *, card_price_kopecks: int, stars_price: int
+) -> InlineKeyboardMarkup:
+    rubles, kopecks = divmod(card_price_kopecks, 100)
+    ruble_price = str(rubles) if kopecks == 0 else f"{rubles},{kopecks:02d}"
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="💳 Оплатить через ЮKassa",
+                    text=f"💳 ЮKassa — {ruble_price} ₽",
                     callback_data="vpn_pay_yukassa",
                     style="primary",
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text="⭐ Оплатить Telegram Stars",
+                    text=f"⭐ Telegram Stars — {stars_price} ★",
                     callback_data="vpn_pay_stars",
                     style="primary",
                 )
