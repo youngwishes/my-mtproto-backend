@@ -10,14 +10,20 @@ from apps.vpn.tests.factories import VPNSubscriptionFactory
 
 
 class TestVPNSubscriptionLogging(SimpleTestCase):
-    def test_nginx_disables_access_log_only_for_token_subscription_route(self) -> None:
+    def test_nginx_disables_access_log_for_http_and_https_subscription_routes(self) -> None:
         config = (Path(__file__).resolve().parents[4] / "nginx" / "nginx.conf").read_text()
         route = "location ~ ^/api/v1/vpn/subscriptions/[^/]+/$ {"
 
-        self.assertIn(route, config)
-        route_body = config[config.index(route) :].split("\n    }", maxsplit=1)[0]
-        self.assertIn("access_log off;", route_body)
-        self.assertEqual(config.count("access_log off;"), 1)
+        route_bodies = [
+            section.split("\n    }", maxsplit=1)[0]
+            for section in config.split(route)[1:]
+        ]
+        self.assertEqual(len(route_bodies), 2)
+        self.assertIn("access_log off;", route_bodies[0])
+        self.assertIn("return 301 https://$host$request_uri;", route_bodies[0])
+        self.assertIn("access_log off;", route_bodies[1])
+        self.assertIn("proxy_pass http://django;", route_bodies[1])
+        self.assertEqual(config.count("access_log off;"), 2)
 
 
 class TestVPNSubscriptionApplicationLogging(APITestCase):

@@ -44,12 +44,28 @@ class TestProductCodeVPNPaymentMigration(TransactionTestCase):
 
         self.assertEqual(mtproto_product.code, "mtproto_30d")
         self.assertFalse(vpn_product.is_active)
+        self.assertEqual(vpn_product.title, "VPN на 30 дней")
         self.assertEqual(vpn_product.price, Decimal("14900"))
         self.assertEqual(vpn_product.stars_price, 149)
         self.assertEqual(
-            json.loads(vpn_product.provider_data)["items"][0]["amount"],
-            {"value": 149, "currency": "RUB"},
+            json.loads(vpn_product.provider_data),
+            {
+                "receipt": {
+                    "customer": {},
+                    "items": [
+                        {
+                            "description": "Оплата VPN-подписки на один месяц.",
+                            "quantity": "1.00",
+                            "amount": {"value": 149, "currency": "RUB"},
+                            "vat_code": 4,
+                            "payment_mode": "full_payment",
+                        },
+                    ],
+                }
+            },
         )
+        self.assertTrue(vpn_product.need_email)
+        self.assertTrue(vpn_product.send_email_to_provider)
 
     def test_reverse_migration_removes_vpn_product_and_product_code(self) -> None:
         self.executor = MigrationExecutor(connection)

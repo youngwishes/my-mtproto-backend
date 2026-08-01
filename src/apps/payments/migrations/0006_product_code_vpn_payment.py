@@ -22,16 +22,18 @@ def add_product_codes_and_vpn_product(apps, schema_editor) -> None:
         description="VPN-подписка на 30 дней.",
         provider_data=json.dumps(
             {
-                "customer": {},
-                "items": [
-                    {
-                        "description": "Оплата VPN-подписки на один месяц.",
-                        "quantity": "1.00",
-                        "amount": {"value": 149, "currency": "RUB"},
-                        "vat_code": 4,
-                        "payment_mode": "full_payment",
-                    },
-                ],
+                "receipt": {
+                    "customer": {},
+                    "items": [
+                        {
+                            "description": "Оплата VPN-подписки на один месяц.",
+                            "quantity": "1.00",
+                            "amount": {"value": 149, "currency": "RUB"},
+                            "vat_code": 4,
+                            "payment_mode": "full_payment",
+                        },
+                    ],
+                }
             }
         ),
         price=14900,

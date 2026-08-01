@@ -620,14 +620,28 @@ async def test_vpn_menu_shows_active_expiry_and_stable_subscription_url():
 async def test_vpn_yukassa_invoice_uses_distinct_payload_and_vpn_product(monkeypatch):
     fake_bot = FakeBot()
     monkeypatch.setattr("src.handlers.vpn.bot", fake_bot)
+    provider_data = {
+        "receipt": {
+            "customer": {},
+            "items": [
+                {
+                    "description": "Оплата VPN-подписки на один месяц.",
+                    "quantity": "1.00",
+                    "amount": {"value": 149, "currency": "RUB"},
+                    "vat_code": 4,
+                    "payment_mode": "full_payment",
+                },
+            ],
+        }
+    }
     card = CardInvoice(
-        title="VPN на месяц",
+        title="VPN на 30 дней",
         description="VPN-подписка",
         currency="RUB",
-        provider_data="{}",
-        send_email_to_provider=False,
-        need_email=False,
-        prices=[LabeledPrice(label="VPN на месяц", amount=14900)],
+        provider_data=json.dumps(provider_data),
+        send_email_to_provider=True,
+        need_email=True,
+        prices=[LabeledPrice(label="VPN на 30 дней", amount=14900)],
         provider_token="PROV",
     )
 
@@ -642,6 +656,9 @@ async def test_vpn_yukassa_invoice_uses_distinct_payload_and_vpn_product(monkeyp
     invoice = fake_bot.invoices[0]
     assert invoice["payload"] == "vpn_yukassa"
     assert invoice["prices"][0].amount == 14900
+    assert json.loads(invoice["provider_data"]) == provider_data
+    assert invoice["need_email"] is True
+    assert invoice["send_email_to_provider"] is True
 
 
 async def test_vpn_stars_invoice_uses_distinct_payload_and_vpn_product(monkeypatch):

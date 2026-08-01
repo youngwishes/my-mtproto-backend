@@ -1,3 +1,5 @@
+import json
+
 from django.conf import settings
 from django.urls import reverse
 from rest_framework import status
@@ -14,7 +16,29 @@ class TestGetProductView(APITestCase):
     def setUp(self) -> None:
         Product.objects.all().delete()
         self.mtproto_product = ProductFactory(code=ProductCodeEnum.MTPROTO_30D)
-        self.vpn_product = ProductFactory(code=ProductCodeEnum.VPN_30D)
+        self.vpn_provider_data = {
+            "receipt": {
+                "customer": {},
+                "items": [
+                    {
+                        "description": "Оплата VPN-подписки на один месяц.",
+                        "quantity": "1.00",
+                        "amount": {"value": 149, "currency": "RUB"},
+                        "vat_code": 4,
+                        "payment_mode": "full_payment",
+                    },
+                ],
+            }
+        }
+        self.vpn_product = ProductFactory(
+            code=ProductCodeEnum.VPN_30D,
+            title="VPN на 30 дней",
+            provider_data=json.dumps(self.vpn_provider_data),
+            price=14900,
+            stars_price=149,
+            need_email=True,
+            send_email_to_provider=True,
+        )
 
     def test_get_product_view_returns_mtproto_legacy_alias(self) -> None:
         response = self.client.get(
@@ -46,6 +70,9 @@ class TestGetProductView(APITestCase):
         self.assertEqual(response.json()["title"], self.vpn_product.title)
         self.assertEqual(response.json()["price"], float(self.vpn_product.price))
         self.assertEqual(response.json()["stars_price"], self.vpn_product.stars_price)
+        self.assertEqual(response.json()["provider_data"], self.vpn_provider_data)
+        self.assertTrue(response.json()["need_email"])
+        self.assertTrue(response.json()["send_email_to_provider"])
 
     def test_returns_error_when_no_active_product(self) -> None:
         self.vpn_product.is_active = False

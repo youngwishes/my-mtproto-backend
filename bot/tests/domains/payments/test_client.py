@@ -34,6 +34,21 @@ PRODUCT_JSON = {
     "stars_price": 80,
 }
 
+VPN_PROVIDER_DATA = {
+    "receipt": {
+        "customer": {},
+        "items": [
+            {
+                "description": "Оплата VPN-подписки на один месяц.",
+                "quantity": "1.00",
+                "amount": {"value": 149, "currency": "RUB"},
+                "vat_code": 4,
+                "payment_mode": "full_payment",
+            },
+        ],
+    }
+}
+
 
 @pytest.fixture
 def client() -> PaymentsClient:
@@ -96,13 +111,28 @@ async def test_get_stars_invoice_maps_fields(client: PaymentsClient):
 
 @respx.mock
 async def test_get_vpn_card_invoice_uses_vpn_product(client: PaymentsClient):
-    vpn_product = {**PRODUCT_JSON, "title": "VPN на месяц", "price": 14900}
+    vpn_product = {
+        **PRODUCT_JSON,
+        "title": "VPN на 30 дней",
+        "provider_data": VPN_PROVIDER_DATA,
+        "send_email_to_provider": True,
+        "need_email": True,
+        "price": 14900,
+    }
     respx.get(VPN_PRODUCT_URL).mock(return_value=httpx.Response(200, json=vpn_product))
 
     invoice = await client.get_vpn_card_invoice()
 
-    assert invoice.title == "VPN на месяц"
-    assert invoice.prices == [LabeledPrice(label="VPN на месяц", amount=14900)]
+    assert invoice == CardInvoice(
+        title="VPN на 30 дней",
+        description="Безлимитный прокси",
+        currency="RUB",
+        provider_data=json.dumps(VPN_PROVIDER_DATA),
+        send_email_to_provider=True,
+        need_email=True,
+        prices=[LabeledPrice(label="VPN на 30 дней", amount=14900)],
+        provider_token="PROVIDER-XYZ",
+    )
 
 
 @respx.mock
