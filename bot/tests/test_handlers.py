@@ -22,7 +22,12 @@ from src.handlers.payments import (
     process_pre_checkout_query,
     process_successful_payment,
 )
-from src.handlers.vpn import process_vpn, process_vpn_pay_stars, process_vpn_pay_yukassa
+from src.handlers.vpn import (
+    process_vpn,
+    process_vpn_menu,
+    process_vpn_pay_stars,
+    process_vpn_pay_yukassa,
+)
 from src.handlers.referrals import process_referral, process_referral_link
 from src.handlers.start import (
     cmd_start,
@@ -37,6 +42,10 @@ from src.messages import (
     SITE_URL,
     SUPPORT_URL,
     TERMS_URL,
+    VPN_ACTIVE_TEXT,
+    VPN_EXPIRED_TEXT,
+    VPN_MENU_TEXT,
+    VPN_PRODUCT_MENU_TEXT,
     WELCOME_TEXT_MONTH,
     WELCOME_TEXT_NOT_FREE,
 )
@@ -564,6 +573,24 @@ async def test_referral_link_claims_reward():
 # --- payments ---------------------------------------------------------------
 
 
+async def test_vpn_product_menu_contains_only_buy_and_root_back():
+    callback = FakeCallback(data="show_vpn_menu")
+
+    await process_vpn_menu(callback)
+
+    assert callback.answers
+    text, markup = callback.message.edits[0]
+    assert text == VPN_PRODUCT_MENU_TEXT
+    assert [[button.text for button in row] for row in markup.inline_keyboard] == [
+        ["Купить ВПН"],
+        ["🔙 Назад"],
+    ]
+    assert [
+        [button.callback_data for button in row]
+        for row in markup.inline_keyboard
+    ] == [["vpn"], ["show_start_screen"]]
+
+
 @pytest.mark.parametrize("status", ["none", "expired"])
 async def test_vpn_menu_offers_two_payment_methods_for_unavailable_subscription(status):
     callback = FakeCallback(chat_id=42)
@@ -636,12 +663,24 @@ async def test_vpn_menu_shows_current_prices_for_every_subscription_state(
         ),
     )
 
-    _, markup = callback.message.edits[0]
+    text, markup = callback.message.edits[0]
     buttons = {
         button.callback_data: button.text
         for row in markup.inline_keyboard
         for button in row
     }
+    expected_text = {
+        "none": VPN_MENU_TEXT,
+        "expired": VPN_EXPIRED_TEXT.format(expired_at=expired_at),
+        "active": VPN_ACTIVE_TEXT.format(
+            expired_at=expired_at,
+            subscription_url=subscription_url,
+        ),
+    }[status]
+    assert text == expected_text
+    assert markup.inline_keyboard[-1][0].callback_data == "show_vpn_menu"
+    assert "vpn_pay_yukassa" in buttons
+    assert "vpn_pay_stars" in buttons
     assert buttons["vpn_pay_yukassa"] == "💳 ЮKassa — 173,45 ₽"
     assert buttons["vpn_pay_stars"] == "⭐ Telegram Stars — 237 ★"
 

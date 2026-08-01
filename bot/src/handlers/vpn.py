@@ -7,12 +7,26 @@ from aiogram.types import CallbackQuery
 
 from src import keyboards
 from src.bot import bot
-from src.messages import VPN_ACTIVE_TEXT, VPN_EXPIRED_TEXT, VPN_MENU_TEXT
+from src.messages import (
+    VPN_ACTIVE_TEXT,
+    VPN_EXPIRED_TEXT,
+    VPN_MENU_TEXT,
+    VPN_PRODUCT_MENU_TEXT,
+)
 
 if TYPE_CHECKING:
     from src.dependencies import Dependencies
 
 router = Router()
+
+
+@router.callback_query(F.data == "show_vpn_menu")
+async def process_vpn_menu(callback: CallbackQuery) -> None:
+    await callback.answer()
+    await callback.message.edit_text(
+        text=VPN_PRODUCT_MENU_TEXT,
+        reply_markup=keyboards.vpn_menu(),
+    )
 
 
 @router.callback_query(F.data == "vpn")

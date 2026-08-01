@@ -16,6 +16,9 @@ _ROOT_BACK = InlineKeyboardButton(
 _MTPROXY_BACK = InlineKeyboardButton(
     text="🔙 Назад", callback_data="show_mtproxy_menu"
 )
+_VPN_BACK = InlineKeyboardButton(
+    text="🔙 Назад", callback_data="show_vpn_menu"
+)
 _MY_SERVERS = InlineKeyboardButton(
     text="📡 Мои серверы", callback_data="my_servers", style="primary"
 )
@@ -58,6 +61,15 @@ def product_menu() -> InlineKeyboardMarkup:
                     style="primary",
                 )
             ],
+        ]
+    )
+
+
+def vpn_menu() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="Купить ВПН", callback_data="vpn")],
+            [_ROOT_BACK],
         ]
     )
 
@@ -144,7 +156,7 @@ def vpn_payment_methods(
                     style="primary",
                 )
             ],
-            [_ROOT_BACK],
+            [_VPN_BACK],
         ]
     )
 
