@@ -6,7 +6,7 @@
 - Product review: `accepted`.
 - Дата автоматизированной приёмки: 31 июля 2026 года.
 - Проверенные implementation heads:
-  - backend и bot: `183f73fbc020f6bcc195ed96a8a8f71b72afbd6a`;
+  - backend и bot: `18813d2debcff168dc66f2b118344bed46331e24`;
   - node-agent: `6799b27f21689ff57b11ca69f0148337b45f51ae`.
 - Production deploy и ручные release-проверки не выполнялись.
 
