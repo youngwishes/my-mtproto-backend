@@ -34,4 +34,3 @@ def test_build_dependencies_reads_config():
     backend = deps.links.backend
     assert backend.base_url == "http://backend"
     assert backend.auth_token == "test-auth"
-    assert deps.payments.provider_token == "test-provider"

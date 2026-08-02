@@ -23,7 +23,6 @@ class Settings(BaseSettings):
     api_url: str
     my_telegram_id: int
     bot_auth_token: str
-    provider_token: str
 
 
 @lru_cache

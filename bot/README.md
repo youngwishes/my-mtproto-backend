@@ -28,7 +28,7 @@ src/
     free_trial/   # check availability, claim free key
     links/        # my-servers, reissue
     referrals/    # cabinet, reward link
-    payments/     # card/stars invoice, confirm purchase
+    payments/     # Stars invoice, confirm purchase
 ```
 
 **Layering:** handlers never touch httpx. Each domain client wraps
@@ -58,4 +58,4 @@ as `token=None`. Values come from the environment (case-insensitive) or, for
 local runs, a `.env` file (git-ignored, excluded from the Docker image).
 
 Required: `TELEGRAM_BOT_TOKEN`, `API_URL`, `BOT_AUTH_TOKEN`, `MY_TELEGRAM_ID`
-(int), `PROVIDER_TOKEN`.
+(int).

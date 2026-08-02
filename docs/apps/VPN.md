@@ -9,12 +9,13 @@
 
 ## Покупка и бот
 
-Бот получает активный `Product(code="vpn_30d")` для каждого invoice, поэтому
+Бот получает активный `Product(code="vpn_30d")` для Stars invoice, поэтому
 цены и описание управляются через admin. Callback `vpn` запрашивает
-`GET /api/v1/vpn/menu/`; `none` и `expired` предлагают ЮKassa и Stars, `active`
-показывает срок и прежнюю URL. Payload `vpn_yukassa` или `vpn_stars` направляет
-successful payment только в `POST /api/v1/vpn/payments/buy/` с
-`product_code="vpn_30d"`.
+`GET /api/v1/vpn/menu/`; `none` и `expired` предлагают только Telegram Stars,
+а `active` показывает срок и прежнюю URL. Payload `vpn_stars` направляет
+successful payment в `POST /api/v1/vpn/payments/buy/` с `product_code="vpn_30d"`.
+Ранее созданный не-XTR invoice продолжает обрабатываться без создания нового
+счёта.
 
 Ответ покупки сразу содержит `expired_at` и `subscription_url`. Бот показывает
 их с короткой инструкцией HAPP для Android, iOS, Windows и macOS, не ожидая

@@ -46,14 +46,10 @@ MTPRoto Keys — сервис продажи MTProto proxy ссылок для �
 
 Пользователь нажимает ссылку — Telegram подключается к прокси. Одна ссылка работает на 3 устройствах одновременно.
 
-### Покупка ссылки (79 RUB / 60 Stars)
+### Покупка ссылки через Telegram Stars
 
-Два платёжных провайдера:
-
-| Провайдер | Механизм | Endpoint |
-|-----------|----------|----------|
-| YuKassa (Yandex) | Telegram Payments API | Бот обрабатывает `successful_payment` → `POST /api/buy/` |
-| Telegram Stars | Встроенная валюта Telegram | Аналогичный флоу через бота |
+Новый счёт в боте создаётся только в Telegram Stars. После `successful_payment`
+бот передаёт подтверждение в `POST /api/buy/`.
 
 При покупке: если у пользователя есть активный ключ — продлевается на 30 дней. Если нет — генерируется новый.
 
@@ -118,7 +114,8 @@ Django → POST /api/v2/users/add → VDS #1 (primary, least populated)
 - `was_deleted`, `is_active` — статус
 
 ### Product (apps/payments)
-Товар: `price` (79 RUB), `stars_price` (60 Stars), `provider_data` (JSON для YuKassa).
+Товар: для новых счетов бот использует `stars_price`. Рублёвые поля и данные
+провайдера сохранены в backend schema для истории платежей и совместимости.
 
 ### Payment (apps/payments)
 Запись об оплате: `charge_id`, `provider` (YUKASSA/STARS), связь с `user` и `key`.
@@ -228,7 +225,7 @@ my-mtproto-backend/
 │   │   ├── core/                # BaseError, TelegramBot, middleware
 │   │   ├── users/               # SystemUser, бесплатные ссылки, рефералы
 │   │   ├── vds/                 # VDSInstance, MTPRotoKey, инфра-сервисы, Celery-задачи
-│   │   ├── payments/            # Product, Payment, YuKassa/Stars
+│   │   ├── payments/            # Product, Payment, Telegram Stars и история платежей
 │   │   └── music/               # (пустое приложение)
 │   └── manage.py
 ├── bot/
