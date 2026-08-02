@@ -2,8 +2,8 @@
 
 - **Verdict:** `accepted`
 - **Reviewed base / merge-base:** `265e5f45165a28648684ebf0f54e772355eb0185`
-- **Reviewed head:** `35c31b29f468b75407ab547acd92077aa9821ac9`
-- **Exact reviewed range:** `265e5f45165a28648684ebf0f54e772355eb0185..35c31b29f468b75407ab547acd92077aa9821ac9`
+- **Reviewed head:** `a2d4efac4b6be492b91954afaf515cff92ed6e62`
+- **Exact reviewed range:** `265e5f45165a28648684ebf0f54e772355eb0185..a2d4efac4b6be492b91954afaf515cff92ed6e62`
 - **Scope Contract:** revision 8 (current implementation clarification)
 - **Approved product artifacts:** `business.md` revision 2; `architecture.md` revision 2
 - **Approved plan:** `plan.md` revision 8; task packets `CPAY-B1`–`CPAY-B9`
@@ -25,6 +25,13 @@ found. There are no `blocking_in_scope` or `scope_change_request` findings.
 Non-blocking review and documentation hygiene items are recorded under
 `follow_up` and do not expand the current acceptance criteria.
 
+The two `blocking_in_scope` findings raised after the earlier acceptance are
+addressed in `8377894e6a1843dcbb044847a59797da7ad2bcbc..a2d4efac4b6be492b91954afaf515cff92ed6e62`:
+official active invoices may omit paid-only fields without becoming malformed,
+and activation now requires exactly one successful `CREATING` → `ACTIVE`
+transition before any invoice result is exposed. Neither fix changes the
+approved product behavior, components, non-goals or Scope Contract revision.
+
 ## BR traceability
 
 | ID | Implementing code or contract | Confirming test evidence | Observable result | Status |
@@ -32,14 +39,14 @@ Non-blocking review and documentation hygiene items are recorded under
 | BR-001 | `bot/src/keyboards.py` adds one Crypto row after the unchanged Stars row for MTProto, VPN and gift; `bot/src/handlers/payments.py` and `bot/src/handlers/vpn.py` add separate Crypto callbacks. | `bot/tests/test_handlers.py::test_stars_first_crypto_second`; unchanged Stars/legacy cases in the full 94-test bot suite. | Each current purchase screen shows Stars first and Crypto Pay second; Stars callbacks and successful-payment routing remain operational. | `passed` |
 | BR-002 | `CreateOrReuseCryptoInvoiceService` maps MTProto/gift to `mtproto_30d`, VPN to `vpn_30d`, then uses `Decimal(product.price) / Decimal("100")` and two-place quantization. | `TestCreateOrReuseCryptoInvoiceService.test_maps_kind_and_converts_kopecks_exactly`; `test_expired_invoice_becomes_local_expired_and_uses_new_price_snapshot`. | Stored 9900/14900 kopecks become exactly `99.00`/`149.00` RUB; a new invoice snapshots the current product price without a crypto price or rate. | `passed` |
 | BR-003 | `CryptoPayClient.create_invoice` sends `accepted_assets="USDT,TON"`; `ValidateCryptoInvoiceService` requires the exact accepted set and paid asset membership. | `TestCryptoPayClient.test_create_invoice_sends_exact_fiat_payload_without_pii`; `TestValidateCryptoInvoiceService.test_each_mismatch_returns_its_exact_safe_reason`. | Provider creation and payment acceptance are limited to USDT and TON. | `passed` |
-| BR-004 | `CryptoPaymentIntent`, its live-intent partial constraint, lifecycle selectors and `CreateOrReuseCryptoInvoiceService` implement 1800-second creation, active reuse, local expiry and stale-create recovery. | `TestCreateOrReuseCryptoInvoiceService.test_active_invoice_is_reused_without_provider_call`; `test_validated_create_response_activates_with_matching_positive_invoice_id`; `TestCryptoPaymentIntentModel.test_only_one_creating_or_active_intent_per_initiator_and_kind`; `TestCreateCryptoInvoiceConcurrency.test_two_requests_leave_one_live_reservation`. | A live invoice is returned unchanged with `reused=true`; an expired/failed one can be replaced; concurrent requests leave one live reservation. | `passed` |
+| BR-004 | `CryptoPaymentIntent`, its live-intent partial constraint, lifecycle selectors and `CreateOrReuseCryptoInvoiceService` implement 1800-second creation, active reuse, local expiry and stale-create recovery. `activate_crypto_intent_from_provider` now returns an intent only when exactly one `CREATING` row transitions to `ACTIVE`; a lost lease maps to safe `creation_lost`. | `TestCreateOrReuseCryptoInvoiceService.test_active_invoice_is_reused_without_provider_call`; `test_validated_create_response_activates_with_matching_positive_invoice_id`; `test_stale_lease_loss_does_not_return_non_active_intent`; model uniqueness and two-request concurrency tests. | A live invoice is returned unchanged with `reused=true`; expired/failed intent can be replaced; concurrent or stale-lease loss cannot expose an invoice URL from a non-active intent and remains retryable. | `passed` |
 | BR-005 | `CryptoPaymentIntent.initiator` is the stored owner; `ApplyCryptoPaymentService` supplies `intent.initiator.username` to all three existing fulfillment services and never derives ownership from webhook data. | `TestApplyCryptoPaymentService.test_each_kind_fulfills_once_for_intent_initiator`. | MTProto, VPN and gift results, including the gift code, belong to the initiator even when provider payload content is unrelated to ownership. | `passed` |
 | BR-006 | `claim_crypto_intent_for_fulfillment`, the Crypto-only Payment identity constraint and atomic `ApplyCryptoPaymentService` form the exact-once gate; validation accepts timely `paid_at` after local expiry. | `TestApplyCryptoPaymentService.test_each_kind_fulfills_once_for_intent_initiator`; `TestApplyCryptoPaymentConcurrency.test_concurrent_apply_creates_one_product_and_payment`; `TestValidateCryptoInvoiceService.test_timely_provider_payment_validates_after_local_expiry`; webhook duplicate test. | Each product is fulfilled once; duplicate/concurrent delivery cannot create a second product or Payment; timely delayed payment remains fulfillable. | `passed` |
-| BR-007 | `CreateCryptoInvoiceView` is protected by `BotAuthToken`; `CryptoPayWebhookView` checks secret path and HMAC-SHA256 over raw bytes before parsing; `ValidateCryptoInvoiceService` checks invoice identity, fiat, amount, status and assets. | `TestCryptoInvoiceView.test_create_invoice_requires_bot_auth_token`; `TestCryptoPayWebhookView.test_secret_and_hmac_fail_closed_before_parsing`; `test_hmac_uses_exact_raw_bytes_before_json_validation`; semantic mismatch matrix. | Django owns invoice creation and webhook handling; unauthenticated or semantically inconsistent events cannot fulfill a product. | `passed` |
+| BR-007 | `CreateCryptoInvoiceView` is protected by `BotAuthToken`; `CryptoPayWebhookView` checks secret path and HMAC-SHA256 over raw bytes before parsing; `ValidateCryptoInvoiceService` checks invoice identity, fiat, amount, status and assets. `CryptoPayClient` treats provider-paid-only `paid_asset`/`paid_at` as optional while retaining type validation when present. | Create endpoint auth, webhook auth/raw-HMAC and semantic mismatch tests; `TestCryptoPayClient.test_active_invoice_allows_omitted_paid_only_fields`; `test_malformed_provider_timestamps_raise_safe_error` includes an invalid present `paid_asset`. | Django accepts the official active-invoice shape without weakening malformed or paid-invoice validation; unauthenticated or semantically inconsistent events cannot fulfill a product. | `passed` |
 | BR-008 | `notify_crypto_purchase_task` renders MTProto expiry, VPN permanent subscription URL plus expiry, or gift code, marks delivery only after send, and retries Telegram errors; reconciliation re-enqueues unnotified fulfilled intents. | All tests in `TestNotifyCryptoPurchaseTask`; `TestReconcileCryptoPaymentsService.test_unnotified_fulfilled_intent_is_enqueued_once_per_run`. | After committed fulfillment, the initiator receives the product-specific result; failed delivery remains durably recoverable. | `passed` |
 | BR-009 | `reconcile_crypto_payments_task`, `ReconcileCryptoPaymentsService` and `CELERY_BEAT_SCHEDULE["reconcile-crypto-payments"]` reuse the same validation/apply path at `*/10`. | `TestReconcileCryptoPaymentsService.test_paid_unfinished_uses_same_validator_and_apply`; `test_per_invoice_failure_does_not_stop_later_paid_invoice`; `TestCryptoReconciliationSchedule.test_reconciliation_runs_every_ten_minutes`. | Every ten minutes unfinished invoices are checked; valid paid intents are applied idempotently and one item failure does not stop later items. | `passed` |
-| BR-010 | Create failures transition to `CREATE_FAILED`; apply failures remain/revert to `RETRYABLE`; webhook response mapping provides successful duplicate no-op and retryable 503 paths; reconciliation covers recovery. | `TestCreateOrReuseCryptoInvoiceService.test_provider_failure_marks_creating_intent_failed_and_allows_retry`; apply rollback/lock tests; `TestCryptoPayWebhookView.test_valid_and_duplicate_apply_results_are_200`; `test_temporary_apply_errors_return_503_and_leave_intent_unfinished`. | Users can retry invoice creation, invalid events do not fulfill, duplicates return 200, and temporary fulfillment failures remain recoverable. | `passed` |
-| BR-011 | `CreateCryptoInvoiceResponseSerializer`, `CreateCryptoInvoiceOut` and bot `CryptoInvoice` expose exactly URL, decimal-safe RUB amount, expiry and reuse flag. | `TestCryptoInvoiceView.test_new_invoice_returns_exact_four_fields`; `test_reused_invoice_returns_same_values_and_reused_true`; bot client exact-string mapping test. | A new invoice returns `reused=false`; active reuse returns the same URL/amount/expiry with `reused=true`. | `passed` |
+| BR-010 | Create/provider/activation failures transition or remain safely unavailable; apply failures remain/revert to `RETRYABLE`; webhook response mapping provides successful duplicate no-op and retryable 503 paths; reconciliation covers recovery. | `TestCreateOrReuseCryptoInvoiceService.test_provider_failure_marks_creating_intent_failed_and_allows_retry`; `test_stale_lease_loss_does_not_return_non_active_intent`; apply rollback/lock tests; webhook duplicate and temporary-error tests. | Users can retry invoice creation after provider failure or lost stale lease; no unsafe success payload is returned, invalid events do not fulfill, duplicates return 200, and temporary fulfillment failures remain recoverable. | `passed` |
+| BR-011 | `CreateCryptoInvoiceResponseSerializer`, `CreateCryptoInvoiceOut` and bot `CryptoInvoice` expose exactly URL, decimal-safe RUB amount, expiry and reuse flag, and only after the reservation has successfully transitioned to `ACTIVE`. | Exact-four-field and reused-value API tests; bot client exact-string mapping; `test_active_invoice_allows_omitted_paid_only_fields`; `test_stale_lease_loss_does_not_return_non_active_intent`. | A valid new invoice returns `reused=false`; active reuse returns the same URL/amount/expiry with `reused=true`; activation loss returns no success body or provider URL. | `passed` |
 | BR-012 | Signed semantic warnings are reduced to `reason`, `update_id`, `invoice_id`, optional local `intent_id`; middleware redacts the path and omits webhook headers/body; admin task allowlists the same fields. | `TestCryptoPayWebhookView.test_each_signed_warning_logs_and_enqueues_only_safe_fields`; `TestCryptoAdminWarningTask.test_warning_transport_uses_only_allowlisted_fields`; `TestCryptoWebhookRequestLogging.test_webhook_log_omits_path_secret_headers_and_body`. | Correctly signed unknown/mismatched invoices do not fulfill, are logged and warn the admin using safe identifiers only; secrets, raw body, PII and result URLs/codes are excluded. | `passed` |
 
 ## AC traceability
@@ -47,16 +54,16 @@ Non-blocking review and documentation hygiene items are recorded under
 | ID | Requirement evidence and observed result | Status |
 |---|---|---|
 | AC-001 | `test_stars_first_crypto_second` covers all three row orders; the complete bot suite (94 passed) covers unchanged Stars callbacks and successful-payment routing. | `passed` |
-| AC-002 | The three Crypto callbacks map to `subscription`, `vpn_subscription`, `gift_certificate`; bot client uses the existing `Bot-Auth-Token` endpoint and handlers display provider URL/expiry. Evidence: bot client request test, `test_crypto_callback_uses_kind_and_shows_url`, backend auth test. | `passed` |
-| AC-003 | Mocked provider request asserts `currency_type=fiat`, `fiat=RUB`, exact Decimal amount, `USDT,TON`, `expires_in=1800`, opaque UUID payload and absence of Telegram ID/username/email. | `passed` |
-| AC-004 | Active reuse/new-after-expiry and stale failure paths are covered by create-service tests; model constraint and two-request `TransactionTestCase` prove one live reservation. | `passed` |
+| AC-002 | The three Crypto callbacks map to `subscription`, `vpn_subscription`, `gift_certificate`; bot client uses the existing `Bot-Auth-Token` endpoint and handlers display provider URL/expiry. Backend creation returns that URL only after an exact one-row activation; lost stale lease produces the existing safe retry path. | `passed` |
+| AC-003 | Mocked provider request asserts `currency_type=fiat`, `fiat=RUB`, exact Decimal amount, `USDT,TON`, `expires_in=1800`, opaque UUID payload and absence of Telegram ID/username/email. The client additionally accepts the official active response with omitted paid-only fields and still rejects invalid types when those fields are present. | `passed` |
+| AC-004 | Active reuse/new-after-expiry and stale failure paths are covered by create-service tests; model constraint and two-request `TransactionTestCase` prove one live reservation; the lost-lease DB regression proves the activation CAS must affect exactly one row before a result can be returned. | `passed` |
 | AC-005 | The three-kind apply test verifies MTProto, VPN and gift fulfillment for the initiator and one post-commit notification enqueue; notification task tests verify each corresponding Telegram result. | `passed` |
 | AC-006 | Duplicate apply is a no-op, concurrent apply creates one Payment/product, and a locally expired but timely paid invoice validates and fulfills. | `passed` |
 | AC-007 | Secret/HMAC failure matrix, semantic mismatch matrix, safe structured warning, middleware redaction and admin-warning allowlist all pass without fulfillment. | `passed` |
 | AC-008 | Reconciliation selects only `ACTIVE`, `LOCAL_EXPIRED`, `RETRYABLE`, sends paid items through the same validator/apply instances, isolates retryable item failures and re-enqueues missed notifications. | `passed` |
-| AC-009 | Full backend 460-test and bot 94-test integration evidence is green; targeted legacy bot Stars/YuKassa and `CreatePaymentService` regressions remain green. | `passed` |
+| AC-009 | Full backend 462-test and bot 94-test integration evidence is green; targeted legacy bot Stars/YuKassa and `CreatePaymentService` regressions remain green. | `passed` |
 | AC-010 | Payment/intent migration tests prove additive preservation and Crypto-only partial constraints; settings keep token/secret backend-only and support `https://testnet-pay.crypt.bot`; schedule is exactly ten minutes. Django migration/check/Compose/import gates are green. | `passed` |
-| AC-011 | API tests assert the exact four fields and correct new/reuse values; bot client preserves `rub_amount` and `expires_at` as strings and handler output displays them. | `passed` |
+| AC-011 | API tests assert the exact four fields and correct new/reuse values; bot client preserves `rub_amount` and `expires_at` as strings and handler output displays them. Official active responses may omit paid-only fields, while a lost activation transition yields no four-field success response. | `passed` |
 | AC-012 | Every approved signed unknown/mismatch reason returns 200 only after a safe warning enqueue; warning and middleware tests exclude token, secret, signature, raw body, PII, invoice URL, gift code and VPN URL. Invalid HMAC performs neither apply nor warning. | `passed` |
 
 ## Non-goal and scope audit
@@ -91,6 +98,7 @@ allows the final CPAY-B4 test isolation and does not change BR/AC/non-goals.
 | CPAY-B7 / CPAY-007 | `c154ba0..188d7c5` approved. | Bot invoice client evidence accepted. |
 | CPAY-B8 / CPAY-008 | `188d7c5..80f735c` approved; ignored-workspace traceability metadata noted as non-product `follow_up`. | Bot UI/callback behavior accepted. |
 | CPAY-B9 / CPAY-009 | `80f735c..2e08cd2` approved after rollout and Product/Payment documentation fixes. | Documentation/deploy gate evidence accepted. |
+| Final in-scope repair across CPAY-B1/B2/B3 | `8377894e6a1843dcbb044847a59797da7ad2bcbc..a2d4efac4b6be492b91954afaf515cff92ed6e62`; fresh scoped code-review verdict `approved`, no findings. | Optional provider paid-only fields and exact-one-row activation CAS evidence accepted; no task packet or product scope expansion. |
 
 The ignored local ledger `.superpowers/sdd/plan/progress.md` was reviewed only
 as process context and is not part of the shipping diff.
@@ -99,23 +107,22 @@ as process context and is not part of the shipping diff.
 
 ### Root integration evidence on exact head
 
-- `make test` — 460 tests, `OK`.
-- `cd bot && uv run pytest -q` — 94 passed.
-- Django system check — no issues.
-- `makemigrations --check --dry-run` — no changes; only the documented local
-  unable-to-open-history-database warning occurred.
-- `compileall`, production Compose config, and production wiring import — exit 0.
-- Exact diff check and working-tree status — clean before acceptance creation.
-- Added-line secret-pattern scan — no secret-like values.
+- `make test` — 462 tests, `OK`.
+- Fresh exact fix regressions — 2 tests, `OK`: omitted paid-only provider fields
+  and lost stale-lease activation.
+- Fresh scoped code-review of the fix — `approved`, no findings.
+- The fix range changes five backend payment/client/service/test files only.
+  Therefore the previously green bot suite (94 passed), Django migration/check,
+  compile, production Compose and wiring-import gates are not invalidated.
 - Exact diff contains no `apps/music/` changes.
 
 ### Independent acceptance checks
 
-- Targeted backend acceptance command covering create/reuse, provider request,
-  exact-once apply, durable notification, create API, webhook, reconciliation,
-  schedule and webhook logging — 61 tests, `OK`; Django system check clean.
-- Targeted bot command covering exact invoice client mapping, all three keyboard
-  orders/callbacks, retry UI and legacy successful-payment routing — 12 passed.
+- Fresh targeted command covering omitted optional provider fields, invalid
+  present `paid_asset` type and lost activation CAS — 3 tests, `OK`; Django
+  system check clean.
+- Earlier integrated acceptance evidence remains green for unchanged paths:
+  targeted backend 61 tests, targeted bot 12 tests and complete bot 94 tests.
 - `git diff --check` for the exact base/head range — exit 0.
 - Exact head and merge-base assertions — matched the SHAs recorded above.
 - Independent added-line secret scan — no matches.
@@ -135,6 +142,22 @@ and must never pay the invoice. A production provider call is not an acceptable
 substitute.
 
 ## Findings and follow-ups
+
+### Addressed `blocking_in_scope`
+
+1. **Official optional paid-only fields — addressed.** `paid_asset` and
+   `paid_at` are read with `.get()` so an active `createInvoice` result may omit
+   them; `test_active_invoice_allows_omitted_paid_only_fields` passes. Existing
+   validation still rejects an invalid present `paid_asset`, confirmed by
+   `test_malformed_provider_timestamps_raise_safe_error`. Traceability:
+   BR-004, BR-007, BR-010, BR-011; AC-002, AC-003, AC-004, AC-011.
+2. **Lost stale-lease activation — addressed.** The activation selector returns
+   an intent only when the conditional transition updates exactly one row; the
+   service otherwise raises safe `CryptoInvoiceUnavailable` with
+   `reason_code="creation_lost"`. The real-DB regression proves the intent stays
+   `CREATE_FAILED`, provider result fields remain blank, no success output is
+   returned and the provider is called once. Traceability: BR-004, BR-010,
+   BR-011; AC-002, AC-004, AC-011.
 
 ### Blocking findings
 
@@ -163,5 +186,6 @@ None. `blocking_in_scope = 0`; `scope_change_request = 0`.
 
 `accepted`. The implementation fulfills the approved product goal with all
 BR/AC passed, preserves the explicit non-goals, and has no product acceptance
-blocker. Testnet smoke remains an explicitly recorded release-readiness item and
-was correctly not substituted with a production call.
+blocker. Both final in-scope blockers are addressed on the exact reviewed head.
+Testnet smoke remains an explicitly recorded release-readiness item and was
+correctly not substituted with a production call.
