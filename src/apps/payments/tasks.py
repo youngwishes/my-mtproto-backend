@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from html import escape
+import logging
 
 from celery import shared_task
 from django.conf import settings
@@ -9,11 +10,30 @@ from django.utils import timezone
 from apps.core.telegram.transport import send_telegram_message
 from apps.notifications.services import SendNotificationService
 from apps.payments.enums import PaymentKindEnum
+from apps.payments.exceptions import CryptoPayClientError
 from apps.payments.selectors import (
     get_crypto_intent_for_notification,
     mark_crypto_notification_sent,
 )
+from apps.payments.services import get_reconcile_crypto_payments_service
 from apps.vds.selectors import get_active_key
+
+
+logger = logging.getLogger(__name__)
+
+
+@shared_task(
+    bind=True,
+    autoretry_for=(CryptoPayClientError,),
+    retry_backoff=True,
+    retry_backoff_max=300,
+    max_retries=3,
+)
+def reconcile_crypto_payments_task(self) -> dict[str, int]:
+    """Reconcile stored Crypto Pay intents with bounded provider polling."""
+    counters = get_reconcile_crypto_payments_service()()
+    logger.info("crypto_reconciliation_complete", extra=counters)
+    return counters
 
 
 @shared_task(bind=True, max_retries=3)

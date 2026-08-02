@@ -22,6 +22,10 @@ from apps.payments.services.gift_certificates import (
     get_activate_gift_certificate_service,
     get_create_gift_certificate_service,
 )
+from apps.payments.services.reconcile_crypto_payments import (
+    ReconcileCryptoPaymentsService,
+    get_reconcile_crypto_payments_service,
+)
 from apps.payments.services.validate_crypto_invoice import (
     ValidateCryptoInvoiceService,
     get_validate_crypto_invoice_service,
@@ -40,6 +44,8 @@ __all__ = [
     "CreateGiftCertificateService",
     "get_activate_gift_certificate_service",
     "get_create_gift_certificate_service",
+    "ReconcileCryptoPaymentsService",
+    "get_reconcile_crypto_payments_service",
     "ValidateCryptoInvoiceService",
     "get_validate_crypto_invoice_service",
 ]
