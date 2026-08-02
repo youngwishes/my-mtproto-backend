@@ -191,6 +191,7 @@ cython_debug/
 
 # Superpowers
 .superpowers/
+.worktrees/
 
 # Ruff stuff:
 .ruff_cache/
