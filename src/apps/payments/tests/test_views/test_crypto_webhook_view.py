@@ -65,7 +65,7 @@ class TestCryptoPayWebhookView(APITestCase):
                 "currency_type": "fiat",
                 "fiat": "RUB",
                 "amount": "99.00",
-                "accepted_assets": "USDT,TON",
+                "accepted_assets": ["USDT", "TON"],
                 "paid_asset": "USDT",
                 "payload": "0f57a4f1-1956-45be-8dc0-d891c00c74c1",
                 "bot_invoice_url": "https://t.me/CryptoBot?start=private",
@@ -153,6 +153,17 @@ class TestCryptoPayWebhookView(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assert_no_processing()
 
+    def test_malformed_accepted_assets_are_400_without_processing(self) -> None:
+        for accepted_assets in ("USDT,TON", ["USDT", 731]):
+            with self.subTest(accepted_assets=accepted_assets):
+                event = self.event()
+                event["payload"]["accepted_assets"] = accepted_assets
+
+                response = self.post_event(event)
+
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assert_no_processing()
+
     def test_each_signed_warning_logs_and_enqueues_only_safe_fields(self) -> None:
         cases = (
             ("invoice_id", 999999, "unknown_invoice", None),
@@ -163,7 +174,7 @@ class TestCryptoPayWebhookView(APITestCase):
             ("amount", "98.99", "amount_mismatch", self.intent.pk),
             (
                 "accepted_assets",
-                "USDT",
+                ["USDT"],
                 "accepted_assets_mismatch",
                 self.intent.pk,
             ),
