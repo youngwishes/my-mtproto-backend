@@ -415,6 +415,9 @@ async def test_info_answers_callback():
     await process_info(callback)
 
     assert callback.answers
+    text, _ = callback.message.edits[0]
+    assert "99 ★" in text
+    assert "80 ★" not in text
 
 
 async def test_boost_free_claims_key_and_shows_expiry():
@@ -436,9 +439,11 @@ async def test_payment_screen_includes_legal_links():
 
     await process_boost_paid(callback)
 
-    text, _ = callback.message.edits[0]
+    text, markup = callback.message.edits[0]
     assert TERMS_URL in text
     assert PRIVACY_URL in text
+    assert "99 ★/месяц" in text
+    assert markup.inline_keyboard[1][0].text == "⭐ Telegram Stars — 99 ★"
 
 
 def test_mtproxy_menu_links_to_site_and_support():
@@ -824,7 +829,7 @@ async def test_pay_stars_sends_xtr_invoice(monkeypatch):
     stars = StarsInvoice(
         title="Месяц",
         description="прокси",
-        prices=[LabeledPrice(label="Месяц", amount=80)],
+        prices=[LabeledPrice(label="Месяц", amount=99)],
     )
     callback = FakeCallback(chat_id=42)
 
@@ -832,7 +837,7 @@ async def test_pay_stars_sends_xtr_invoice(monkeypatch):
 
     invoice = fake_bot.invoices[0]
     assert invoice["currency"] == "XTR"
-    assert invoice["prices"][0].amount == 80
+    assert invoice["prices"][0].amount == 99
 
 
 async def test_gift_certificate_screen_shows_payment_options():
@@ -842,6 +847,7 @@ async def test_gift_certificate_screen_shows_payment_options():
 
     text, markup = callback.message.edits[0]
     assert "сертификат" in text.lower()
+    assert markup.inline_keyboard[1][0].text == "⭐ Telegram Stars — 99 ★"
     callbacks = [btn.callback_data for row in markup.inline_keyboard for btn in row]
     assert "gift_yukassa" in callbacks
     assert "gift_stars" in callbacks
@@ -880,7 +886,7 @@ async def test_gift_stars_invoice_uses_gift_payload(monkeypatch):
     stars = StarsInvoice(
         title="Месяц",
         description="прокси",
-        prices=[LabeledPrice(label="Месяц", amount=80)],
+        prices=[LabeledPrice(label="Месяц", amount=99)],
     )
     callback = FakeCallback(chat_id=42)
 
@@ -889,6 +895,7 @@ async def test_gift_stars_invoice_uses_gift_payload(monkeypatch):
     invoice = fake_bot.invoices[0]
     assert invoice["payload"] == "gift_certificate_stars"
     assert invoice["currency"] == "XTR"
+    assert invoice["prices"][0].amount == 99
 
 
 @pytest.mark.parametrize(

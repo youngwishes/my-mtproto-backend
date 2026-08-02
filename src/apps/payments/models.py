@@ -14,7 +14,7 @@ class ProductQuerySet(ActiveQuerySet):
             code=ProductCodeEnum.MTPROTO_30D,
             title="MTPRoto Proxy Key",
             price=99 * 100,
-            stars_price=80,
+            stars_price=99,
             description="Позволяет ускорить работу мессенджера Telegram. Работает сразу на 3-ех устройствах.",
             provider_data=json.dumps(
                 {

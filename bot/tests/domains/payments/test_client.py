@@ -31,7 +31,7 @@ PRODUCT_JSON = {
     "send_email_to_provider": False,
     "need_email": False,
     "price": 9900,
-    "stars_price": 80,
+    "stars_price": 99,
 }
 
 VPN_PROVIDER_DATA = {
@@ -103,7 +103,7 @@ async def test_get_stars_invoice_maps_fields(client: PaymentsClient):
     assert invoice == StarsInvoice(
         title="MTPRoto на месяц",
         description="Безлимитный прокси",
-        prices=[LabeledPrice(label="MTPRoto на месяц", amount=80)],
+        prices=[LabeledPrice(label="MTPRoto на месяц", amount=99)],
     )
     assert invoice.currency == "XTR"
     assert invoice.provider_token == ""
