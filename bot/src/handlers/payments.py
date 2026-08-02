@@ -3,11 +3,20 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from aiogram import F, Router
-from aiogram.types import CallbackQuery, Message, PreCheckoutQuery
+from aiogram.types import (
+    CallbackQuery,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    Message,
+    PreCheckoutQuery,
+)
 
 from src import keyboards
 from src.bot import bot
+from src.exceptions import APIError
 from src.messages import (
+    CRYPTO_INVOICE_ERROR_TEXT,
+    CRYPTO_INVOICE_TEXT,
     GIFT_CERTIFICATE_ACTIVATED_TEXT,
     GIFT_CERTIFICATE_PURCHASED_TEXT,
     GIFT_CERTIFICATE_TEXT,
@@ -19,6 +28,42 @@ if TYPE_CHECKING:
     from src.dependencies import Dependencies
 
 router = Router()
+
+
+async def show_crypto_invoice(
+    *,
+    callback: CallbackQuery,
+    deps: Dependencies,
+    purchase_kind: str,
+    back_callback: str,
+) -> None:
+    await callback.answer()
+    try:
+        invoice = await deps.payments.create_crypto_invoice(
+            telegram_id=callback.from_user.id,
+            purchase_kind=purchase_kind,
+        )
+    except APIError:
+        await callback.message.answer(CRYPTO_INVOICE_ERROR_TEXT)
+        return
+    markup = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="Открыть CryptoBot",
+                    url=invoice.invoice_url,
+                )
+            ],
+            [InlineKeyboardButton(text="🔙 Назад", callback_data=back_callback)],
+        ]
+    )
+    await callback.message.edit_text(
+        text=CRYPTO_INVOICE_TEXT.format(
+            rub_amount=invoice.rub_amount,
+            expires_at=invoice.expires_at,
+        ),
+        reply_markup=markup,
+    )
 
 
 @router.callback_query(F.data == "boost_paid")
@@ -51,6 +96,16 @@ async def process_pay_stars(callback: CallbackQuery, deps: Dependencies):
     )
 
 
+@router.callback_query(F.data == "pay_crypto")
+async def process_pay_crypto(callback: CallbackQuery, deps: Dependencies) -> None:
+    await show_crypto_invoice(
+        callback=callback,
+        deps=deps,
+        purchase_kind="subscription",
+        back_callback="show_mtproxy_menu",
+    )
+
+
 @router.callback_query(F.data == "gift_certificate")
 async def process_gift_certificate(callback: CallbackQuery):
     await callback.answer()
@@ -78,6 +133,16 @@ async def process_gift_stars(callback: CallbackQuery, deps: Dependencies):
         currency=invoice.currency,
         prices=invoice.prices,
         provider_token=invoice.provider_token,
+    )
+
+
+@router.callback_query(F.data == "gift_crypto")
+async def process_gift_crypto(callback: CallbackQuery, deps: Dependencies) -> None:
+    await show_crypto_invoice(
+        callback=callback,
+        deps=deps,
+        purchase_kind="gift_certificate",
+        back_callback="show_mtproxy_menu",
     )
 
 

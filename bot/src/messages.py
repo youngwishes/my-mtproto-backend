@@ -135,6 +135,17 @@ PAYMENT_METHODS_TEXT = f"""💰 <b>Оплата через Telegram Stars</b>
 <a href="{PRIVACY_URL}">Политику конфиденциальности</a>.</i>
 """
 
+CRYPTO_PAY_BUTTON = "💎 Crypto Pay"
+CRYPTO_INVOICE_TEXT = (
+    "💎 <b>Счёт Crypto Pay</b>\n\n"
+    "Сумма: <b>{rub_amount} RUB</b>\n"
+    "Действует до: <b>{expires_at}</b>\n\n"
+    "Нажмите кнопку ниже, чтобы открыть CryptoBot."
+)
+CRYPTO_INVOICE_ERROR_TEXT = (
+    "Не удалось создать счёт Crypto Pay. Попробуйте нажать кнопку ещё раз."
+)
+
 GIFT_CERTIFICATE_TEXT = f"""🎁 <b>Подарочный сертификат</b>
 
 Сертификат даёт <b>30 дней доступа</b> к MTPRoto Keys. После оплаты ты получишь код формата <code>KEY-XXXX-XXXX</code> и сможешь переслать его другу или родственнику.
