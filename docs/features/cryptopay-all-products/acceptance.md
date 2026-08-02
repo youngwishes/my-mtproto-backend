@@ -2,11 +2,11 @@
 
 - **Verdict:** `accepted`
 - **Reviewed base / merge-base:** `265e5f45165a28648684ebf0f54e772355eb0185`
-- **Reviewed head:** `a2d4efac4b6be492b91954afaf515cff92ed6e62`
-- **Exact reviewed range:** `265e5f45165a28648684ebf0f54e772355eb0185..a2d4efac4b6be492b91954afaf515cff92ed6e62`
-- **Scope Contract:** revision 8 (current implementation clarification)
+- **Reviewed head:** `c5080f7c8187bf3d3136de27566d166aa46953c2`
+- **Exact reviewed range:** `265e5f45165a28648684ebf0f54e772355eb0185..c5080f7c8187bf3d3136de27566d166aa46953c2`
+- **Scope Contract:** revision 10 (current implementation clarification)
 - **Approved product artifacts:** `business.md` revision 2; `architecture.md` revision 2
-- **Approved plan:** `plan.md` revision 8; task packets `CPAY-B1`–`CPAY-B9`
+- **Approved plan:** `plan.md` revision 10; task packets `CPAY-B1`–`CPAY-B9`
 - **Acceptance date:** 2026-08-02
 
 ## Verdict basis
@@ -25,12 +25,20 @@ found. There are no `blocking_in_scope` or `scope_change_request` findings.
 Non-blocking review and documentation hygiene items are recorded under
 `follow_up` and do not expand the current acceptance criteria.
 
-The two `blocking_in_scope` findings raised after the earlier acceptance are
-addressed in `8377894e6a1843dcbb044847a59797da7ad2bcbc..a2d4efac4b6be492b91954afaf515cff92ed6e62`:
+The three `blocking_in_scope` findings raised after earlier acceptance passes
+are addressed on this head. The first two were fixed in
+`8377894e6a1843dcbb044847a59797da7ad2bcbc..a2d4efac4b6be492b91954afaf515cff92ed6e62`:
 official active invoices may omit paid-only fields without becoming malformed,
-and activation now requires exactly one successful `CREATING` → `ACTIVE`
-transition before any invoice result is exposed. Neither fix changes the
-approved product behavior, components, non-goals or Scope Contract revision.
+and activation requires exactly one successful `CREATING` → `ACTIVE`
+transition before any invoice result is exposed. The PR final review then found
+that the generic Nginx access log could record the webhook secret-path before
+Django middleware redaction. The exact repair
+`babcdbd764d28a2bb9d96ba171909412824bc8ed..c5080f7c8187bf3d3136de27566d166aa46953c2`
+adds exact webhook locations with `access_log off` to both the HTTP redirect and
+HTTPS Django proxy while preserving their route behavior. These repairs do not
+change approved product behavior, components or non-goals; Scope revisions 9
+and 10 only clarify CPAY-B5 ownership and budget for the already required
+secret-path protection.
 
 ## BR traceability
 
@@ -47,7 +55,7 @@ approved product behavior, components, non-goals or Scope Contract revision.
 | BR-009 | `reconcile_crypto_payments_task`, `ReconcileCryptoPaymentsService` and `CELERY_BEAT_SCHEDULE["reconcile-crypto-payments"]` reuse the same validation/apply path at `*/10`. | `TestReconcileCryptoPaymentsService.test_paid_unfinished_uses_same_validator_and_apply`; `test_per_invoice_failure_does_not_stop_later_paid_invoice`; `TestCryptoReconciliationSchedule.test_reconciliation_runs_every_ten_minutes`. | Every ten minutes unfinished invoices are checked; valid paid intents are applied idempotently and one item failure does not stop later items. | `passed` |
 | BR-010 | Create/provider/activation failures transition or remain safely unavailable; apply failures remain/revert to `RETRYABLE`; webhook response mapping provides successful duplicate no-op and retryable 503 paths; reconciliation covers recovery. | `TestCreateOrReuseCryptoInvoiceService.test_provider_failure_marks_creating_intent_failed_and_allows_retry`; `test_stale_lease_loss_does_not_return_non_active_intent`; apply rollback/lock tests; webhook duplicate and temporary-error tests. | Users can retry invoice creation after provider failure or lost stale lease; no unsafe success payload is returned, invalid events do not fulfill, duplicates return 200, and temporary fulfillment failures remain recoverable. | `passed` |
 | BR-011 | `CreateCryptoInvoiceResponseSerializer`, `CreateCryptoInvoiceOut` and bot `CryptoInvoice` expose exactly URL, decimal-safe RUB amount, expiry and reuse flag, and only after the reservation has successfully transitioned to `ACTIVE`. | Exact-four-field and reused-value API tests; bot client exact-string mapping; `test_active_invoice_allows_omitted_paid_only_fields`; `test_stale_lease_loss_does_not_return_non_active_intent`. | A valid new invoice returns `reused=false`; active reuse returns the same URL/amount/expiry with `reused=true`; activation loss returns no success body or provider URL. | `passed` |
-| BR-012 | Signed semantic warnings are reduced to `reason`, `update_id`, `invoice_id`, optional local `intent_id`; middleware redacts the path and omits webhook headers/body; admin task allowlists the same fields. | `TestCryptoPayWebhookView.test_each_signed_warning_logs_and_enqueues_only_safe_fields`; `TestCryptoAdminWarningTask.test_warning_transport_uses_only_allowlisted_fields`; `TestCryptoWebhookRequestLogging.test_webhook_log_omits_path_secret_headers_and_body`. | Correctly signed unknown/mismatched invoices do not fulfill, are logged and warn the admin using safe identifiers only; secrets, raw body, PII and result URLs/codes are excluded. | `passed` |
+| BR-012 | Signed semantic warnings are reduced to `reason`, `update_id`, `invoice_id`, optional local `intent_id`; Django middleware redacts the path and omits webhook headers/body; the admin task allowlists the same fields. Exact Nginx webhook regex locations disable access logging before the HTTP redirect and HTTPS Django proxy. | `TestCryptoPayWebhookView.test_each_signed_warning_logs_and_enqueues_only_safe_fields`; `TestCryptoAdminWarningTask.test_warning_transport_uses_only_allowlisted_fields`; `TestCryptoWebhookRequestLogging.test_webhook_log_omits_path_secret_headers_and_body`; `TestCryptoWebhookNginxLogging.test_nginx_disables_access_log_for_http_and_https_webhook_routes`. | Correctly signed unknown/mismatched invoices do not fulfill and produce only safe application log/admin-warning fields; the reverse proxy does not access-log either webhook route, so the secret-path is excluded before Django redaction as well. | `passed` |
 
 ## AC traceability
 
@@ -59,12 +67,12 @@ approved product behavior, components, non-goals or Scope Contract revision.
 | AC-004 | Active reuse/new-after-expiry and stale failure paths are covered by create-service tests; model constraint and two-request `TransactionTestCase` prove one live reservation; the lost-lease DB regression proves the activation CAS must affect exactly one row before a result can be returned. | `passed` |
 | AC-005 | The three-kind apply test verifies MTProto, VPN and gift fulfillment for the initiator and one post-commit notification enqueue; notification task tests verify each corresponding Telegram result. | `passed` |
 | AC-006 | Duplicate apply is a no-op, concurrent apply creates one Payment/product, and a locally expired but timely paid invoice validates and fulfills. | `passed` |
-| AC-007 | Secret/HMAC failure matrix, semantic mismatch matrix, safe structured warning, middleware redaction and admin-warning allowlist all pass without fulfillment. | `passed` |
+| AC-007 | Secret/HMAC failure matrix, semantic mismatch matrix, safe structured warning, Django middleware redaction, reverse-proxy no-log routes and admin-warning allowlist all pass without fulfillment. | `passed` |
 | AC-008 | Reconciliation selects only `ACTIVE`, `LOCAL_EXPIRED`, `RETRYABLE`, sends paid items through the same validator/apply instances, isolates retryable item failures and re-enqueues missed notifications. | `passed` |
-| AC-009 | Full backend 462-test and bot 94-test integration evidence is green; targeted legacy bot Stars/YuKassa and `CreatePaymentService` regressions remain green. | `passed` |
+| AC-009 | Full backend 463-test and bot 94-test integration evidence is green; targeted legacy bot Stars/YuKassa and `CreatePaymentService` regressions remain green. | `passed` |
 | AC-010 | Payment/intent migration tests prove additive preservation and Crypto-only partial constraints; settings keep token/secret backend-only and support `https://testnet-pay.crypt.bot`; schedule is exactly ten minutes. Django migration/check/Compose/import gates are green. | `passed` |
 | AC-011 | API tests assert the exact four fields and correct new/reuse values; bot client preserves `rub_amount` and `expires_at` as strings and handler output displays them. Official active responses may omit paid-only fields, while a lost activation transition yields no four-field success response. | `passed` |
-| AC-012 | Every approved signed unknown/mismatch reason returns 200 only after a safe warning enqueue; warning and middleware tests exclude token, secret, signature, raw body, PII, invoice URL, gift code and VPN URL. Invalid HMAC performs neither apply nor warning. | `passed` |
+| AC-012 | Every approved signed unknown/mismatch reason returns 200 only after a safe warning enqueue; warning and Django middleware tests exclude token, secret, signature, raw body, PII, invoice URL, gift code and VPN URL. The Nginx regression proves both the HTTP redirect and HTTPS proxy use the exact webhook regex location with `access_log off`; invalid HMAC performs neither apply nor warning. | `passed` |
 
 ## Non-goal and scope audit
 
@@ -84,8 +92,12 @@ approved product behavior, components, non-goals or Scope Contract revision.
 ## Scope revisions, task packets and batch reviews
 
 Product behavior remains the immutable approved revision 2. Scope revisions
-3–8 only adjusted implementation ownership/budgets; revision 8 specifically
-allows the final CPAY-B4 test isolation and does not change BR/AC/non-goals.
+3–10 only adjusted implementation ownership/budgets. Revision 8 allows the
+final CPAY-B4 test isolation; revision 9 adds `nginx/nginx.conf` to CPAY-B5 for
+the already approved secret-path logging protection; revision 10 permits the
+route-specific update to the existing VPN logging test after the new unrelated
+`access_log off` directives made its global count brittle. None changes
+BR/AC/components/non-goals or any task packet's assigned requirement IDs.
 
 | Packet | Reviewed range / outcome | Acceptance use |
 |---|---|---|
@@ -93,7 +105,7 @@ allows the final CPAY-B4 test isolation and does not change BR/AC/non-goals.
 | CPAY-B2 / CPAY-002 | `42a95fb..662e3c3` approved after exact DTO schema fix. | Provider boundary/settings evidence accepted. |
 | CPAY-B3 / CPAY-003 | `c87f974..049a378` approved after post-provider SQLite-lock safe-503/one-call fix. | Create/reuse/API evidence accepted. |
 | CPAY-B4 / CPAY-004 | `d121928..cd27f38`, `c032e8c..fef79f0` and revision-8 `2e08cd2..35c31b2` approved after durable MT result, retry-state and test-isolation fixes. | Exact-once and notification evidence accepted. |
-| CPAY-B5 / CPAY-005 | `cd27f38..635b857` approved. | Webhook/HMAC/semantic-warning evidence accepted. |
+| CPAY-B5 / CPAY-005 | `cd27f38..635b857` approved initially; reverse-proxy repair `babcdbd764d28a2bb9d96ba171909412824bc8ed..c5080f7c8187bf3d3136de27566d166aa46953c2` independently reviewed `approved`, no findings. | Webhook/HMAC/semantic-warning evidence plus HTTP/HTTPS reverse-proxy no-log protection accepted. |
 | CPAY-B6 / CPAY-006 | `fef79f0..c154ba0` approved; two direct unit-test additions deferred as non-blocking. | Reconciliation behavior accepted; deferred items remain `follow_up`. |
 | CPAY-B7 / CPAY-007 | `c154ba0..188d7c5` approved. | Bot invoice client evidence accepted. |
 | CPAY-B8 / CPAY-008 | `188d7c5..80f735c` approved; ignored-workspace traceability metadata noted as non-product `follow_up`. | Bot UI/callback behavior accepted. |
@@ -107,25 +119,29 @@ as process context and is not part of the shipping diff.
 
 ### Root integration evidence on exact head
 
-- `make test` — 462 tests, `OK`.
-- Fresh exact fix regressions — 2 tests, `OK`: omitted paid-only provider fields
-  and lost stale-lease activation.
-- Fresh scoped code-review of the fix — `approved`, no findings.
-- The fix range changes five backend payment/client/service/test files only.
-  Therefore the previously green bot suite (94 passed), Django migration/check,
-  compile, production Compose and wiring-import gates are not invalidated.
+- `make test` — 463 tests, `OK`.
+- Exact core + VPN logging scope — 6 tests, `OK`; this includes the regression
+  for both Nginx webhook locations and the preserved VPN secret-route behavior.
+- `docker compose -f docker-compose.yml config --quiet` — exit 0.
+- Fresh independent batch review of the Nginx repair — `approved`, no findings.
+- The repair commit changes the approved plan clarification, `nginx/nginx.conf`
+  and two logging test files only. Therefore the previously green bot suite
+  (94 passed), Django migrations/check, compile and wiring-import gates are not
+  invalidated.
 - Exact diff contains no `apps/music/` changes.
 
 ### Independent acceptance checks
 
-- Fresh targeted command covering omitted optional provider fields, invalid
-  present `paid_asset` type and lost activation CAS — 3 tests, `OK`; Django
-  system check clean.
+- Fresh `make test ARGS="apps.core.tests.test_crypto_webhook_logging
+  apps.vpn.tests.test_subscription_logging"` — 6 tests, `OK`; Django system
+  check clean.
 - Earlier integrated acceptance evidence remains green for unchanged paths:
   targeted backend 61 tests, targeted bot 12 tests and complete bot 94 tests.
 - `git diff --check` for the exact base/head range — exit 0.
 - Exact head and merge-base assertions — matched the SHAs recorded above.
-- Independent added-line secret scan — no matches.
+- Local Nginx binary is unavailable, so no runtime `nginx -t` claim is made;
+  the static route regression follows the repository's existing VPN
+  configuration-test pattern and Compose rendering is valid.
 - Pre-acceptance worktree status — clean.
 
 ## Testnet smoke
@@ -158,6 +174,14 @@ substitute.
    `CREATE_FAILED`, provider result fields remain blank, no success output is
    returned and the provider is called once. Traceability: BR-004, BR-010,
    BR-011; AC-002, AC-004, AC-011.
+3. **Nginx secret-path access logging — addressed.** The final PR review at
+   `babcdbd764d28a2bb9d96ba171909412824bc8ed` found that generic Nginx logging
+   preceded Django path redaction and could expose the webhook secret. The
+   repair adds exact regex locations with `access_log off` for both the HTTP
+   redirect and HTTPS Django proxy. The regression asserts two locations, no-log
+   behavior and preserved redirect/proxy destinations; the existing VPN test
+   remains route-specific. Traceability: BR-012; AC-012; architecture revision
+   2 §8; CPAY-005.
 
 ### Blocking findings
 
@@ -186,6 +210,7 @@ None. `blocking_in_scope = 0`; `scope_change_request = 0`.
 
 `accepted`. The implementation fulfills the approved product goal with all
 BR/AC passed, preserves the explicit non-goals, and has no product acceptance
-blocker. Both final in-scope blockers are addressed on the exact reviewed head.
+blocker. All three post-acceptance in-scope blockers, including the PR review's
+reverse-proxy secret-path leak, are addressed on the exact reviewed head.
 Testnet smoke remains an explicitly recorded release-readiness item and was
 correctly not substituted with a production call.
