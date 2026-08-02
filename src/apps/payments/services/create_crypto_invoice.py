@@ -120,8 +120,6 @@ def _created_invoice_error_code(
         return "create_timestamp_invalid"
     if invoice.expiration_date <= invoice.created_at:
         return "create_expiration_invalid"
-    if invoice.expiration_date - invoice.created_at != timedelta(seconds=1800):
-        return "create_expiration_invalid"
     return None
 
 
