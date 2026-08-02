@@ -10,8 +10,9 @@ from django.utils import timezone
 from apps.payments.enums import PaymentProviderEnum
 from apps.payments.exceptions import BadPaymentData
 from apps.payments.models import Payment
-from apps.payments.services import get_create_payment_service
+from apps.payments.services import CreatePaymentService, get_create_payment_service
 from apps.payments.services.dtos import CreatePaymentIn
+from apps.payments.services.extend_key_service import get_extend_key_service
 from apps.users.tests.factories import SystemUserFactory
 from apps.vds.models import MTPRotoKey
 from apps.vds.tests.factories import MTPRotoKeyFactory, VDSInstanceFactory
@@ -36,10 +37,42 @@ class TestCreatePaymentService(TestCase):
             provider=provider,
         )
 
+    def test_crypto_can_disable_direct_success_notification(self) -> None:
+        notifier = mock.Mock()
+        issue = mock.Mock(return_value=MTPRotoKeyFactory(user=self.user))
+        service = CreatePaymentService(
+            extend_key_service=get_extend_key_service(),
+            issue_key_service=issue,
+            notify_success=notifier,
+        )
+
+        service(
+            payment=self._make_payment(charge_id="crypto_charge"),
+            send_success_notification=False,
+        )
+
+        notifier.assert_not_called()
+
+    @mock.patch("apps.vds.tasks.push_key_to_servers_task.delay")
+    @mock.patch("apps.notifications.services.send_notification_service.send_telegram_message")
+    def test_default_notification_and_issue_push_run_after_commit(
+        self, mock_send: mock.Mock, mock_push: mock.Mock
+    ) -> None:
+        with self.captureOnCommitCallbacks(execute=False) as callbacks:
+            self.service(payment=self._make_payment(charge_id="default_charge"))
+            self.assertEqual(mock_send.call_count, 1)
+            self.assertEqual(mock_push.call_count, 0)
+
+        for callback in callbacks:
+            callback()
+
+        mock_push.assert_called_once()
+
     @mock.patch("apps.vds.tasks.push_key_to_servers_task.delay")
     @mock.patch("apps.notifications.services.send_notification_service.send_telegram_message")
     def test_creates_new_key_when_no_active_key(self, mock_send: mock.Mock, mock_push: mock.Mock) -> None:
-        self.service(payment=self._make_payment(charge_id="charge_new"))
+        with self.captureOnCommitCallbacks(execute=True):
+            self.service(payment=self._make_payment(charge_id="charge_new"))
 
         self.assertEqual(MTPRotoKey.objects.count(), 1)
         key = MTPRotoKey.objects.first()

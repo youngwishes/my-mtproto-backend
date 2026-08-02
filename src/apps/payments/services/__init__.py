@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from apps.payments.services.apply_crypto_payment import (
+    ApplyCryptoPaymentService,
+    get_apply_crypto_payment_service,
+)
 from apps.payments.services.create_crypto_invoice import (
     CreateOrReuseCryptoInvoiceService,
     get_create_or_reuse_crypto_invoice_service,
@@ -19,6 +23,8 @@ from apps.payments.services.gift_certificates import (
     get_create_gift_certificate_service,
 )
 __all__ = [
+    "ApplyCryptoPaymentService",
+    "get_apply_crypto_payment_service",
     "CreateOrReuseCryptoInvoiceService",
     "get_create_or_reuse_crypto_invoice_service",
     "CreatePaymentService",

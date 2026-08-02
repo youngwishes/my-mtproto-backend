@@ -33,3 +33,7 @@ class CryptoInvoiceCreationInProgress(BaseServiceError):
 
 class CryptoInvoiceUnavailable(BaseInfraError):
     """Не удалось создать счёт Crypto Pay. Попробуйте ещё раз."""
+
+
+class CryptoPaymentRetryable(BaseInfraError):
+    """Оплата подтверждена, выдача будет повторена автоматически."""
