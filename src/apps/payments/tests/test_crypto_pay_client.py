@@ -20,7 +20,7 @@ VALID_INVOICE_JSON = {
     "currency_type": "fiat",
     "fiat": "RUB",
     "amount": "99.00",
-    "accepted_assets": "USDT,TON",
+    "accepted_assets": ["USDT", "TON"],
     "paid_asset": "USDT",
     "payload": "0f57a4f1-1956-45be-8dc0-d891c00c74c1",
     "bot_invoice_url": "https://t.me/CryptoBot?start=test",
@@ -209,6 +209,25 @@ class TestCryptoPayClient(SimpleTestCase):
             with self.subTest(field=field):
                 invoice = deepcopy(VALID_INVOICE_JSON)
                 invoice[field] = value
+                responses.reset()
+                responses.post(
+                    "https://testnet-pay.crypt.bot/api/createInvoice",
+                    json={"ok": True, "result": invoice},
+                )
+
+                with self.assertRaisesRegex(CryptoPayClientError, "^cryptopay_malformed$"):
+                    self.client.create_invoice(
+                        amount=Decimal("99.00"),
+                        payload="0f57a4f1-1956-45be-8dc0-d891c00c74c1",
+                        description="MTProto на 30 дней",
+                    )
+
+    @responses.activate
+    def test_malformed_accepted_assets_raise_safe_error(self) -> None:
+        for accepted_assets in ("USDT,TON", ["USDT", 731]):
+            with self.subTest(accepted_assets=accepted_assets):
+                invoice = deepcopy(VALID_INVOICE_JSON)
+                invoice["accepted_assets"] = accepted_assets
                 responses.reset()
                 responses.post(
                     "https://testnet-pay.crypt.bot/api/createInvoice",

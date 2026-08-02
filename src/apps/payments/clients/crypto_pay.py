@@ -119,7 +119,8 @@ class CryptoPayClient:
                 or not isinstance(status, str)
                 or not isinstance(currency_type, str)
                 or not isinstance(fiat, str | None)
-                or not isinstance(accepted_assets, str)
+                or not isinstance(accepted_assets, list)
+                or not all(isinstance(asset, str) for asset in accepted_assets)
                 or not isinstance(paid_asset, str | None)
                 or not isinstance(payload, str)
                 or not isinstance(bot_invoice_url, str)
@@ -131,7 +132,7 @@ class CryptoPayClient:
                 currency_type=currency_type,
                 fiat=fiat,
                 amount=amount,
-                accepted_assets=frozenset(accepted_assets.split(",")),
+                accepted_assets=frozenset(accepted_assets),
                 paid_asset=paid_asset,
                 payload=payload,
                 bot_invoice_url=bot_invoice_url,
