@@ -38,8 +38,6 @@ def build_dependencies() -> Dependencies:
         free_trial=FreeTrialClient(backend=backend),
         links=LinksClient(backend=backend),
         referrals=ReferralsClient(backend=backend),
-        payments=PaymentsClient(
-            backend=backend, provider_token=settings.provider_token
-        ),
+        payments=PaymentsClient(backend=backend),
         vpn=VPNClient(backend=backend),
     )

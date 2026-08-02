@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import json
-from dataclasses import asdict, dataclass
-from typing import TYPE_CHECKING, Any, final
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, final
 
 from aiogram.types import LabeledPrice
 
@@ -14,22 +13,6 @@ _VPN_PRODUCT_PATH = "/api/v1/payments/products/vpn_30d/"
 _BUY_PATH = "/api/v1/payments/buy/"
 _GIFT_BUY_PATH = "/api/v1/payments/gift-certificates/buy/"
 _GIFT_ACTIVATE_PATH = "/api/v1/payments/gift-certificates/activate/"
-
-
-@final
-@dataclass(kw_only=True, slots=True, frozen=True)
-class CardInvoice:
-    title: str
-    description: str
-    currency: str
-    provider_data: str
-    send_email_to_provider: bool
-    need_email: bool
-    prices: list[LabeledPrice]
-    provider_token: str
-
-    def asdict(self) -> dict[str, Any]:
-        return asdict(self)
 
 
 @final
@@ -58,26 +41,6 @@ class ActivatedGiftCertificate:
 @dataclass(kw_only=True, slots=True, frozen=True)
 class PaymentsClient:
     backend: BackendClient
-    provider_token: str
-
-    async def get_card_invoice(self) -> CardInvoice:
-        return await self._get_card_invoice(path=_PRODUCT_PATH)
-
-    async def get_vpn_card_invoice(self) -> CardInvoice:
-        return await self._get_card_invoice(path=_VPN_PRODUCT_PATH)
-
-    async def _get_card_invoice(self, *, path: str) -> CardInvoice:
-        data = await self.backend.get(path)
-        return CardInvoice(
-            title=data["title"],
-            description=data["description"],
-            currency=data["currency"],
-            provider_data=json.dumps(data["provider_data"]),
-            send_email_to_provider=data["send_email_to_provider"],
-            need_email=data["need_email"],
-            prices=[LabeledPrice(label=data["title"], amount=data["price"])],
-            provider_token=self.provider_token,
-        )
 
     async def get_stars_invoice(self) -> StarsInvoice:
         return await self._get_stars_invoice(path=_PRODUCT_PATH)

@@ -33,10 +33,8 @@ async def process_vpn_menu(callback: CallbackQuery) -> None:
 @router.callback_query(F.data == "vpn")
 async def process_vpn(callback: CallbackQuery, deps: Dependencies) -> None:
     await callback.answer()
-    card_invoice = await deps.payments.get_vpn_card_invoice()
     stars_invoice = await deps.payments.get_vpn_stars_invoice()
     payment_methods = keyboards.vpn_payment_methods(
-        card_price_kopecks=card_invoice.prices[0].amount,
         stars_price=stars_invoice.prices[0].amount,
     )
     await callback.message.edit_text(
@@ -76,15 +74,8 @@ async def process_vpn_subscription(
 
 
 @router.callback_query(F.data == "vpn_pay_yukassa")
-async def process_vpn_pay_yukassa(callback: CallbackQuery, deps: Dependencies) -> None:
+async def process_vpn_pay_yukassa(callback: CallbackQuery) -> None:
     await callback.answer()
-    invoice = await deps.payments.get_vpn_card_invoice()
-    await bot.send_invoice(
-        chat_id=callback.message.chat.id,
-        start_parameter="vpn_yukassa",
-        payload="vpn_yukassa",
-        **invoice.asdict(),
-    )
 
 
 @router.callback_query(F.data == "vpn_pay_stars")

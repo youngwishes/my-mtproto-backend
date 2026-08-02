@@ -10,7 +10,6 @@ ENV = {
     "API_URL": "http://example",
     "MY_TELEGRAM_ID": "777",
     "BOT_AUTH_TOKEN": "auth",
-    "PROVIDER_TOKEN": "prov",
 }
 
 
@@ -32,7 +31,6 @@ def test_settings_loads_and_coerces_from_environment(env):
     assert settings.api_url == "http://example"
     assert settings.my_telegram_id == 777  # coerced to int
     assert settings.bot_auth_token == "auth"
-    assert settings.provider_token == "prov"
 
 
 def test_settings_raises_when_required_var_missing(env):

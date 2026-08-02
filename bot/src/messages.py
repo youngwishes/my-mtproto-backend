@@ -110,7 +110,7 @@ FAQ_TEXT = """
 🔄 Можно купить подписку — ключ продлится на 30 дней, переподключать ничего не нужно.
 
 <b>Сколько стоит?</b>
-💳 99 ₽/мес картой, SberPay или ЮMoney, либо 99 ★ через Telegram Stars.
+⭐ 99 ★/мес через Telegram Stars.
 
 Остались вопросы? Напиши @mtproto_keys
 """
@@ -126,10 +126,7 @@ REFERRAL_CABINET = """
 👇 <b>Поделиться ссылкой</b>
 """
 
-PAYMENT_METHODS_TEXT = f"""💰 <b>Выберите способ оплаты</b>
-
-• 💳 <b>ЮKassa</b> — 99 ₽/месяц
-  Банковская карта, SberPay, ЮMoney
+PAYMENT_METHODS_TEXT = f"""💰 <b>Оплата через Telegram Stars</b>
 
 • ⭐ <b>Telegram Stars</b> — 99 ★/месяц
   Оплата прямо в Telegram

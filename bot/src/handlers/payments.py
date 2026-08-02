@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING
 
 from aiogram import F, Router
@@ -32,15 +31,8 @@ async def process_boost_paid(callback: CallbackQuery):
 
 
 @router.callback_query(F.data == "pay_yukassa")
-async def process_pay_yukassa(callback: CallbackQuery, deps: Dependencies):
+async def process_pay_yukassa(callback: CallbackQuery) -> None:
     await callback.answer()
-    invoice = await deps.payments.get_card_invoice()
-    await bot.send_invoice(
-        chat_id=callback.message.chat.id,
-        start_parameter="payment",
-        payload="payment",
-        **invoice.asdict(),
-    )
 
 
 @router.callback_query(F.data == "pay_stars")
@@ -69,22 +61,8 @@ async def process_gift_certificate(callback: CallbackQuery):
 
 
 @router.callback_query(F.data == "gift_yukassa")
-async def process_gift_yukassa(callback: CallbackQuery, deps: Dependencies):
+async def process_gift_yukassa(callback: CallbackQuery) -> None:
     await callback.answer()
-    invoice = await deps.payments.get_card_invoice()
-    invoice_data = invoice.asdict()
-    invoice_data["title"] = "Подарочный сертификат MTPRoto Keys — 30 дней"
-    invoice_data["description"] = "Одноразовый код на 30 дней подписки"
-    provider_data = json.loads(invoice_data["provider_data"])
-    for item in provider_data.get("receipt", {}).get("items", []):
-        item["description"] = "Подарочный сертификат MTPRoto Keys на 30 дней"
-    invoice_data["provider_data"] = json.dumps(provider_data)
-    await bot.send_invoice(
-        chat_id=callback.message.chat.id,
-        start_parameter="gift_certificate",
-        payload="gift_certificate_yukassa",
-        **invoice_data,
-    )
 
 
 @router.callback_query(F.data == "gift_stars")

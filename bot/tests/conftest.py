@@ -9,4 +9,3 @@ os.environ.setdefault(
 os.environ.setdefault("API_URL", "http://backend")
 os.environ.setdefault("BOT_AUTH_TOKEN", "test-auth")
 os.environ.setdefault("MY_TELEGRAM_ID", "1")
-os.environ.setdefault("PROVIDER_TOKEN", "test-provider")

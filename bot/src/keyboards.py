@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from src.messages import PRIVACY_URL, SITE_URL, SUPPORT_URL, TERMS_URL
 
@@ -142,30 +141,17 @@ def info() -> InlineKeyboardMarkup:
 
 
 def payment_methods() -> InlineKeyboardMarkup:
-    keyboard = InlineKeyboardBuilder(
-        markup=[
-            [InlineKeyboardButton(text="💳 ЮKassa — 99 ₽", callback_data="pay_yukassa", style="primary")],
-            [InlineKeyboardButton(text="⭐ Telegram Stars — 99 ★", callback_data="pay_stars", style="primary")],
-            [_MTPROXY_BACK],
-        ],
-    )
-    return keyboard.adjust(1).as_markup()
-
-
-def vpn_payment_methods(
-    *, card_price_kopecks: int, stars_price: int
-) -> InlineKeyboardMarkup:
-    rubles, kopecks = divmod(card_price_kopecks, 100)
-    ruble_price = str(rubles) if kopecks == 0 else f"{rubles},{kopecks:02d}"
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text=f"💳 ЮKassa — {ruble_price} ₽",
-                    callback_data="vpn_pay_yukassa",
-                    style="primary",
-                )
-            ],
+            [InlineKeyboardButton(text="⭐ Telegram Stars — 99 ★", callback_data="pay_stars", style="primary")],
+            [_MTPROXY_BACK],
+        ]
+    )
+
+
+def vpn_payment_methods(*, stars_price: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
             [
                 InlineKeyboardButton(
                     text=f"⭐ Telegram Stars — {stars_price} ★",
@@ -179,14 +165,12 @@ def vpn_payment_methods(
 
 
 def gift_certificate_payment_methods() -> InlineKeyboardMarkup:
-    keyboard = InlineKeyboardBuilder(
-        markup=[
-            [InlineKeyboardButton(text="💳 ЮKassa — 99 ₽", callback_data="gift_yukassa", style="primary")],
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
             [InlineKeyboardButton(text="⭐ Telegram Stars — 99 ★", callback_data="gift_stars", style="primary")],
             [_MTPROXY_BACK],
-        ],
+        ]
     )
-    return keyboard.adjust(1).as_markup()
 
 
 def referral_cabinet(*, active_referrals_count: int, referral_link: str) -> InlineKeyboardMarkup:
