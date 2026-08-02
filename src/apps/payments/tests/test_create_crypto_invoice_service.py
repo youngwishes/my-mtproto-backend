@@ -259,6 +259,27 @@ class TestCreateOrReuseCryptoInvoiceService(TestCase):
             ),
         )
 
+    def test_provider_subsecond_expiration_drift_is_accepted(self) -> None:
+        ProductFactory(code=ProductCodeEnum.MTPROTO_30D, price=Decimal("9900"))
+        provider_expiration = self.now + timedelta(seconds=1799, milliseconds=998)
+
+        def create_invoice(
+            *, amount: Decimal, payload: str, description: str
+        ) -> CryptoInvoiceDTO:
+            return replace(
+                self._valid_invoice(amount=amount, payload=payload),
+                expiration_date=provider_expiration,
+            )
+
+        self.client.create_invoice.side_effect = create_invoice
+
+        result = self.service(request=self._request())
+
+        intent = CryptoPaymentIntent.objects.get()
+        self.assertEqual(intent.status, CryptoPaymentIntentStatusEnum.ACTIVE)
+        self.assertEqual(intent.provider_expires_at, provider_expiration)
+        self.assertEqual(result.expires_at, provider_expiration)
+
     def test_stale_lease_loss_does_not_return_non_active_intent(self) -> None:
         ProductFactory(code=ProductCodeEnum.MTPROTO_30D, price=Decimal("9900"))
 
@@ -303,10 +324,6 @@ class TestCreateOrReuseCryptoInvoiceService(TestCase):
             ("create_timestamp_invalid", {"created_at": naive}),
             ("create_timestamp_invalid", {"expiration_date": naive}),
             ("create_expiration_invalid", {"expiration_date": self.now}),
-            (
-                "create_expiration_invalid",
-                {"expiration_date": self.now + timedelta(seconds=1799)},
-            ),
         )
         for reason_code, changes in cases:
             with self.subTest(reason_code=reason_code, changes=changes):
