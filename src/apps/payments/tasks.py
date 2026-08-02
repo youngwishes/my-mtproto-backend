@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from html import escape
+
 from celery import shared_task
 from django.conf import settings
 from django.utils import timezone
 
+from apps.core.telegram.transport import send_telegram_message
 from apps.notifications.services import SendNotificationService
 from apps.payments.enums import PaymentKindEnum
 from apps.payments.selectors import (
@@ -53,4 +56,26 @@ def notify_crypto_purchase_task(self, intent_id: int) -> None:
     mark_crypto_notification_sent(
         intent_id=intent.pk,
         sent_at=timezone.now(),
+    )
+
+
+@shared_task
+def warn_crypto_webhook_admin_task(
+    warning: dict[str, int | str | None],
+) -> None:
+    """Send only allowlisted identifiers for a rejected signed webhook."""
+    safe = {
+        key: warning.get(key)
+        for key in ("reason", "update_id", "invoice_id", "intent_id")
+    }
+    send_telegram_message(
+        chat_id=settings.MY_TELEGRAM_ID,
+        text=(
+            "⚠️ <b>Crypto Pay webhook rejected</b>\n"
+            f"reason={escape(str(safe['reason']))} "
+            f"update_id={escape(str(safe['update_id']))} "
+            f"invoice_id={escape(str(safe['invoice_id']))} "
+            f"intent_id={escape(str(safe['intent_id']))}"
+        ),
+        timeout=settings.TELEGRAM_TIMEOUT,
     )

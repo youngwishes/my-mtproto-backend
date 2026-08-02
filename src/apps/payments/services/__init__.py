@@ -22,6 +22,11 @@ from apps.payments.services.gift_certificates import (
     get_activate_gift_certificate_service,
     get_create_gift_certificate_service,
 )
+from apps.payments.services.validate_crypto_invoice import (
+    ValidateCryptoInvoiceService,
+    get_validate_crypto_invoice_service,
+)
+
 __all__ = [
     "ApplyCryptoPaymentService",
     "get_apply_crypto_payment_service",
@@ -35,4 +40,6 @@ __all__ = [
     "CreateGiftCertificateService",
     "get_activate_gift_certificate_service",
     "get_create_gift_certificate_service",
+    "ValidateCryptoInvoiceService",
+    "get_validate_crypto_invoice_service",
 ]

@@ -7,6 +7,29 @@ logger = logging.getLogger(__name__)
 
 _VPN_SUBSCRIPTION_PATH = compile(r"^/api/v1/vpn/subscriptions/[^/]+/$")
 _REDACTED_VPN_SUBSCRIPTION_PATH = "/api/v1/vpn/subscriptions/[REDACTED]/"
+_CRYPTO_WEBHOOK_PATH = compile(r"^/api/v1/payments/crypto/webhooks/[^/]+/$")
+_REDACTED_CRYPTO_WEBHOOK_PATH = "/api/v1/payments/crypto/webhooks/[REDACTED]/"
+
+
+def _decode_body(raw_body: bytes) -> object:
+    try:
+        return json.loads(raw_body)
+    except (JSONDecodeError, UnicodeDecodeError):
+        return raw_body.decode("utf-8", errors="replace")
+
+
+def _safe_request_log(request) -> dict[str, object]:
+    if _CRYPTO_WEBHOOK_PATH.fullmatch(request.path):
+        return {
+            "method": request.method,
+            "path": _REDACTED_CRYPTO_WEBHOOK_PATH,
+        }
+    return {
+        "method": request.method,
+        "path": request.path,
+        "headers": dict(request.headers),
+        "body": _decode_body(request.body),
+    }
 
 
 class RequestLoggingMiddleware:
@@ -18,22 +41,13 @@ class RequestLoggingMiddleware:
             return self.get_response(request)
 
         if request.method in ["POST", "PUT", "PATCH"] and request.body:
-            try:
-                body = json.loads(request.body)
-            except JSONDecodeError:
-                body = request.body.decode("utf-8")
-            logger.info(
-                {
-                    "method": request.method,
-                    "path": request.path,
-                    "headers": dict(request.headers),
-                    "body": body,
-                }
-            )
+            logger.info(_safe_request_log(request))
 
         response = self.get_response(request)
 
-        if _VPN_SUBSCRIPTION_PATH.fullmatch(request.path):
+        if _CRYPTO_WEBHOOK_PATH.fullmatch(request.path):
+            request.path = _REDACTED_CRYPTO_WEBHOOK_PATH
+        elif _VPN_SUBSCRIPTION_PATH.fullmatch(request.path):
             request.path = _REDACTED_VPN_SUBSCRIPTION_PATH
 
         return response

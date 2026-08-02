@@ -5,6 +5,7 @@ from django.urls import path
 from apps.payments.api.v1.views import (
     ActivateGiftCertificateView,
     CreateCryptoInvoiceView,
+    CryptoPayWebhookView,
     CreatePaymentView,
     CreateGiftCertificateView,
     ProductAPIView,
@@ -18,6 +19,11 @@ urlpatterns = [
         "crypto/invoices/",
         CreateCryptoInvoiceView.as_view(),
         name="crypto-invoice-create",
+    ),
+    path(
+        "crypto/webhooks/<str:webhook_secret>/",
+        CryptoPayWebhookView.as_view(),
+        name="crypto-pay-webhook",
     ),
     path(
         "gift-certificates/buy/",
