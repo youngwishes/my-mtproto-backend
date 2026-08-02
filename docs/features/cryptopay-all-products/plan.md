@@ -3,7 +3,7 @@
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 - **Status:** approved
-- **Scope revision:** 4 (immutable implementation clarification; revisions 1–3
+- **Scope revision:** 5 (immutable implementation clarification; revisions 1–4
   are superseded for execution)
 - **Architecture review:** approved; no blocking findings, scope change
   requests or follow-ups.
@@ -27,14 +27,16 @@ aiogram-бот только создаёт счёт через `Bot-Auth-Token` 
 
 ## Global Constraints
 
-- Scope Contract revision 4 без изменений принимает обязательное поведение из
+- Scope Contract revision 5 без изменений принимает обязательное поведение из
   approved `docs/features/cryptopay-all-products/business.md` и approved
   архитектурного решения `architecture.md`, оба `scope_revision: 2`:
   BR-001..BR-012, AC-001..AC-012 и их non-goals. Revision 3 уточняет только
   технический line budget CPAY-B1 с 700 до 1100 строк. Revision 4 уточняет
   CPAY-B3: переносит missing dependency fixes в эту партию, разрешая
   `exceptions.py` и `selectors.py`, и повышает её бюджет с 850 до 900 строк.
-  Пользовательское поведение, компоненты и критерии завершения неизменны.
+  Revision 5 добавляет `exceptions.py` в CPAY-B4 для утверждённого
+  `CryptoPaymentRetryable`, не меняя бюджет. Пользовательское поведение,
+  компоненты и критерии завершения неизменны.
 - Новое пользовательское поведение, обязательный edge case, компонент,
   контракт или расширение non-goals требует `scope_change_request`; reviewer не
   превращает hardening/follow-up в обязательную правку.
@@ -722,7 +724,7 @@ subscription behavior survive, both partial uniqueness rules fail only in their
 approved conditions, selectors have the fixed signatures, and admin cannot add,
 edit, delete or run actions.
 
-**Task packet CPAY-B1:** `scope_revision: 4`; ID `CPAY-001`; allowed files are
+**Task packet CPAY-B1:** `scope_revision: 5`; ID `CPAY-001`; allowed files are
 the 10 files above; forbidden adjacent work is client/API/tasks/bot/docs,
 generic Payment refactor and mark-paid action; non-goals are all Global
 Constraints non-goals; budget ≤10 files and ≤1100 changed lines including tests
@@ -1028,7 +1030,7 @@ global docs belong to CPAY-009.
 headers, timeout, decimal/timestamp mapping, safe malformed/error handling and
 absence of username/Telegram ID/email; no dependency or bot setting is added.
 
-**Task packet CPAY-B2:** `scope_revision: 4`; ID `CPAY-002`; allowed files are
+**Task packet CPAY-B2:** `scope_revision: 5`; ID `CPAY-002`; allowed files are
 the 10 files above; forbidden work is persistence, orchestration, endpoints,
 Celery, bot, env/deploy/docs and provider abstractions; budget ≤10 files and ≤700
 changed lines; complete on exact HTTP tests, compile check and independent
@@ -1430,7 +1432,7 @@ exact RUB/assets/expiry/opaque payload without PII; reuse/new response is exact
 and decimal-safe; create failures can be retried; concurrent requests cannot
 leave two active reservations.
 
-**Task packet CPAY-B3:** `scope_revision: 4`; ID `CPAY-003`; allowed files are
+**Task packet CPAY-B3:** `scope_revision: 5`; ID `CPAY-003`; allowed files are
 the 12 paths/groups above; forbidden work is webhook/apply/tasks/bot/docs,
 arbitrary kind→product input and network calls inside a write transaction;
 budget ≤12 files and ≤900 changed lines; completion requires targeted service,
@@ -1457,7 +1459,7 @@ CPAY-B7.
   `src/apps/payments/tasks.py`,
   `src/apps/notifications/migrations/0011_seed_crypto_purchase_templates.py`.
 - Modify: `src/apps/payments/services/create_payment_service.py`,
-  `src/apps/payments/services/__init__.py`.
+  `src/apps/payments/services/__init__.py`, `src/apps/payments/exceptions.py`.
 - Create/Test: `src/apps/payments/tests/test_apply_crypto_payment_service.py`,
   `test_crypto_notification_task.py`,
   `src/apps/notifications/tests/test_crypto_purchase_templates_migration.py`.
@@ -1798,10 +1800,10 @@ Payment for the initiator, duplicate is no-op, rollback stays retryable, all
 side effects are post-commit, Stars default remains green, and successful user
 delivery alone sets `notification_sent_at`.
 
-**Task packet CPAY-B4:** `scope_revision: 4`; ID `CPAY-004`; allowed files are
-the 9 paths above; forbidden work is provider validation/webhook/admin warning,
+**Task packet CPAY-B4:** `scope_revision: 5`; ID `CPAY-004`; allowed files are
+the 10 paths above; forbidden work is provider validation/webhook/admin warning,
 reconciliation, bot/docs, changes inside VPN/gift domain services and Stars
-contract changes; budget ≤9 files and ≤950 changed lines; completion requires
+contract changes; budget ≤10 files and ≤950 changed lines; completion requires
 targeted regressions, independent review and root-only checkpoint. Parallelism
 is permitted only with CPAY-B7 because file sets are disjoint.
 
@@ -2140,7 +2142,7 @@ deferred.
 delayed payment, duplicate no-op, safe warning/log allowlist and every HTTP
 status pass; forbidden values are absent from both middleware logs and warnings.
 
-**Task packet CPAY-B5:** `scope_revision: 4`; ID `CPAY-005`; allowed files are
+**Task packet CPAY-B5:** `scope_revision: 5`; ID `CPAY-005`; allowed files are
 the 13 paths above; forbidden work is fulfillment behavior, reconciliation,
 create flow, models, bot/docs and alert persistence/metrics; budget ≤13 files and
 ≤1000 changed lines; completion requires the security matrix GREEN and separate
@@ -2318,7 +2320,7 @@ payments use the same validator/apply path, duplicate remains no-op, provider
 expiry and counters are correct, one invoice failure is isolated, global client
 failure retries, and missed notifications are re-enqueued.
 
-**Task packet CPAY-B6:** `scope_revision: 4`; ID `CPAY-006`; allowed files are
+**Task packet CPAY-B6:** `scope_revision: 5`; ID `CPAY-006`; allowed files are
 the 7 files above; forbidden work is new model/queue/outbox/metrics, create,
 webhook, bot/docs and provider rates; budget ≤7 files and ≤650 changed lines;
 complete on targeted GREEN and independent review before root checkpoint.
@@ -2448,7 +2450,7 @@ add the existing `Bot-Auth-Token`.
 request has two fields and BotAuth header, existing Stars/gift confirmation
 client tests remain green, and no Crypto secret/config exists in bot.
 
-**Task packet CPAY-B7:** `scope_revision: 4`; ID `CPAY-007`; allowed files are
+**Task packet CPAY-B7:** `scope_revision: 5`; ID `CPAY-007`; allowed files are
 exactly the 3 listed; forbidden work is handlers/UI/config/backend/docs and
 changes to Stars methods; budget ≤3 files and ≤220 changed lines; complete on
 full payment-client GREEN and independent review. Root alone commits. Parallel
@@ -2645,7 +2647,7 @@ cases pass; success shows provider URL/expiry, failure permits another tap,
 Stars payload/callback/successful-payment tests are unchanged and green, and bot
 contains no polling/webhook/secrets.
 
-**Task packet CPAY-B8:** `scope_revision: 4`; ID `CPAY-008`; allowed files are
+**Task packet CPAY-B8:** `scope_revision: 5`; ID `CPAY-008`; allowed files are
 exactly the 5 listed; forbidden work is client/backend/config/docs, Stars
 semantics and bot polling/webhook; budget ≤5 files and ≤500 changed lines;
 complete on bot client+handler suite GREEN and independent review. Root alone
@@ -2858,7 +2860,7 @@ testnet invoice smoke is safely recorded as executed-without-payment or ready
 pending testnet credentials, product acceptance passes, and an open PR has a
 verified unchanged head SHA plus final `VERDICT: approved`.
 
-**Task packet CPAY-B9:** `scope_revision: 4`; ID `CPAY-009`; allowed files are
+**Task packet CPAY-B9:** `scope_revision: 5`; ID `CPAY-009`; allowed files are
 the 8 documents/examples plus optional single deploy-artifact test; forbidden
 work is production logic, migrations, bot behavior, approved feature specs,
 merge and deploy; budget ≤9 files and ≤500 changed lines; root owns full-suite,
