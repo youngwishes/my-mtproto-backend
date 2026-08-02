@@ -25,10 +25,15 @@ class CreateCryptoInvoiceResponseSerializer(serializers.Serializer):
     reused = serializers.BooleanField()
 
 
-class _AcceptedAssetsField(serializers.CharField):
+class _AcceptedAssetsField(serializers.Field):
+    default_error_messages = {"invalid": "Expected a list of strings."}
+
     def to_internal_value(self, data: object) -> frozenset[str]:
-        value = super().to_internal_value(data)
-        return frozenset(value.split(","))
+        if not isinstance(data, list) or not all(
+            isinstance(asset, str) for asset in data
+        ):
+            self.fail("invalid")
+        return frozenset(data)
 
 
 class CryptoWebhookInvoiceSerializer(serializers.Serializer):
