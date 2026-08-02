@@ -1,7 +1,25 @@
 from __future__ import annotations
 
-from django.test import override_settings
+from pathlib import Path
+
+from django.test import SimpleTestCase, override_settings
 from rest_framework.test import APITestCase
+
+
+class TestCryptoWebhookNginxLogging(SimpleTestCase):
+    def test_nginx_disables_access_log_for_http_and_https_webhook_routes(self) -> None:
+        config = (Path(__file__).resolve().parents[4] / "nginx" / "nginx.conf").read_text()
+        route = "location ~ ^/api/v1/payments/crypto/webhooks/[^/]+/$ {"
+
+        route_bodies = [
+            section.split("\n    }", maxsplit=1)[0]
+            for section in config.split(route)[1:]
+        ]
+        self.assertEqual(len(route_bodies), 2)
+        self.assertIn("access_log off;", route_bodies[0])
+        self.assertIn("return 301 https://$host$request_uri;", route_bodies[0])
+        self.assertIn("access_log off;", route_bodies[1])
+        self.assertIn("proxy_pass http://django;", route_bodies[1])
 
 
 @override_settings(

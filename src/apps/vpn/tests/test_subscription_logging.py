@@ -23,7 +23,6 @@ class TestVPNSubscriptionLogging(SimpleTestCase):
         self.assertIn("return 301 https://$host$request_uri;", route_bodies[0])
         self.assertIn("access_log off;", route_bodies[1])
         self.assertIn("proxy_pass http://django;", route_bodies[1])
-        self.assertEqual(config.count("access_log off;"), 2)
 
 
 class TestVPNSubscriptionApplicationLogging(APITestCase):
