@@ -104,13 +104,13 @@ class CryptoPayClient:
             fiat = item["fiat"]
             amount = Decimal(str(item["amount"]))
             accepted_assets = item["accepted_assets"]
-            paid_asset = item["paid_asset"]
+            paid_asset = item.get("paid_asset")
             payload = item["payload"]
             bot_invoice_url = item["bot_invoice_url"]
             created_at = _parse_provider_datetime(value=item["created_at"])
             expiration_date = _parse_provider_datetime(value=item["expiration_date"])
             paid_at = _parse_provider_datetime(
-                value=item["paid_at"],
+                value=item.get("paid_at"),
                 allow_none=True,
             )
             if (

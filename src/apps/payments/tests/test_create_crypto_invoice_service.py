@@ -22,6 +22,7 @@ from apps.payments.exceptions import (
     ProductNotFound,
 )
 from apps.payments.models import CryptoPaymentIntent, Product
+from apps.payments.selectors import fail_crypto_intent_creation
 from apps.payments.services.create_crypto_invoice import (
     CreateOrReuseCryptoInvoiceService,
 )
@@ -257,6 +258,33 @@ class TestCreateOrReuseCryptoInvoiceService(TestCase):
                 reused=False,
             ),
         )
+
+    def test_stale_lease_loss_does_not_return_non_active_intent(self) -> None:
+        ProductFactory(code=ProductCodeEnum.MTPROTO_30D, price=Decimal("9900"))
+
+        def lose_lease(
+            *, amount: Decimal, payload: str, description: str
+        ) -> CryptoInvoiceDTO:
+            intent = CryptoPaymentIntent.objects.get(public_id=payload)
+            updated = fail_crypto_intent_creation(
+                intent_id=intent.pk,
+                error_code="creating_stale",
+            )
+            self.assertEqual(updated, 1)
+            return self._valid_invoice(amount=amount, payload=payload)
+
+        self.client.create_invoice.side_effect = lose_lease
+
+        with self.assertRaises(CryptoInvoiceUnavailable) as raised:
+            self.service(request=self._request())
+
+        intent = CryptoPaymentIntent.objects.get()
+        self.assertEqual(intent.status, CryptoPaymentIntentStatusEnum.CREATE_FAILED)
+        self.assertEqual(intent.last_error_code, "creating_stale")
+        self.assertEqual(intent.provider_invoice_url, "")
+        self.assertIsNone(intent.provider_expires_at)
+        self.assertEqual(raised.exception.context["reason_code"], "creation_lost")
+        self.assertEqual(self.client.create_invoice.call_count, 1)
 
     def test_create_response_mismatch_fails_creating_intent_without_returning_url(self) -> None:
         naive = datetime(2026, 8, 2, 12, 0)

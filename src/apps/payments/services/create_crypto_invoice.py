@@ -257,6 +257,11 @@ class CreateOrReuseCryptoInvoiceService:
                 raise
             _fail_creation_or_raise(intent_id=intent.pk, error_code="database_locked", username=request.username)
             raise CryptoInvoiceUnavailable(request.username, reason_code="database_locked") from exc
+        if activated is None:
+            raise CryptoInvoiceUnavailable(
+                request.username,
+                reason_code="creation_lost",
+            )
         return _intent_output(intent=activated, reused=False)
 
 

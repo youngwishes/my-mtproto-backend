@@ -333,8 +333,8 @@ def fail_crypto_intent_creation(*, intent_id: int, error_code: str) -> int:
 
 def activate_crypto_intent_from_provider(
     *, intent_id: int, invoice: CryptoInvoiceDTO
-) -> CryptoPaymentIntent:
-    conditionally_transition_crypto_intent(
+) -> CryptoPaymentIntent | None:
+    updated_rows = conditionally_transition_crypto_intent(
         intent_id=intent_id,
         from_statuses=(CryptoPaymentIntentStatusEnum.CREATING,),
         to_status=CryptoPaymentIntentStatusEnum.ACTIVE,
@@ -346,4 +346,6 @@ def activate_crypto_intent_from_provider(
             "last_error_code": "",
         },
     )
+    if updated_rows != 1:
+        return None
     return CryptoPaymentIntent.objects.get(pk=intent_id)

@@ -92,6 +92,29 @@ class TestCryptoPayClient(SimpleTestCase):
         self.assertIsNone(result.paid_at)
 
     @responses.activate
+    def test_active_invoice_allows_omitted_paid_only_fields(self) -> None:
+        invoice = deepcopy(VALID_INVOICE_JSON)
+        invoice["status"] = "active"
+        invoice.pop("paid_asset")
+        invoice.pop("paid_at")
+        responses.post(
+            "https://testnet-pay.crypt.bot/api/createInvoice",
+            json={"ok": True, "result": invoice},
+        )
+
+        try:
+            result = self.client.create_invoice(
+                amount=Decimal("99.00"),
+                payload="0f57a4f1-1956-45be-8dc0-d891c00c74c1",
+                description="MTProto на 30 дней",
+            )
+        except CryptoPayClientError as exc:
+            self.fail(f"active invoice without paid fields was rejected: {exc}")
+
+        self.assertIsNone(result.paid_asset)
+        self.assertIsNone(result.paid_at)
+
+    @responses.activate
     def test_get_invoices_sends_bounded_invoice_ids_and_maps_items(self) -> None:
         second_invoice = deepcopy(VALID_INVOICE_JSON)
         second_invoice["invoice_id"] = 732
@@ -180,6 +203,7 @@ class TestCryptoPayClient(SimpleTestCase):
         for field, value in (
             ("created_at", 1_754_039_200),
             ("expiration_date", "2026-08-02T12:30:00"),
+            ("paid_asset", 731),
             ("paid_at", "not-a-date"),
         ):
             with self.subTest(field=field):
