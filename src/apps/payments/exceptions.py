@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from apps.core.exceptions import BaseServiceError
 
 
@@ -19,3 +21,7 @@ class GiftCertificateAlreadyActivated(BaseServiceError):
 
 class GiftCertificateExpired(BaseServiceError):
     """Срок действия подарочного сертификата истёк"""
+
+
+class CryptoPayClientError(RuntimeError):
+    """Safe internal provider failure used by service mapping/Celery retry."""
