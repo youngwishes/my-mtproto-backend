@@ -355,7 +355,7 @@ CPAY-B6 CPAY-006
 
 ---
 
-### CPAY-001 — Persist intent lifecycle, constraints, selectors and read-only admin
+### Task 1: CPAY-001 — Persist intent lifecycle, constraints, selectors and read-only admin
 
 **Result:** additive persistence stores one initiator-owned Crypto purchase,
 arbitrates active create races and exact-once Payment identity on SQLite, exposes
@@ -726,7 +726,7 @@ read-only review. Root alone may create the post-review commit checkpoint.
 
 ---
 
-### CPAY-002 — Add exact DTOs, backend-only settings and thin Crypto Pay client
+### Task 2: CPAY-002 — Add exact DTOs, backend-only settings and thin Crypto Pay client
 
 **Result:** a fully mocked provider boundary creates fiat RUB invoices and
 retrieves invoice batches with decimal/time-safe strict parsing, fixed assets/
@@ -1031,7 +1031,7 @@ read-only review, followed only by root’s commit checkpoint.
 
 ---
 
-### CPAY-003 — Create/reuse invoice service and BotAuth API
+### Task 3: CPAY-003 — Create/reuse invoice service and BotAuth API
 
 **Result:** all three purchase kinds use one protected endpoint that maps kind
 to backend product, snapshots exact kopecks→RUB, reuses only a live active
@@ -1431,7 +1431,7 @@ commit checkpoint.
 
 ---
 
-### CPAY-004 — Exact-once fulfillment and durable post-commit user result
+### Task 4: CPAY-004 — Exact-once fulfillment and durable post-commit user result
 
 **Result:** one conditional SQLite-safe claim fulfills MTProto, VPN or gift for
 the intent initiator exactly once, stores the resulting Payment atomically, and
@@ -1799,7 +1799,7 @@ is permitted only with CPAY-B7 because file sets are disjoint.
 
 ---
 
-### CPAY-005 — Authenticate webhook, validate semantics and warn admin safely
+### Task 5: CPAY-005 — Authenticate webhook, validate semantics and warn admin safely
 
 **Result:** public Django webhook verifies secret path and HMAC over exact raw
 bytes before parsing, validates the invoice through one service, invokes apply,
@@ -2140,7 +2140,7 @@ read-only review. Only root commits. Parallelism allowed only with CPAY-B8.
 
 ---
 
-### CPAY-006 — Reconcile paid unfinished intents every 10 minutes
+### Task 6: CPAY-006 — Reconcile paid unfinished intents every 10 minutes
 
 **Result:** Celery Beat fetches bounded unfinished invoice batches every ten
 minutes, reuses the same semantic validator/apply service, marks provider expiry,
@@ -2317,7 +2317,7 @@ complete on targeted GREEN and independent review before root checkpoint.
 
 ---
 
-### CPAY-007 — Add decimal-safe Crypto invoice method to the bot client
+### Task 7: CPAY-007 — Add decimal-safe Crypto invoice method to the bot client
 
 **Result:** the bot posts initiator/kind through the existing authenticated
 BackendClient and maps the exact four-field response without float conversion or
@@ -2448,7 +2448,7 @@ only with CPAY-B4.
 
 ---
 
-### CPAY-008 — Show Crypto second and handle all three bot callbacks
+### Task 8: CPAY-008 — Show Crypto second and handle all three bot callbacks
 
 **Result:** MTProto, VPN and gift screens retain Stars first and add Crypto
 second; each callback requests the correct kind and shows a CryptoBot URL +
@@ -2645,7 +2645,7 @@ commits. Parallel only with CPAY-B5.
 
 ---
 
-### CPAY-009 — Synchronize docs/deploy examples and pass integration/release gates
+### Task 9: CPAY-009 — Synchronize docs/deploy examples and pass integration/release gates
 
 **Result:** repository documentation/config examples describe the implemented
 revision 2 contract and safe rollout/rollback, every required backend/bot/static/
