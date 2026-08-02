@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from urllib.parse import parse_qs
+
 import httpx
 import pytest
 import respx
@@ -8,6 +10,7 @@ from aiogram.types import LabeledPrice
 from src.core.backend_client import BackendClient
 from src.domains.payments import (
     ActivatedGiftCertificate,
+    CryptoInvoice,
     GiftCertificate,
     PaymentsClient,
     StarsInvoice,
@@ -19,6 +22,7 @@ VPN_PRODUCT_URL = f"{BASE}/api/v1/payments/products/vpn_30d/"
 BUY_URL = f"{BASE}/api/v1/payments/buy/"
 GIFT_BUY_URL = f"{BASE}/api/v1/payments/gift-certificates/buy/"
 GIFT_ACTIVATE_URL = f"{BASE}/api/v1/payments/gift-certificates/activate/"
+CRYPTO_INVOICE_URL = f"{BASE}/api/v1/payments/crypto/invoices/"
 
 PRODUCT_JSON = {
     "title": "MTPRoto на месяц",
@@ -113,3 +117,37 @@ async def test_activate_gift_certificate_posts_code(client: PaymentsClient):
     body = route.calls.last.request.content
     assert b"username=42" in body
     assert b"code=+key-abcd-1234+" in body
+
+
+@respx.mock
+async def test_create_crypto_invoice_posts_kind_and_maps_exact_decimal_string(
+    client: PaymentsClient,
+) -> None:
+    route = respx.post(CRYPTO_INVOICE_URL).mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "invoice_url": "https://t.me/CryptoBot?start=x",
+                "rub_amount": "99.00",
+                "expires_at": "2026-08-02T12:30:00Z",
+                "reused": False,
+            },
+        )
+    )
+
+    result = await client.create_crypto_invoice(
+        telegram_id=42,
+        purchase_kind="subscription",
+    )
+
+    assert result == CryptoInvoice(
+        invoice_url="https://t.me/CryptoBot?start=x",
+        rub_amount="99.00",
+        expires_at="2026-08-02T12:30:00Z",
+        reused=False,
+    )
+    assert parse_qs(route.calls.last.request.content) == {
+        b"username": [b"42"],
+        b"purchase_kind": [b"subscription"],
+    }
+    assert route.calls.last.request.headers["Bot-Auth-Token"] == "t"
