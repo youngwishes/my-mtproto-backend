@@ -59,3 +59,9 @@ local runs, a `.env` file (git-ignored, excluded from the Docker image).
 
 Required: `TELEGRAM_BOT_TOKEN`, `API_URL`, `BOT_AUTH_TOKEN`, `MY_TELEGRAM_ID`
 (int).
+
+Crypto Pay выбран вторым способом оплаты после Telegram Stars для MTProto, VPN
+и подарочного сертификата. Bot вызывает backend с `BOT_AUTH_TOKEN` и получает
+только URL, RUB-сумму, срок и `reused`; `CRYPTOPAY_API_TOKEN`,
+`CRYPTOPAY_WEBHOOK_SECRET`, base URL и webhook обработка принадлежат только
+Django/Celery и не добавляются в bot `.env` или `Settings`.
