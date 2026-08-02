@@ -15,8 +15,10 @@ from src.handlers.links import process_my_servers, update_link, update_link_conf
 from src.handlers.payments import (
     process_gift_certificate,
     process_gift_certificate_activation,
+    process_gift_crypto,
     process_gift_stars,
     process_boost_paid,
+    process_pay_crypto,
     process_pay_stars,
     process_pre_checkout_query,
     process_successful_payment,
@@ -24,6 +26,7 @@ from src.handlers.payments import (
 from src.handlers.vpn import (
     process_vpn,
     process_vpn_menu,
+    process_vpn_pay_crypto,
     process_vpn_pay_stars,
     process_vpn_subscription,
 )
@@ -36,6 +39,7 @@ from src.handlers.start import (
     process_mtproxy_menu,
 )
 from src.messages import (
+    CRYPTO_INVOICE_ERROR_TEXT,
     PRIVACY_URL,
     PRODUCT_MENU_TEXT,
     SITE_URL,
@@ -50,6 +54,7 @@ from src.domains.free_trial import FreeTrialKey
 from src.domains.links import MyServers, ReissuedKey, ServerItem
 from src.domains.payments import (
     ActivatedGiftCertificate,
+    CryptoInvoice,
     GiftCertificate,
     StarsInvoice,
 )
@@ -145,6 +150,8 @@ class FakePayments:
         activation=None,
         confirm_error=None,
         activation_error=None,
+        crypto=None,
+        crypto_error=None,
     ) -> None:
         self._stars = stars
         self._gift = gift or GiftCertificate(code="KEY-ABCD-1234")
@@ -153,10 +160,13 @@ class FakePayments:
         )
         self._confirm_error = confirm_error
         self._activation_error = activation_error
+        self._crypto = crypto
+        self._crypto_error = crypto_error
         self.confirmed: list[tuple] = []
         self.gift_confirmed: list[tuple] = []
         self.activated: list[tuple] = []
         self.vpn_stars_invoice_calls = 0
+        self.crypto_calls: list[tuple] = []
 
     async def get_stars_invoice(self):
         return self._stars
@@ -181,6 +191,12 @@ class FakePayments:
         if self._activation_error is not None:
             raise self._activation_error
         return self._activation
+
+    async def create_crypto_invoice(self, *, telegram_id, purchase_kind):
+        self.crypto_calls.append((telegram_id, purchase_kind))
+        if self._crypto_error is not None:
+            raise self._crypto_error
+        return self._crypto
 
 
 class FakeVPN:
@@ -425,8 +441,32 @@ async def test_payment_screen_includes_legal_links():
         for row in markup.inline_keyboard
     ] == [
         [("⭐ Telegram Stars — 99 ★", "pay_stars")],
+        [("💎 Crypto Pay", "pay_crypto")],
         [("🔙 Назад", "show_mtproxy_menu")],
     ]
+
+
+@pytest.mark.parametrize(
+    ("markup", "expected_callbacks"),
+    [
+        (
+            keyboards.payment_methods(),
+            ["pay_stars", "pay_crypto", "show_mtproxy_menu"],
+        ),
+        (
+            keyboards.vpn_payment_methods(stars_price=149),
+            ["vpn_pay_stars", "vpn_pay_crypto", "show_vpn_menu"],
+        ),
+        (
+            keyboards.gift_certificate_payment_methods(),
+            ["gift_stars", "gift_crypto", "show_mtproxy_menu"],
+        ),
+    ],
+)
+def test_stars_first_crypto_second(markup, expected_callbacks) -> None:
+    assert [row[0].callback_data for row in markup.inline_keyboard] == expected_callbacks
+    assert markup.inline_keyboard[0][0].text.startswith("⭐ Telegram Stars")
+    assert markup.inline_keyboard[1][0].text == "💎 Crypto Pay"
 
 
 def test_mtproxy_menu_links_to_site_and_support():
@@ -650,6 +690,7 @@ async def test_vpn_purchase_fetches_stars_invoice_and_shows_stars_only_screen():
         for row in markup.inline_keyboard
     ] == [
         ["vpn_pay_stars"],
+        ["vpn_pay_crypto"],
         ["show_vpn_menu"],
     ]
     assert markup.inline_keyboard[0][0].text == "⭐ Telegram Stars — 237 ★"
@@ -779,6 +820,7 @@ async def test_gift_certificate_screen_shows_payment_options():
         for row in markup.inline_keyboard
     ] == [
         [("⭐ Telegram Stars — 99 ★", "gift_stars")],
+        [("💎 Crypto Pay", "gift_crypto")],
         [("🔙 Назад", "show_mtproxy_menu")],
     ]
 
@@ -799,6 +841,54 @@ async def test_gift_stars_invoice_uses_gift_payload(monkeypatch):
     assert invoice["payload"] == "gift_certificate_stars"
     assert invoice["currency"] == "XTR"
     assert invoice["prices"][0].amount == 99
+
+
+@pytest.mark.parametrize(
+    ("handler", "purchase_kind", "back_callback"),
+    [
+        (process_pay_crypto, "subscription", "show_mtproxy_menu"),
+        (process_vpn_pay_crypto, "vpn_subscription", "show_vpn_menu"),
+        (process_gift_crypto, "gift_certificate", "show_mtproxy_menu"),
+    ],
+)
+async def test_crypto_callback_uses_kind_and_shows_url(
+    monkeypatch, handler, purchase_kind: str, back_callback: str,
+) -> None:
+    fake_bot = FakeBot()
+    monkeypatch.setattr(payments_module, "bot", fake_bot)
+    monkeypatch.setattr(vpn_module, "bot", fake_bot)
+    payments = FakePayments(
+        crypto=CryptoInvoice(
+            invoice_url="https://t.me/CryptoBot?start=x",
+            rub_amount="99.00",
+            expires_at="2026-08-02T12:30:00Z",
+            reused=False,
+        )
+    )
+    callback = FakeCallback(user_id=42)
+
+    await handler(callback, make_deps(payments=payments))
+
+    assert callback.answers == [((), {})]
+    assert payments.crypto_calls == [(42, purchase_kind)]
+    assert fake_bot.invoices == []
+    text, markup = callback.message.edits[0]
+    assert "99.00" in text
+    assert "2026-08-02T12:30:00Z" in text
+    assert markup.inline_keyboard[0][0].url == "https://t.me/CryptoBot?start=x"
+    assert markup.inline_keyboard[1][0].callback_data == back_callback
+
+
+async def test_crypto_error_keeps_current_keyboard_retryable() -> None:
+    payments = FakePayments(crypto_error=APIError(42, message="safe"))
+    callback = FakeCallback(user_id=42)
+
+    await process_pay_crypto(callback, make_deps(payments=payments))
+
+    assert callback.answers == [((), {})]
+    assert payments.crypto_calls == [(42, "subscription")]
+    assert callback.message.edits == []
+    assert callback.message.answers == [(CRYPTO_INVOICE_ERROR_TEXT, None)]
 
 
 @pytest.mark.parametrize(

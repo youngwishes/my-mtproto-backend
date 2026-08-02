@@ -1,1 +1,12 @@
+import os
+
+
 SUBSCRIPTION_PERIOD_DAYS = 30
+
+CRYPTOPAY_API_TOKEN = os.environ.get("CRYPTOPAY_API_TOKEN", "")
+CRYPTOPAY_BASE_URL = os.environ.get(
+    "CRYPTOPAY_BASE_URL",
+    "https://pay.crypt.bot",
+)
+CRYPTOPAY_WEBHOOK_SECRET = os.environ.get("CRYPTOPAY_WEBHOOK_SECRET", "")
+CRYPTOPAY_REQUEST_TIMEOUT = float(os.environ.get("CRYPTOPAY_REQUEST_TIMEOUT", "5"))

@@ -63,7 +63,7 @@ src/
 │   ├── notifications/           # Шаблоны уведомлений, рассылки
 │   ├── users/                   # SystemUser, бесплатные ссылки, рефералы
 │   ├── vds/                     # VDSInstance, MTPRotoKey, инфра-сервисы, Celery-задачи
-│   ├── payments/                # Product, Payment, YuKassa/Stars
+│   ├── payments/                # Product, Payment, Stars/Crypto Pay и выдача
 │   ├── vpn/                     # VPNSubscription, VPNInstance, API и lifecycle
 │   └── music/                   # Заглушка для FakeTLS-маскировки (не трогать, бизнес-логики нет)
 └── manage.py
@@ -109,6 +109,24 @@ apps/core/
 def get_first_free_link_service() -> FirstFreeLinkService:
     return FirstFreeLinkService()
 ```
+
+## Crypto Pay
+
+Django владеет созданием Crypto Pay-счёта и webhook; bot получает только
+четырёхпольный ответ защищённого `Bot-Auth-Token` API и не получает token или
+webhook secret. Локальный `CryptoPaymentIntent` хранит состояние покупки,
+публичный UUID payload и provider invoice. Вызов провайдера выполняется вне
+долгой SQLite-транзакции, а выдача использует conditional transitions и
+частичные unique constraints, поэтому повторный webhook или reconciliation не
+выдают продукт повторно. После commit отдельная Celery-задача доставляет
+результат пользователю.
+
+Webhook проверяет и secret path, и HMAC от raw body. До выдачи сверяются счёт,
+RUB-сумма, валюта, paid status и разрешённый/оплаченный asset; безопасные
+идентификаторы и reason code достаточны для warning. Token, signature, raw body,
+PII и URL результата в логи не попадают. Celery Beat запускает reconciliation
+`*/10`, чтобы повторно обработать оплаченные незавершённые покупки и отдельно
+доставить пропущенные уведомления.
 
 ### Ежедневная выдача бесплатных периодов
 

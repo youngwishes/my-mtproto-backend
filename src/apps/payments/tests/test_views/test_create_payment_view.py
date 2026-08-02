@@ -31,11 +31,12 @@ class TestCreatePaymentView(APITestCase):
     @mock.patch("apps.notifications.services.send_notification_service.send_telegram_message")
     @mock.patch("apps.vds.tasks.push_key_to_servers_task.delay")
     def test_create_yukassa_payment(self, mock_push, telegram) -> None:
-        response = self._post({
-            "username": self.user.username,
-            "charge_id": "yukassa_charge_001",
-            "provider": PaymentProviderEnum.YUKASSA,
-        })
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self._post({
+                "username": self.user.username,
+                "charge_id": "yukassa_charge_001",
+                "provider": PaymentProviderEnum.YUKASSA,
+            })
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(telegram.call_count, 1)
         self.assertEqual(Payment.objects.count(), 1)

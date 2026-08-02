@@ -120,11 +120,32 @@
 | `user` | FK → SystemUser | Кто заплатил |
 | `key` | OneToOne → MTPRotoKey? | За какой ключ (nullable) |
 | `charge_id` | str | ID платежа от провайдера |
-| `provider` | str | `YUKASSA` или `STARS` |
+| `provider` | str | `YUKASSA`, `STARS` или `CRYPTO_PAY` |
 | `kind` | str | `SUBSCRIPTION`, `VPN_SUBSCRIPTION` или `GIFT_CERTIFICATE`; отличает MTProto, VPN и подарочную покупку |
 
 Для VPN-платежа `key` остаётся `NULL`; уникальность `(provider, charge_id, kind)`
 не даёт обработать один successful payment повторно.
+
+Для `CRYPTO_PAY` partial constraint
+`(provider, charge_id, kind)` защищает идентичность провайдерской оплаты без
+изменения legacy строк.
+
+---
+
+## CryptoPaymentIntent (apps/payments)
+
+Локальная запись жизненного цикла Crypto Pay до и после выдачи. Содержит
+инициатора, `purchase_kind`, code товара, точную `rub_amount`, публичный UUID
+payload, provider invoice и timestamps оплаты, выдачи и уведомления. Result
+всегда закреплён за `initiator`, а не за тем, кто оплатил URL.
+
+Статусы: `creating`, `active`, `local_expired`, `processing`, `retryable`,
+`fulfilled`, `create_failed`, `provider_expired`.
+
+Partial constraint `(initiator, purchase_kind)` для статусов `creating` и
+`active` не позволяет одному пользователю иметь два живых счёта одного вида;
+уникальный provider invoice связывает intent с платежом. Переходы выполняются
+условными обновлениями, а не ручным mark-paid из admin.
 
 ---
 

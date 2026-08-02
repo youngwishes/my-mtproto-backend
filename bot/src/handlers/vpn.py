@@ -8,6 +8,7 @@ from aiogram.types import CallbackQuery
 from src import keyboards
 from src.bot import bot
 from src.exceptions import VPNSubscriptionDoesNotExist
+from src.handlers.payments import show_crypto_invoice
 from src.messages import (
     VPN_ACTIVE_TEXT,
     VPN_EXPIRED_TEXT,
@@ -91,4 +92,17 @@ async def process_vpn_pay_stars(callback: CallbackQuery, deps: Dependencies) -> 
         currency=invoice.currency,
         prices=invoice.prices,
         provider_token=invoice.provider_token,
+    )
+
+
+@router.callback_query(F.data == "vpn_pay_crypto")
+async def process_vpn_pay_crypto(
+    callback: CallbackQuery,
+    deps: Dependencies,
+) -> None:
+    await show_crypto_invoice(
+        callback=callback,
+        deps=deps,
+        purchase_kind="vpn_subscription",
+        back_callback="show_vpn_menu",
     )

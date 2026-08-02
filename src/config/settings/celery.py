@@ -8,6 +8,10 @@ CELERY_RESULT_BACKEND = os.environ.get(
 )
 
 CELERY_BEAT_SCHEDULE = {
+    "reconcile-crypto-payments": {
+        "task": "apps.payments.tasks.reconcile_crypto_payments_task",
+        "schedule": crontab(minute="*/10"),
+    },
     "remove_user_keys_daily": {
         "task": "apps.vds.tasks.remove_user_keys_daily",
         "schedule": crontab(hour=9, minute=0),

@@ -1,4 +1,12 @@
 from apps.payments.services.dtos.create_payment_dto import CreatePaymentIn
+from apps.payments.services.dtos.crypto_pay_dtos import (
+    ApplyCryptoPaymentOut,
+    CreateCryptoInvoiceIn,
+    CreateCryptoInvoiceOut,
+    CryptoInvoiceDTO,
+    CryptoWebhookWarningDTO,
+    ValidatedCryptoPaymentDTO,
+)
 from apps.payments.services.dtos.gift_certificate_dtos import (
     ActivateGiftCertificateIn,
     ActivateGiftCertificateOut,
@@ -8,6 +16,12 @@ from apps.payments.services.dtos.gift_certificate_dtos import (
 
 __all__ = [
     "CreatePaymentIn",
+    "ApplyCryptoPaymentOut",
+    "CreateCryptoInvoiceIn",
+    "CreateCryptoInvoiceOut",
+    "CryptoInvoiceDTO",
+    "CryptoWebhookWarningDTO",
+    "ValidatedCryptoPaymentDTO",
     "ActivateGiftCertificateIn",
     "ActivateGiftCertificateOut",
     "CreateGiftCertificateIn",

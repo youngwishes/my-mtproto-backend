@@ -1,11 +1,17 @@
 from __future__ import annotations
 
 import json
+from uuid import uuid4
 
 from django.db import models
 
 from apps.core import ActiveQuerySet, BaseDjangoModel
-from apps.payments.enums import ProductCodeEnum, PaymentKindEnum, PaymentProviderEnum
+from apps.payments.enums import (
+    CryptoPaymentIntentStatusEnum,
+    PaymentKindEnum,
+    PaymentProviderEnum,
+    ProductCodeEnum,
+)
 
 
 class ProductQuerySet(ActiveQuerySet):
@@ -106,6 +112,60 @@ class Payment(BaseDjangoModel):
                 fields=("provider", "charge_id", "kind"),
                 condition=models.Q(kind=PaymentKindEnum.VPN_SUBSCRIPTION),
                 name="uniq_vpn_subscription_payment_identity",
+            ),
+            models.UniqueConstraint(
+                fields=("provider", "charge_id", "kind"),
+                condition=models.Q(provider=PaymentProviderEnum.CRYPTO_PAY),
+                name="uniq_crypto_payment_identity",
+            ),
+        ]
+
+
+class CryptoPaymentIntent(BaseDjangoModel):
+    """Локальная покупка через Crypto Pay до и после выдачи результата."""
+
+    public_id = models.UUIDField(default=uuid4, unique=True, editable=False)
+    initiator = models.ForeignKey(
+        "users.SystemUser",
+        on_delete=models.PROTECT,
+        related_name="crypto_payment_intents",
+    )
+    purchase_kind = models.CharField(max_length=32, choices=PaymentKindEnum.choices())
+    product_code = models.CharField(max_length=32)
+    rub_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    status = models.CharField(
+        max_length=32,
+        choices=CryptoPaymentIntentStatusEnum.choices(),
+        default=CryptoPaymentIntentStatusEnum.CREATING,
+    )
+    provider_invoice_id = models.PositiveBigIntegerField(null=True, blank=True, unique=True)
+    provider_invoice_url = models.URLField(max_length=512, blank=True)
+    provider_created_at = models.DateTimeField(null=True, blank=True)
+    provider_expires_at = models.DateTimeField(null=True, blank=True)
+    paid_at = models.DateTimeField(null=True, blank=True)
+    fulfillment_attempted_at = models.DateTimeField(null=True, blank=True)
+    fulfilled_at = models.DateTimeField(null=True, blank=True)
+    notification_sent_at = models.DateTimeField(null=True, blank=True)
+    payment = models.OneToOneField(
+        "payments.Payment",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="crypto_intent",
+    )
+    last_error_code = models.CharField(max_length=64, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("initiator", "purchase_kind"),
+                condition=models.Q(
+                    status__in=(
+                        CryptoPaymentIntentStatusEnum.CREATING,
+                        CryptoPaymentIntentStatusEnum.ACTIVE,
+                    )
+                ),
+                name="uniq_active_crypto_intent_per_user_kind",
             ),
         ]
 

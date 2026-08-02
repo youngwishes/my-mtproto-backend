@@ -74,6 +74,43 @@ Playbook сам запускает миграции через entrypoint Django
 контейнеры. Уже применённые миграции БД автоматически не откатываются; перед
 ручным откатом проверь их совместимость и состояние backup в Litestream.
 
+## Crypto Pay rollout и rollback
+
+До release задать только в backend `.env` значения `CRYPTOPAY_API_TOKEN`,
+`CRYPTOPAY_WEBHOOK_SECRET` и при необходимости `CRYPTOPAY_BASE_URL`; bot `.env`
+не получает эти переменные. Оставить `CRYPTOPAY_REQUEST_TIMEOUT=5`, если иной
+операционный таймаут не согласован. Не добавлять значения в Git, логи или
+командную историю.
+
+В рамках обычного подготовленного релиза до запуска существующего Ansible
+playbook заполнить backend `.env` и настроить в кабинете Crypto Pay HTTPS webhook
+на `https://<public-host>/api/v1/payments/crypto/webhooks/<webhook-secret>/`.
+Секрет URL хранится только вне Git; новый endpoint дополнительно проверяет HMAC.
+До выпуска прежний bot не показывает Crypto Pay-кнопок, поэтому счета ещё не
+создаются.
+
+Затем один раз развернуть проверенный `RELEASE_SHA` существующим Ansible
+playbook из раздела «Новый релиз»: он обновляет migration и весь Compose stack
+(Django, worker, Beat и bot) как одну поддерживаемую поставку. Не запускать
+ручной `docker compose` и не развертывать backend и bot отдельными этапами.
+После успешного playbook выполнить предусмотренный post-deploy smoke: проверить
+HTTP/Compose/SHA по шагу 5 и создать только неплатёжный Crypto Pay invoice, если
+операционные test credentials разрешают это. Не оплачивать счёт.
+
+Для непроизводственного smoke использовать отдельные testnet token/secret и
+`CRYPTOPAY_BASE_URL=https://testnet-pay.crypt.bot`. Создать один счёт для
+локального тестового пользователя, зафиксировать только HTTP status,
+`rub_amount`, `expires_at`, `reused` и наличие HTTPS URL, затем повторить запрос
+для `reused=true`. Счёт не оплачивать; production smoke не заменяет testnet.
+
+При rollback развернуть предыдущий совместимый SHA тем же Ansible playbook как
+один whole-stack release: прежний bot скроет Crypto Pay-кнопки, а backend
+вернётся вместе с ним. Additive migration, backend env и provider webhook
+оставить: без Crypto Pay-кнопок они безвредны и не требуют ручного Compose или
+component-level rollback. Не удалять и не откатывать реальные `Payment` или
+`CryptoPaymentIntent` строки и не менять продукты. Merge и production deploy
+требуют отдельных явных разрешений.
+
 ## VPN rollout
 
 До включения VPN-продаж задать `VPN_SUBSCRIPTION_BASE_URL` и защищённый

@@ -226,6 +226,42 @@ referrer.
 `GET /payments/products/vpn_30d/` возвращает активный VPN-товар в том же
 формате, что и legacy `GET /payments/`; legacy route остаётся MTProto alias.
 
+### POST /api/v1/payments/crypto/invoices/
+
+Защищён `Bot-Auth-Token`. Принимает `username` (Telegram ID) и `purchase_kind`
+(`subscription`, `vpn_subscription` или `gift_certificate`). Создаёт 30-минутный
+Crypto Pay-счёт или возвращает существующий активный счёт этого инициатора и
+вида покупки.
+
+Успешный ответ — `200 OK` с ровно четырьмя полями:
+
+```json
+{
+  "invoice_url": "https://pay.crypt.bot/…",
+  "rub_amount": "99.00",
+  "expires_at": "2026-08-31T12:00:00Z",
+  "reused": false
+}
+```
+
+`reused` равен `true` только для уже активного счёта. Одновременное создание
+возвращает `409`, недоступность провайдера — `503`; ошибки входных данных следуют
+стандартному DRF `400`. Сумма сохраняется decimal-строкой, без float.
+
+### POST /api/v1/payments/crypto/webhooks/<secret>/
+
+Публичный endpoint принимает только `invoice_paid`. URL secret должен совпасть
+с backend-настройкой, иначе ответ `404`. Затем проверяется заголовок
+`crypto-pay-api-signature`: отсутствующая или неверная HMAC-SHA256 подпись даёт
+`401`. Некорректный JSON, payload или `update_type` дают `400`.
+
+Подписанный корректный webhook, включая повтор уже выполненной покупки и
+несогласованный/неизвестный счёт, отвечает `200`; во втором случае выдача не
+выполняется и создаётся безопасный admin warning. Временная ошибка БД, выдачи
+или постановки warning возвращает `503`, чтобы провайдер или reconciliation мог
+повторить обработку. Webhook не принимает Bot-Auth-Token и не логирует body,
+signature или секреты.
+
 ---
 
 ## VPN

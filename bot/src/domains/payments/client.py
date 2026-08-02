@@ -13,6 +13,7 @@ _VPN_PRODUCT_PATH = "/api/v1/payments/products/vpn_30d/"
 _BUY_PATH = "/api/v1/payments/buy/"
 _GIFT_BUY_PATH = "/api/v1/payments/gift-certificates/buy/"
 _GIFT_ACTIVATE_PATH = "/api/v1/payments/gift-certificates/activate/"
+_CRYPTO_INVOICE_PATH = "/api/v1/payments/crypto/invoices/"
 
 
 @final
@@ -35,6 +36,15 @@ class GiftCertificate:
 @dataclass(kw_only=True, slots=True, frozen=True)
 class ActivatedGiftCertificate:
     expired_date: str
+
+
+@final
+@dataclass(kw_only=True, slots=True, frozen=True)
+class CryptoInvoice:
+    invoice_url: str
+    rub_amount: str
+    expires_at: str
+    reused: bool
 
 
 @final
@@ -93,3 +103,18 @@ class PaymentsClient:
             telegram_id=telegram_id,
         )
         return ActivatedGiftCertificate(**response)
+
+    async def create_crypto_invoice(
+        self, *, telegram_id: str | int, purchase_kind: str
+    ) -> CryptoInvoice:
+        response = await self.backend.post(
+            _CRYPTO_INVOICE_PATH,
+            data={"username": str(telegram_id), "purchase_kind": purchase_kind},
+            telegram_id=telegram_id,
+        )
+        return CryptoInvoice(
+            invoice_url=str(response["invoice_url"]),
+            rub_amount=str(response["rub_amount"]),
+            expires_at=str(response["expires_at"]),
+            reused=bool(response["reused"]),
+        )
