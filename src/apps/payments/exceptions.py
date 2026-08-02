@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from apps.core.exceptions import BaseServiceError
+from apps.core.exceptions import BaseInfraError, BaseServiceError
 
 
 class BadPaymentData(BaseServiceError):
@@ -25,3 +25,11 @@ class GiftCertificateExpired(BaseServiceError):
 
 class CryptoPayClientError(RuntimeError):
     """Safe internal provider failure used by service mapping/Celery retry."""
+
+
+class CryptoInvoiceCreationInProgress(BaseServiceError):
+    """Счёт уже создаётся. Повторите попытку через несколько секунд."""
+
+
+class CryptoInvoiceUnavailable(BaseInfraError):
+    """Не удалось создать счёт Crypto Pay. Попробуйте ещё раз."""

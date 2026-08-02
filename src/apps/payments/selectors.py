@@ -283,7 +283,7 @@ def fail_stale_creating_crypto_intent(
         initiator_id=initiator_id,
         purchase_kind=purchase_kind,
         status=CryptoPaymentIntentStatusEnum.CREATING,
-        created_at__lt=stale_before,
+        created_at__lte=stale_before,
     ).update(
         status=CryptoPaymentIntentStatusEnum.CREATE_FAILED,
         last_error_code="creating_stale",
