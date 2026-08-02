@@ -1,10 +1,16 @@
 import factory
 from datetime import timedelta
+from decimal import Decimal
 
 from django.utils import timezone
 
-from apps.payments.enums import PaymentProviderEnum, ProductCodeEnum
-from apps.payments.models import GiftCertificate, Payment, Product
+from apps.payments.enums import (
+    CryptoPaymentIntentStatusEnum,
+    PaymentKindEnum,
+    PaymentProviderEnum,
+    ProductCodeEnum,
+)
+from apps.payments.models import CryptoPaymentIntent, GiftCertificate, Payment, Product
 
 
 class ProductFactory(factory.django.DjangoModelFactory):
@@ -28,6 +34,17 @@ class PaymentFactory(factory.django.DjangoModelFactory):
 
     class Meta:
         model = Payment
+
+
+class CryptoPaymentIntentFactory(factory.django.DjangoModelFactory):
+    initiator = factory.SubFactory("apps.users.tests.factories.SystemUserFactory")
+    purchase_kind = PaymentKindEnum.SUBSCRIPTION
+    product_code = ProductCodeEnum.MTPROTO_30D
+    rub_amount = Decimal("99.00")
+    status = CryptoPaymentIntentStatusEnum.CREATING
+
+    class Meta:
+        model = CryptoPaymentIntent
 
 
 class GiftCertificateFactory(factory.django.DjangoModelFactory):

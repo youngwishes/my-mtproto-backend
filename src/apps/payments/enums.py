@@ -11,10 +11,15 @@ class ProductCodeEnum(enum.StrEnum):
 class PaymentProviderEnum(enum.StrEnum):
     YUKASSA = "yukassa"
     STARS = "stars"
+    CRYPTO_PAY = "crypto_pay"
 
     @classmethod
     def choices(cls) -> list[tuple[str, str]]:
-        return [(cls.YUKASSA, "ЮKassa"), (cls.STARS, "Telegram Stars")]
+        return [
+            (cls.YUKASSA, "ЮKassa"),
+            (cls.STARS, "Telegram Stars"),
+            (cls.CRYPTO_PAY, "Crypto Pay"),
+        ]
 
 
 class PaymentKindEnum(enum.StrEnum):
@@ -29,3 +34,18 @@ class PaymentKindEnum(enum.StrEnum):
             (cls.VPN_SUBSCRIPTION, "VPN-подписка"),
             (cls.GIFT_CERTIFICATE, "Подарочный сертификат"),
         ]
+
+
+class CryptoPaymentIntentStatusEnum(enum.StrEnum):
+    CREATING = "creating"
+    ACTIVE = "active"
+    LOCAL_EXPIRED = "local_expired"
+    PROCESSING = "processing"
+    RETRYABLE = "retryable"
+    FULFILLED = "fulfilled"
+    CREATE_FAILED = "create_failed"
+    PROVIDER_EXPIRED = "provider_expired"
+
+    @classmethod
+    def choices(cls) -> list[tuple[str, str]]:
+        return [(status, status.value) for status in cls]
