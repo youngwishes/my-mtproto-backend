@@ -290,7 +290,7 @@ subscription URL или Base64 payload.
   "send_email_to_provider": true,
   "need_email": true,
   "price": 99.00,
-  "stars_price": 80
+  "stars_price": 99
 }
 ```
 
