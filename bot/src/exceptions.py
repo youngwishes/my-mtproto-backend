@@ -19,4 +19,4 @@ class APIError(BaseServiceError):
 
 
 class VPNSubscriptionDoesNotExist(BaseServiceError):
-    """🔒 У вас нет активной VPN-подписки. Если вы думаете, что это ошибка, пожалуйста, свяжитесь с нами через сообщения канала — @mtproto_keys."""
+    """🔒 У вас нет активной VPN-подписки. Если вы думаете, что это ошибка, пожалуйста, напишите в поддержку: @mtprotokeys_support."""

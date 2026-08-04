@@ -48,6 +48,15 @@ class TestBroadcastProxyLinksService(TestCase):
         self.assertEqual(mock_send.call_count, 1)
         call_kwargs = mock_send.call_args
         self.assertEqual(call_kwargs.kwargs["chat_id"], int(self.user.username))
+        text = call_kwargs.kwargs["text"]
+        self.assertNotIn("из-за блокировок", text)
+        self.assertNotIn("обойти ограничения", text)
+        self.assertIn("Сейчас всё работает стабильно", text)
+        self.assertIn("на <b>3 дня</b>", text)
+        self.assertIn(
+            (self.key.expired_date + timedelta(days=3)).strftime("%d.%m.%Y"),
+            text,
+        )
 
     @mock.patch(f"{_SERVICE_MODULE}.time")
     @mock.patch(f"{_SERVICE_MODULE}.send_telegram_message")

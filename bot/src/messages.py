@@ -1,7 +1,7 @@
 from src.enums import FreeAvailable
 
 SITE_URL = "https://mtprotokeys.ru"
-SUPPORT_URL = "https://t.me/mtproto_keys"
+SUPPORT_URL = "https://t.me/mtprotokeys_support"
 TERMS_URL = "https://mtprotokeys.ru/terms"
 PRIVACY_URL = "https://mtprotokeys.ru/privacy"
 
@@ -95,7 +95,7 @@ FAQ_TEXT = """
 🔁 Ты подключаешь все сразу. Если один сервер недоступен, Telegram молча переключается на следующий — связь не рвётся.
 
 <b>Telegram тормозит или не грузит медиа?</b>
-⚡️ Это и лечит прокси: обходит ограничения провайдера и убирает потери. Потолок — скорость твоего интернета.
+⚡️ Прокси помогает Telegram работать стабильнее и уменьшает потери при плохом интернете, защищает трафик. Максимальная скорость зависит от твоего интернета.
 
 <b>На скольких устройствах работает?</b>
 📱 Один ключ работает на трёх — например, телефон, ПК и планшет. А серверов несколько — добавь все и получишь запас.
@@ -112,7 +112,7 @@ FAQ_TEXT = """
 <b>Сколько стоит?</b>
 ⭐ 99 ★/мес через Telegram Stars.
 
-Остались вопросы? Напиши @mtproto_keys
+Остались вопросы? Напиши @mtprotokeys_support
 """
 
 REFERRAL_CABINET = """
