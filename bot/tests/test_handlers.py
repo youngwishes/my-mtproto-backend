@@ -40,6 +40,7 @@ from src.handlers.start import (
 )
 from src.messages import (
     CRYPTO_INVOICE_ERROR_TEXT,
+    KEY_GENERATED_TEXT,
     PRIVACY_URL,
     PRODUCT_MENU_TEXT,
     SITE_URL,
@@ -409,8 +410,16 @@ async def test_info_answers_callback():
 
     assert callback.answers
     text, _ = callback.message.edits[0]
+    assert (
+        "Прокси помогает Telegram работать стабильнее и уменьшает потери при плохом "
+        "интернете, защищает трафик. Максимальная скорость зависит от твоего интернета."
+        in text
+    )
+    assert "обходит ограничения" not in text
+    assert "блокировок" not in text
     assert "99 ★" in text
     assert "80 ★" not in text
+    assert "@mtproto_keys" in KEY_GENERATED_TEXT
 
 
 async def test_boost_free_claims_key_and_shows_expiry():
@@ -473,6 +482,8 @@ def test_mtproxy_menu_links_to_site_and_support():
     markup = keyboards.mtproxy_menu("boost_free")
 
     urls = [btn.url for row in markup.inline_keyboard for btn in row if btn.url]
+    assert SUPPORT_URL == "https://t.me/mtprotokeys_support"
+    assert "https://t.me/mtprotokeys_support" in urls
     assert set(urls) >= {SITE_URL, SUPPORT_URL}
 
 
@@ -764,8 +775,9 @@ async def test_vpn_subscription_without_subscription_keeps_menu_and_raises_error
     assert exc_info.value.telegram_id == "42"
     assert exc_info.value.message == (
         "🔒 У вас нет активной VPN-подписки. Если вы думаете, что это ошибка, "
-        "пожалуйста, свяжитесь с нами через сообщения канала — @mtproto_keys."
+        "пожалуйста, напишите в поддержку: @mtprotokeys_support."
     )
+    assert "@mtproto_keys" not in exc_info.value.message
 
 
 async def test_vpn_stars_invoice_uses_distinct_payload_and_vpn_product(monkeypatch):
@@ -997,6 +1009,17 @@ async def test_gift_certificate_code_message_activates_certificate():
     assert "08.08.26" in text
 
 
+async def test_gift_certificate_activation_failure_uses_support_contact():
+    payments = FakePayments(activation_error=RuntimeError("boom"))
+    message = FakeMessage(user_id=42, text="KEY-ABCD-1234")
+
+    await process_gift_certificate_activation(message, make_deps(payments=payments))
+
+    text, _ = message.answers[0]
+    assert "@mtprotokeys_support" in text
+    assert "@mtproto_keys" not in text
+
+
 async def test_successful_payment_warns_user_on_failure():
     payments = FakePayments(confirm_error=RuntimeError("boom"))
     message = FakeMessage(user_id=42)
@@ -1010,6 +1033,8 @@ async def test_successful_payment_warns_user_on_failure():
 
     text, _ = message.answers[0]
     assert "обратитесь в поддержку" in text
+    assert "@mtprotokeys_support" in text
+    assert "@mtproto_keys" not in text
 
 
 async def test_pre_checkout_query_is_approved(monkeypatch):

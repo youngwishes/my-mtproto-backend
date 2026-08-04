@@ -12,7 +12,7 @@ class VDSConnectionLimit(BaseInfraError):
 
 
 class KeyDoesNotExist(BaseServiceError):
-    """🔒 У вас нет активного ключа. Если вы думаете, что это ошибка, пожалуйста, свяжитесь с нами через сообщения канала — @mtproto_keys."""
+    """🔒 У вас нет активного ключа. Если вы думаете, что это ошибка, пожалуйста, напишите в поддержку: @mtprotokeys_support."""
 
 
 class TooManyRequests(BaseServiceError):
@@ -20,4 +20,4 @@ class TooManyRequests(BaseServiceError):
 
 
 class KeysLimitReached(BaseServiceError):
-    """⚠️ Выпуск ключей временно приостановлен из-за высокой нагрузки. Пожалуйста, попробуйте позже или свяжитесь с нами через @mtproto_keys."""
+    """⚠️ Выпуск ключей временно приостановлен из-за высокой нагрузки. Пожалуйста, попробуйте позже или свяжитесь с нами через @mtprotokeys_support."""

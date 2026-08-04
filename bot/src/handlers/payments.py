@@ -203,7 +203,7 @@ async def process_successful_payment(message: Message, deps: Dependencies):
         )
         await message.answer(
             f"⚠️ Оплата получена, но произошла ошибка при выдаче {purchase_item}.\n"
-            "Пожалуйста, обратитесь в поддержку: @mtproto_keys"
+            "Пожалуйста, обратитесь в поддержку: @mtprotokeys_support"
         )
 
 
@@ -216,7 +216,7 @@ async def process_gift_certificate_activation(message: Message, deps: Dependenci
         )
     except Exception as exc:
         error_message = getattr(exc, "message", None) or (
-            "Не удалось активировать сертификат. Напишите в поддержку: @mtproto_keys"
+            "Не удалось активировать сертификат. Напишите в поддержку: @mtprotokeys_support"
         )
         await message.answer(error_message)
         return

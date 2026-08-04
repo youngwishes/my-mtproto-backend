@@ -2,7 +2,7 @@ from apps.core.exceptions import BaseServiceError
 
 
 class AlreadyUsedFree(BaseServiceError):
-    """🔒 Вы уже получили беплатную ссылку. Если она не работает — напишите нам в личные сообщения канала @mtproto_keys."""
+    """🔒 Вы уже получили беплатную ссылку. Если она не работает — напишите в поддержку: @mtprotokeys_support."""
 
 
 class AlreadyUsedProgram(BaseServiceError):
