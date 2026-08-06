@@ -2,6 +2,7 @@ from src.enums import FreeAvailable
 
 SITE_URL = "https://mtprotokeys.ru"
 SUPPORT_URL = "https://t.me/mtprotokeys_support"
+VPN_SETUP_URL = "https://mtprotokeys.ru/vpn/"
 TERMS_URL = "https://mtprotokeys.ru/terms"
 PRIVACY_URL = "https://mtprotokeys.ru/privacy"
 
