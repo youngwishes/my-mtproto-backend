@@ -10,6 +10,7 @@ from src.messages import (
     SITE_URL,
     SUPPORT_URL,
     TERMS_URL,
+    VPN_SETUP_URL,
 )
 
 if TYPE_CHECKING:
@@ -87,6 +88,8 @@ def vpn_menu() -> InlineKeyboardMarkup:
                     style="primary",
                 )
             ],
+            [InlineKeyboardButton(text="📖 Как настроить", url=VPN_SETUP_URL)],
+            [InlineKeyboardButton(text="💬 Поддержка", url=SUPPORT_URL)],
             [_ROOT_BACK],
         ]
     )

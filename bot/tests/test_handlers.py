@@ -658,14 +658,21 @@ async def test_vpn_product_menu_uses_approved_copy_and_actions():
 👇 Выберите действие:"""
     assert [
         [
-            (button.text, button.callback_data, button.style)
+            (
+                button.text,
+                button.callback_data,
+                button.url,
+                button.style,
+            )
             for button in row
         ]
         for row in markup.inline_keyboard
     ] == [
-        [("💳 Купить VPN", "vpn", "success")],
-        [("🔑 Моя подписка", "vpn_subscription", "primary")],
-        [("🔙 Назад", "show_start_screen", None)],
+        [("💳 Купить VPN", "vpn", None, "success")],
+        [("🔑 Моя подписка", "vpn_subscription", None, "primary")],
+        [("📖 Как настроить", None, "https://mtprotokeys.ru/vpn/", None)],
+        [("💬 Поддержка", None, "https://t.me/mtprotokeys_support", None)],
+        [("🔙 Назад", "show_start_screen", None, None)],
     ]
 
 
