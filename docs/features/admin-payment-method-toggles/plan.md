@@ -7,13 +7,15 @@
 > Implementers do not commit, push, open/update a PR, merge, or deploy.
 
 - **Status:** approved
-- **Scope revision:** 2 (immutable)
-- **Architecture:** approved in
+- **Scope revision:** 3 (immutable technical documentation addendum)
+- **Architecture:** approved revision 3 in
   `docs/features/admin-payment-method-toggles/architecture.md`
-- **Plan review:** two confirmed workflow findings are addressed in this
-  revision; architect re-review is still required before root approval.
-- **Route:** ordinary product feature; implementation may start only after the
-  architect reviews this plan and the root agent marks it approved.
+- **Revision 3:** adds only `docs/apps/VPN.md` to the required documentation
+  surface. Approved business revision 2 BR-001–BR-006, AC-001–AC-008,
+  observable behavior, non-goals, code components and interfaces are unchanged.
+- **Execution state:** PMT-001–PMT-005 completed under revision 2 remain valid
+  and are not reopened. PMT-006–PMT-009 use revision 3 after architect/root
+  review of this technical-only plan update.
 
 **Goal:** Дать Django-администратору два глобальных переключателя Telegram
 Stars и Crypto Pay и применять их без рестарта при каждом новом открытии
@@ -31,9 +33,10 @@ admin, aiogram 3, `unittest`/pytest, `httpx` + `respx`, Docker Compose, Markdown
 
 ## Global Constraints
 
-- Единственный источник обязательного поведения — approved
-  `docs/features/admin-payment-method-toggles/business.md`,
-  `scope_revision: 2`: BR-001–BR-006, AC-001–AC-008 и их non-goals.
+- Единственный источник обязательного поведения — approved business revision 2
+  in `docs/features/admin-payment-method-toggles/business.md`: BR-001–BR-006,
+  AC-001–AC-008 и их non-goals. Scope Contract revision 3 включает их без
+  изменений и добавляет только обязательное обновление `docs/apps/VPN.md`.
 - Реализация следует только approved `architecture.md`: новая модель в
   `apps.payments`, существующие product endpoints, существующий bot payment
   client и три существующие keyboard/handler flows; новый endpoint, app,
@@ -111,8 +114,9 @@ admin, aiogram 3, `unittest`/pytest, `httpx` + `respx`, Docker Compose, Markdown
   полную матрицу `3 screens x 4 states`, refresh calls, Back и unchanged
   callback/payment regressions.
 - `docs/BUSINESS.md`, `docs/ARCHITECTURE.md`, `docs/CONTRACTS.md`,
-  `docs/MODELS.md`, `docs/apps/PAYMENTS.md` — актуальные глобальные правила,
-  data flow, API field, model/admin и operational semantics.
+  `docs/MODELS.md`, `docs/apps/PAYMENTS.md`, `docs/apps/VPN.md` — актуальные
+  глобальные правила, data flow, API field, model/admin, VPN payment-method
+  visibility и operational semantics.
 - `docs/features/admin-payment-method-toggles/acceptance.md` — создаёт только
   product-reviewer после зелёных integration gates; implementers и batch
   reviewers им не владеют.
@@ -194,6 +198,10 @@ PMT-B9 / PMT-009  fresh final review of exact PR head
 Параллельных партий нет. Каждая следующая партия использует точный interface и
 GREEN evidence предыдущей; последовательность также исключает одновременный
 write и read-only review в общем рабочем дереве.
+
+PMT-B1–PMT-B5 уже завершены и независимо проверены по revision 2. Revision 3
+не меняет их requirements, steps, tests, production files или interfaces и не
+требует повторной реализации; новая работа начинается только в PMT-B6.
 
 ---
 
@@ -386,7 +394,8 @@ per-product field; migration drift check GREEN.
 
 #### Task Packet PMT-B1
 
-- **scope_revision:** 2 (immutable).
+- **scope_revision:** 3 (PMT-001 completed under revision 2; revision 3 adds
+  documentation only and does not reopen this batch).
 - **Plan IDs:** `PMT-001`; one implementer, one sequential batch.
 - **Allowed/expected files:** the six paths listed in PMT-001 only.
 - **Forbidden adjacent work:** API/admin/bot/docs, existing payment/crypto/gift
@@ -475,7 +484,8 @@ PASS; only `is_active` is editable; add/delete/actions/code editing are absent.
 
 #### Task Packet PMT-B2
 
-- **scope_revision:** 2; **Plan IDs:** `PMT-002`.
+- **scope_revision:** 3 (PMT-002 completed under revision 2 and unchanged);
+  **Plan IDs:** `PMT-002`.
 - **Allowed/expected files:** `src/apps/payments/admin.py`,
   `src/apps/payments/tests/test_payment_method_admin.py` only.
 - **Forbidden adjacent work:** model/migration/selector/API/bot/docs and any
@@ -594,7 +604,8 @@ toggle is visible on the next GET in the same process; old fields,
 
 #### Task Packet PMT-B3
 
-- **scope_revision:** 2; **Plan IDs:** `PMT-003`.
+- **scope_revision:** 3 (PMT-003 completed under revision 2 and unchanged);
+  **Plan IDs:** `PMT-003`.
 - **Allowed/expected files:** exact three PMT-003 files.
 - **Forbidden adjacent work:** new endpoint, model/admin/selector changes,
   serializer ORM, per-product rules, bot/docs, existing error/auth changes.
@@ -689,7 +700,8 @@ network call or fallback; handler-test edits only supply the required field.
 
 #### Task Packet PMT-B4
 
-- **scope_revision:** 2; **Plan IDs:** `PMT-004`.
+- **scope_revision:** 3 (PMT-004 completed under revision 2 and unchanged);
+  **Plan IDs:** `PMT-004`.
 - **Allowed/expected files:** the three PMT-004 files/scopes above only.
 - **Forbidden adjacent work:** handlers/keyboards/backend/docs, new client/DTO,
   HTTP path, fallback/cache, invoice/crypto creation behavior.
@@ -973,7 +985,8 @@ payment results are unchanged and regression-green.
 
 #### Task Packet PMT-B5
 
-- **scope_revision:** 2; **Plan IDs:** `PMT-005`.
+- **scope_revision:** 3 (PMT-005 completed under revision 2 and unchanged);
+  **Plan IDs:** `PMT-005`.
 - **Allowed/expected files:** exact four PMT-005 paths.
 - **Forbidden adjacent work:** messages/config, backend, invoice/fulfilment,
   callback handlers listed read-only above, old-message activity checks, docs.
@@ -988,10 +1001,10 @@ payment results are unchanged and regression-green.
 
 ### Task 6: PMT-006 — Update current docs and run root integration gates
 
-**Result:** all five current global documents describe the shipped revision 2
-contract; targeted and complete backend/bot suites, migration drift, imports,
-Compose and diff gates are green. This is root-owned integration work, not a
-plan-implementer batch.
+**Result:** all six current global documents describe the shipped revision 3
+contract, including corrected VPN payment-method visibility; targeted and
+complete backend/bot suites, migration drift, imports, Compose and diff gates
+are green. This is root-owned integration work, not a plan-implementer batch.
 
 **Traceability:** BR-001–BR-006; AC-001–AC-008; assigned technical tasks:
 documentation consistency and release-readiness verification.
@@ -1000,19 +1013,23 @@ documentation consistency and release-readiness verification.
 
 **Files and ownership:** root modifies only `docs/BUSINESS.md`,
 `docs/ARCHITECTURE.md`, `docs/CONTRACTS.md`, `docs/MODELS.md`,
-`docs/apps/PAYMENTS.md`. Approved feature `business.md`/`architecture.md`, this
-plan and every historical feature document are read-only.
+`docs/apps/PAYMENTS.md`, `docs/apps/VPN.md`. Approved feature
+`business.md`/`architecture.md`, this plan and every historical feature
+document are read-only.
 
 - [ ] **Documentation RED audit.** Before editing, run:
 
   ```bash
   rg -n "PaymentMethod|payment_methods|Оплата временно недоступна" \
     docs/BUSINESS.md docs/ARCHITECTURE.md docs/CONTRACTS.md \
-    docs/MODELS.md docs/apps/PAYMENTS.md
+    docs/MODELS.md docs/apps/PAYMENTS.md docs/apps/VPN.md
+  rg -n "payment_methods|Telegram Stars|Crypto Pay|Оплата временно недоступна|invoice|fulfilment" \
+    docs/apps/VPN.md
   ```
 
   Expected RED: current docs do not yet describe the model, response field and
-  zero-state together.
+  zero-state together; specifically, `docs/apps/VPN.md` still describes the VPN
+  purchase screen as Stars-only and has no `payment_methods`/zero-state flow.
 
 - [ ] **Minimal documentation GREEN.** Add only these approved facts:
 
@@ -1031,10 +1048,32 @@ plan and every historical feature document are read-only.
   `docs/MODELS.md` adds `PaymentMethod` with `code`, inherited `is_active` and
   no Product relation. `docs/ARCHITECTURE.md` and `docs/apps/PAYMENTS.md` record
   selector ordering, request-time no-cache flow, constrained admin and
-  additive/non-reversing rollout.
+  additive/non-reversing rollout. Replace only the obsolete VPN purchase
+  description in `docs/apps/VPN.md` with these approved facts:
 
-- [ ] **Repeat documentation audit.** Re-run the `rg` command and manually
-  verify all three concepts appear in the relevant current docs; confirm
+  ```markdown
+  - При открытии покупки VPN бот получает активный `vpn_30d` через существующий
+    product GET и использует его глобальный `payment_methods` без кеша.
+  - При двух активных способах VPN показывает Telegram Stars первым и Crypto
+    Pay вторым; при пустом списке показывает `Оплата временно недоступна` и
+    сохраняет текущую кнопку «Назад».
+  - Существующие VPN `stars_price`, Stars/Crypto invoice callbacks, payload,
+    successful-payment routing и fulfilment не меняются.
+  ```
+
+- [ ] **Repeat documentation audit.** Re-run the exact six-file `rg` command
+  and manually verify all three concepts appear in the relevant current docs:
+
+  ```bash
+  rg -n "PaymentMethod|payment_methods|Оплата временно недоступна" \
+    docs/BUSINESS.md docs/ARCHITECTURE.md docs/CONTRACTS.md \
+    docs/MODELS.md docs/apps/PAYMENTS.md docs/apps/VPN.md
+  rg -n "payment_methods|Telegram Stars|Crypto Pay|Оплата временно недоступна|invoice|fulfilment" \
+    docs/apps/VPN.md
+  ```
+
+  `docs/apps/VPN.md` must now contain `payment_methods`, Stars -> Crypto order,
+  exact zero-state and unchanged VPN price/invoice/fulfilment semantics. Confirm
   `git diff --name-only -- docs/features/cryptopay-all-products` is empty.
 
 - [ ] **Run targeted backend and bot gates.** From repository root:
@@ -1063,28 +1102,30 @@ plan and every historical feature document are read-only.
   detected`; no import/Compose error.
 
 - [ ] **Scope/diff verification.** Run `git diff --name-only` and inspect the
-  exact diff. Allowed feature surface is PMT-B1–PMT-B5 files, the five current
+  exact diff. Allowed feature surface is PMT-B1–PMT-B5 files, the six current
   global docs, and the three approved feature artifacts
   `business.md`/`architecture.md`/`plan.md`. No historical feature docs,
   notification/music/provider config, credentials, lockfile or deploy file may
   appear.
 
 **Completion criterion:** current docs agree with implemented API/model/bot
-semantics; all targeted/full/static/Compose/diff gates exit 0; all BR/AC and
-non-goals have inspectable implementation/test evidence; publication has not
-started.
+semantics; `docs/apps/VPN.md` no longer claims Stars-only availability and
+records product GET, ordered both-active, zero-state and unchanged VPN
+price/invoice/fulfilment; all targeted/full/static/Compose/diff gates exit 0;
+all BR/AC and non-goals have inspectable implementation/test evidence;
+publication has not started.
 
 #### Task Packet PMT-B6
 
-- **scope_revision:** 2; **Plan IDs:** `PMT-006`; root-owned, no implementer.
-- **Allowed/expected files:** five global docs listed in PMT-006; all
+- **scope_revision:** 3; **Plan IDs:** `PMT-006`; root-owned, no implementer.
+- **Allowed/expected files:** six global docs listed in PMT-006; all
   implementation files are verification-only.
 - **Forbidden adjacent work:** feature spec rewriting, historical docs,
   production code/test fixes without returning them to the owning implementer,
   env/deploy/credentials, commit/push/PR/merge/deploy.
 - **Non-goals:** operational deploy docs, new behavior or hardening.
 - **Dependencies:** all five implementation batches independently reviewed.
-- **Budget:** at most 5 changed docs and 320 changed lines.
+- **Budget:** at most 6 changed docs and 360 changed lines.
 - **Done:** PMT-006 completion criterion; any failure is returned only to its
   owning implementer if classified `blocking_in_scope`.
 
@@ -1162,7 +1203,9 @@ independent product acceptance.
   path, including feature artifacts. Preserve the printed base SHA, tree hash,
   exact status block and untracked manifest for the document.
 
-- [ ] **Create evidence document.** Record `scope_revision: 2`,
+- [ ] **Create evidence document.** Record `scope_revision: 3`, state that
+  revision 3 adds only `docs/apps/VPN.md` while product BR/AC remain those of
+  approved business revision 2,
   `PMT_REVIEW_BASE_HEAD` explicitly as **base HEAD**, never as integrated tree,
   `PMT_REVIEW_TREE_SHA256` as the reviewed working-tree identity, exact
   `PMT_REVIEW_STATUS`, final verdict, and a table with one row for each of
@@ -1212,7 +1255,7 @@ occurred.
 
 #### Task Packet PMT-B7
 
-- **scope_revision:** 2; **Plan IDs:** `PMT-007`; product-reviewer only.
+- **scope_revision:** 3; **Plan IDs:** `PMT-007`; product-reviewer only.
 - **Allowed/expected files:** feature `acceptance.md` only; all other files
   read-only.
 - **Forbidden adjacent work:** implementation or doc fixes, requirement
@@ -1277,6 +1320,7 @@ new repository file is created by this task.
     docs/CONTRACTS.md \
     docs/MODELS.md \
     docs/apps/PAYMENTS.md \
+    docs/apps/VPN.md \
     docs/features/admin-payment-method-toggles/business.md \
     docs/features/admin-payment-method-toggles/architecture.md \
     docs/features/admin-payment-method-toggles/plan.md \
@@ -1326,6 +1370,7 @@ new repository file is created by this task.
     docs/CONTRACTS.md \
     docs/MODELS.md \
     docs/apps/PAYMENTS.md \
+    docs/apps/VPN.md \
     docs/features/admin-payment-method-toggles/business.md \
     docs/features/admin-payment-method-toggles/architecture.md \
     docs/features/admin-payment-method-toggles/plan.md \
@@ -1356,9 +1401,11 @@ new repository file is created by this task.
     --base main \
     --head "$PMT_FEATURE_BRANCH" \
     --title "Add global payment method toggles" \
-    --body "scope_revision: 2
+    --body "scope_revision: 3
 
   Scope: global Django-admin activity for Telegram Stars and Crypto Pay on new MTProxy, VPN and gift payment screens.
+
+  Technical addendum: revision 3 adds only docs/apps/VPN.md; approved business revision 2 BR/AC and product behavior are unchanged.
 
   Non-goals: per-product settings, arbitrary providers, credentials, old-button runtime checks, price/invoice/fulfilment changes, merge or deploy.
 
@@ -1389,8 +1436,8 @@ are green; PR remains open.
 
 #### Task Packet PMT-B8
 
-- **scope_revision:** 2; **Plan IDs:** `PMT-008`; root-only publication.
-- **Allowed/expected files:** stage only the 26 listed feature paths; no new
+- **scope_revision:** 3; **Plan IDs:** `PMT-008`; root-only publication.
+- **Allowed/expected files:** stage only the 27 listed feature paths; no new
   repository file. External mutations: scoped commit, feature-branch push and
   one PR into `main`.
 - **Forbidden adjacent work:** implementer/product-reviewer publication,
@@ -1439,13 +1486,14 @@ file owners. Reviewer does not fix findings.
   ```
 
 - [ ] **Launch a fresh final reviewer with an exact packet.** Root provides:
-  `scope_revision: 2`, PR number/URL, exact `PMT_PR_HEAD`, BR-001–BR-006,
+  `scope_revision: 3`, the technical-only documentation addendum, PR
+  number/URL, exact `PMT_PR_HEAD`, BR-001–BR-006,
   AC-001–AC-008, non-goals, PMT-001–PMT-009, allowed read commands, and the
   rule that only a structured review comment is mutable. Reviewer must run
   `gh pr view`, `gh pr diff` and `gh pr checks` for that PR/head, inspect the
   complete diff and publish one `gh pr review --comment` whose body contains:
 
-  - exact `scope_revision: 2` and a `PR_HEAD_SHA:` field whose value is the
+  - exact `scope_revision: 3` and a `PR_HEAD_SHA:` field whose value is the
     supplied `PMT_PR_HEAD`;
   - findings classified only as `blocking_in_scope`, `scope_change_request` or
     `follow_up`, each with its required trace; every actual blocking finding is
@@ -1471,7 +1519,7 @@ file owners. Reviewer does not fix findings.
     "repos/$PMT_REPO/pulls/$PMT_PR_NUMBER/reviews" \
     --jq "[.[] | select(.commit_id == \"$PMT_PR_HEAD\")][-1].body")"
   printf '%s\n' "$PMT_FINAL_REVIEW_BODY" | \
-    rg -Fq "scope_revision: 2"
+    rg -Fq "scope_revision: 3"
   printf '%s\n' "$PMT_FINAL_REVIEW_BODY" | \
     rg -Fq "PR_HEAD_SHA: $PMT_PR_HEAD"
   PMT_FINAL_REVIEW_LAST_LINE="$(
@@ -1557,8 +1605,9 @@ file owners. Reviewer does not fix findings.
   fi
   ```
 
-  Root reports `PMT_PR_URL`, `PMT_PR_HEAD`, checks and final verdict to the
-  user, leaving the PR open. This report is not merge or deploy authorization.
+  Root reports `scope_revision: 3`, `PMT_PR_URL`, `PMT_PR_HEAD`, checks and
+  final verdict to the user, leaving the PR open. This report is not merge or
+  deploy authorization.
 
 **Documentation:** final structured PR review comment and root report are the
 workflow evidence; no repository doc changes are made after exact-head review.
@@ -1570,7 +1619,7 @@ checks; PR is open against `main`; merge/deploy did not occur.
 
 #### Task Packet PMT-B9
 
-- **scope_revision:** 2; **Plan IDs:** `PMT-009`; root coordination plus fresh
+- **scope_revision:** 3; **Plan IDs:** `PMT-009`; root coordination plus fresh
   read-only final reviewer.
 - **Allowed/expected files:** repository entirely read-only during final
   review. Only external reviewer mutation is one structured PR review comment;
@@ -1599,7 +1648,7 @@ checks; PR is open against `main`; merge/deploy did not occur.
 | BR-006 / AC-005 | PMT-001 idempotent active seed and order test; PMT-003/004/005 initial both-active regressions |
 | AC-006 | PMT-003 preserved fields/errors/auth; PMT-005 unchanged callback/invoice/successful-payment regressions |
 | AC-008 | PMT-005 opening-only filtering and explicit read-only old callback bodies |
-| Docs/integration | PMT-006 current global docs, full suites, migration/import/Compose/diff gates |
+| Docs/integration | PMT-006 six current global docs including corrected `docs/apps/VPN.md`, full suites and migration/import/Compose/diff gates |
 | Product acceptance | PMT-007 deterministic base+status+tracked/untracked snapshot and independent evidence for every BR/AC/non-goal |
 | Publication | PMT-008 scoped commit, feature push, PR URL/number, exact local/remote/PR SHA equality and checks |
 | Final PR review | PMT-009 fresh reviewer per exact PR head, classified comment, fix loop, immutable-head checks and open-PR handoff |
@@ -1624,13 +1673,19 @@ checks; PR is open against `main`; merge/deploy did not occur.
   ten-item limit. PMT-005 executes the exact 12-case matrix node in RED and
   targeted GREEN; PMT-009 treats only the exact last non-empty review line as
   the verdict and validates both allowed verdict branches.
+- **Revision 3 coverage:** PMT-006 owns all six current docs and explicitly
+  corrects `docs/apps/VPN.md`; PMT-007–PMT-009 evidence and reports use revision
+  3; PMT-008 stages the 27-path allowlist including the VPN doc. PMT-001–PMT-005
+  remain completed under revision 2 with unchanged requirements, steps, tests,
+  production files and interfaces.
 - **Scope classification:** the two confirmed `blocking_in_scope` plan-review
   findings are resolved by PMT-007–PMT-009. No remaining
   `blocking_in_scope`, `scope_change_request` or `follow_up` was identified,
-  and no product behavior/component/contract beyond approved revision 2 was
-  added.
+  and no product behavior/component/contract beyond approved business revision
+  2 plus the revision 3 documentation-only addendum was added.
 
 Root integration/publishing remains outside implementer tasks. After architect
-review and root approval, execution begins with PMT-B1; commit/push/PR and final
-review coordination are owned only by root in PMT-B8/PMT-B9. Completion leaves
-the PR open; merge and deploy require later separate explicit user gates.
+review and root approval of revision 3, execution resumes with PMT-B6;
+PMT-B1–PMT-B5 are not reopened. Commit/push/PR and final review coordination
+are owned only by root in PMT-B8/PMT-B9. Completion leaves the PR open; merge
+and deploy require later separate explicit user gates.

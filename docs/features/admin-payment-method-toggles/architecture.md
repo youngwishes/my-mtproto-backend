@@ -1,11 +1,16 @@
 # Глобальная доступность способов оплаты — архитектура
 
 - **Статус:** approved
-- **Scope revision:** 2
+- **Scope revision:** 3
 - **Трассируемые требования:** BR-001–BR-006, AC-001–AC-008
 - **Основание:** утверждены `business.md` и подход с отдельной глобальной
   моделью поддержанных способов оплаты; пользователь отдельно подтвердил
   оформление этой спецификации.
+- **Revision 3:** технически расширен только список обновляемой документации:
+  добавлен `docs/apps/VPN.md`. Утверждённые в `business.md` revision 2
+  BR-001–BR-006, AC-001–AC-008, пользовательское поведение, non-goals,
+  компоненты и архитектурное решение включены в Scope Contract revision 3 без
+  изменений.
 
 ## 1. Границы и выбор решения
 
@@ -325,7 +330,10 @@ migration test.
 
 После реализации обновляются только релевантные документы:
 `docs/BUSINESS.md`, `docs/ARCHITECTURE.md`, `docs/CONTRACTS.md`,
-`docs/MODELS.md` и `docs/apps/PAYMENTS.md`. Исторический
+`docs/MODELS.md`, `docs/apps/PAYMENTS.md` и `docs/apps/VPN.md`. В
+`docs/apps/VPN.md` фиксируются глобально активные способы оплаты и точное
+zero-state `Оплата временно недоступна`; существующие VPN price, invoice,
+fulfilment и результат покупки остаются неизменными. Исторический
 `cryptopay-all-products` не переписывается.
 
 Не ожидаются изменения services, tasks, exceptions, provider settings,
