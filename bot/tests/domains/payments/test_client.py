@@ -33,6 +33,7 @@ PRODUCT_JSON = {
     "need_email": False,
     "price": 9900,
     "stars_price": 99,
+    "payment_methods": ["stars", "crypto_pay"],
 }
 
 @pytest.fixture
@@ -52,20 +53,30 @@ async def test_get_stars_invoice_maps_fields(client: PaymentsClient):
         title="MTPRoto на месяц",
         description="Безлимитный прокси",
         prices=[LabeledPrice(label="MTPRoto на месяц", amount=99)],
+        payment_methods=("stars", "crypto_pay"),
     )
     assert invoice.currency == "XTR"
     assert invoice.provider_token == ""
+    assert invoice.payment_methods == ("stars", "crypto_pay")
+    assert isinstance(invoice.payment_methods, tuple)
 
 
 @respx.mock
 async def test_get_vpn_stars_invoice_uses_vpn_product(client: PaymentsClient):
-    vpn_product = {**PRODUCT_JSON, "title": "VPN на месяц", "stars_price": 149}
+    vpn_product = {
+        **PRODUCT_JSON,
+        "title": "VPN на месяц",
+        "stars_price": 149,
+        "payment_methods": ["crypto_pay"],
+    }
     respx.get(VPN_PRODUCT_URL).mock(return_value=httpx.Response(200, json=vpn_product))
 
     invoice = await client.get_vpn_stars_invoice()
 
     assert invoice.title == "VPN на месяц"
     assert invoice.prices == [LabeledPrice(label="VPN на месяц", amount=149)]
+    assert invoice.payment_methods == ("crypto_pay",)
+    assert isinstance(invoice.payment_methods, tuple)
 
 
 @respx.mock

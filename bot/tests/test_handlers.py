@@ -228,6 +228,7 @@ def _deps_with_vpn(*, vpn: FakeVPN, payments: FakePayments | None = None):
                 title="VPN на месяц",
                 description="VPN-подписка",
                 prices=[LabeledPrice(label="VPN на месяц", amount=149)],
+                payment_methods=("stars", "crypto_pay"),
             ),
         )
     return Dependencies(
@@ -689,6 +690,7 @@ async def test_vpn_purchase_fetches_stars_invoice_and_shows_stars_only_screen():
         title="VPN на месяц",
         description="VPN-подписка",
         prices=[LabeledPrice(label="VPN на месяц", amount=237)],
+        payment_methods=("stars", "crypto_pay"),
     )
     deps = _deps_with_vpn(
         vpn=vpn,
@@ -794,6 +796,7 @@ async def test_vpn_stars_invoice_uses_distinct_payload_and_vpn_product(monkeypat
         title="VPN на месяц",
         description="VPN-подписка",
         prices=[LabeledPrice(label="VPN на месяц", amount=149)],
+        payment_methods=("stars", "crypto_pay"),
     )
 
     await process_vpn_pay_stars(
@@ -817,6 +820,7 @@ async def test_pay_stars_sends_xtr_invoice(monkeypatch):
         title="Месяц",
         description="прокси",
         prices=[LabeledPrice(label="Месяц", amount=99)],
+        payment_methods=("stars", "crypto_pay"),
     )
     callback = FakeCallback(chat_id=42)
 
@@ -851,6 +855,7 @@ async def test_gift_stars_invoice_uses_gift_payload(monkeypatch):
         title="Месяц",
         description="прокси",
         prices=[LabeledPrice(label="Месяц", amount=99)],
+        payment_methods=("stars", "crypto_pay"),
     )
     callback = FakeCallback(chat_id=42)
 
