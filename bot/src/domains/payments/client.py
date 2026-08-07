@@ -22,6 +22,7 @@ class StarsInvoice:
     title: str
     description: str
     prices: list[LabeledPrice]
+    payment_methods: tuple[str, ...]
     currency: str = "XTR"
     provider_token: str = ""
 
@@ -64,6 +65,7 @@ class PaymentsClient:
             title=data["title"],
             description=data["description"],
             prices=[LabeledPrice(label=data["title"], amount=data["stars_price"])],
+            payment_methods=tuple(str(code) for code in data["payment_methods"]),
         )
 
     async def confirm_purchase(

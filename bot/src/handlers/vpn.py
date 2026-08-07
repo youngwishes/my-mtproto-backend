@@ -35,12 +35,16 @@ async def process_vpn_menu(callback: CallbackQuery) -> None:
 async def process_vpn(callback: CallbackQuery, deps: Dependencies) -> None:
     await callback.answer()
     stars_invoice = await deps.payments.get_vpn_stars_invoice()
-    payment_methods = keyboards.vpn_payment_methods(
-        stars_price=stars_invoice.prices[0].amount,
-    )
     await callback.message.edit_text(
-        text=VPN_MENU_TEXT,
-        reply_markup=payment_methods,
+        text=(
+            VPN_MENU_TEXT
+            if stars_invoice.payment_methods
+            else "Оплата временно недоступна"
+        ),
+        reply_markup=keyboards.vpn_payment_methods(
+            stars_price=stars_invoice.prices[0].amount,
+            payment_methods=stars_invoice.payment_methods,
+        ),
     )
 
 

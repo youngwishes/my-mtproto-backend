@@ -6,7 +6,10 @@ from rest_framework.views import APIView
 from apps.payments.api.v1.serializers import GetProductSerializer
 from apps.payments.enums import ProductCodeEnum
 from apps.payments.exceptions import ProductNotFound
-from apps.payments.selectors import get_active_product_by_code
+from apps.payments.selectors import (
+    get_active_payment_method_codes,
+    get_active_product_by_code,
+)
 from apps.users.permissions import BotAuthToken
 
 
@@ -22,5 +25,9 @@ class ProductAPIView(APIView):
         product = get_active_product_by_code(code=code)
         if product is None:
             raise ProductNotFound(telegram_id="system")
-        serializer = GetProductSerializer(instance=product)
+        payment_methods = get_active_payment_method_codes()
+        serializer = GetProductSerializer(
+            instance=product,
+            context={"payment_methods": payment_methods},
+        )
         return Response(data=serializer.data, status=status.HTTP_200_OK)

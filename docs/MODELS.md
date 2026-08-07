@@ -111,6 +111,23 @@
 
 ---
 
+## PaymentMethod (apps/payments)
+
+Глобальная доступность способа оплаты для всех продуктов. Наследует
+`BaseDjangoModel`; связи с `Product` нет.
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `code` | str (unique) | Поддержанный код: `stars` или `crypto_pay` |
+| `is_active` | inherited bool | Показывать способ на новых экранах оплаты MTProto, VPN и подарочного сертификата |
+| `created_at`, `updated_at` | inherited DateTime | Стандартные служебные даты |
+
+Django admin разрешает менять только `is_active`; создание, удаление и
+переименование строк запрещены. Selector возвращает только активные
+поддержанные коды в фиксированном порядке Stars → Crypto Pay.
+
+---
+
 ## Payment (apps/payments)
 
 Запись об оплате.

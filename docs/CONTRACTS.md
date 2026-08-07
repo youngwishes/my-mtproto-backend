@@ -225,6 +225,8 @@ referrer.
 
 `GET /payments/products/vpn_30d/` возвращает активный VPN-товар в том же
 формате, что и legacy `GET /payments/`; legacy route остаётся MTProto alias.
+Оба защищённых `Bot-Auth-Token` маршрута на каждом запросе добавляют один и тот
+же глобальный список активных способов оплаты `payment_methods`.
 
 ### POST /api/v1/payments/crypto/invoices/
 
@@ -313,7 +315,9 @@ subscription URL или Base64 payload.
 
 ### GET /payments/
 
-Возвращает данные о товаре для формирования Telegram-инвойса.
+Защищён `Bot-Auth-Token`. Возвращает данные MTProto-товара для формирования
+Telegram-инвойса. `GET /payments/products/<code>/` возвращает тот же контракт
+для выбранного активного товара, включая `vpn_30d`.
 
 **Ответ:** `200 OK`
 
@@ -326,9 +330,18 @@ subscription URL или Base64 payload.
   "send_email_to_provider": true,
   "need_email": true,
   "price": 99.00,
-  "stars_price": 99
+  "stars_price": 99,
+  "payment_methods": ["stars", "crypto_pay"]
 }
 ```
+
+`payment_methods` всегда присутствует и содержит только активные способы,
+поддержанные кодом. Текущие допустимые значения: `["stars", "crypto_pay"]`,
+`["stars"]`, `["crypto_pay"]` или `[]`; порядок при двух активных способах
+всегда Stars → Crypto Pay. Список глобален и одинаков для MTProto, VPN и
+подарочного сертификата. Изменение в Django admin видно на следующем GET без
+перезапуска или кеша. Пустой список является штатным состоянием, а отсутствие
+активного товара сохраняет прежнюю ошибку `400`.
 
 ---
 

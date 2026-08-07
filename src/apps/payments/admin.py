@@ -2,7 +2,13 @@ from django.contrib import admin
 from django.http import HttpRequest
 from django.utils.html import format_html
 
-from apps.payments.models import CryptoPaymentIntent, GiftCertificate, Payment, Product
+from apps.payments.models import (
+    CryptoPaymentIntent,
+    GiftCertificate,
+    Payment,
+    PaymentMethod,
+    Product,
+)
 
 
 @admin.register(Payment)
@@ -43,6 +49,22 @@ class ProductAdmin(admin.ModelAdmin):
         "send_email_to_provider",
         "need_email",
     ]
+
+
+@admin.register(PaymentMethod)
+class PaymentMethodAdmin(admin.ModelAdmin):
+    actions = None
+    list_display = ("code", "is_active", "updated_at")
+    list_editable = ("is_active",)
+    readonly_fields = ("code", "created_at", "updated_at")
+
+    def has_add_permission(self, request: HttpRequest) -> bool:
+        return False
+
+    def has_delete_permission(
+        self, request: HttpRequest, obj: object | None = None
+    ) -> bool:
+        return False
 
 
 @admin.register(GiftCertificate)
