@@ -3,10 +3,11 @@ import json
 from django.conf import settings
 from django.urls import reverse
 from rest_framework import status
+from rest_framework.response import Response
 from rest_framework.test import APITestCase
 
 from apps.payments.enums import ProductCodeEnum
-from apps.payments.models import Product
+from apps.payments.models import PaymentMethod, Product
 from apps.payments.tests.factories import ProductFactory
 
 
@@ -15,6 +16,9 @@ class TestGetProductView(APITestCase):
 
     def setUp(self) -> None:
         Product.objects.all().delete()
+        PaymentMethod.objects.all().delete()
+        self.stars = PaymentMethod.objects.create(code="stars")
+        self.crypto = PaymentMethod.objects.create(code="crypto_pay")
         self.mtproto_product = ProductFactory(code=ProductCodeEnum.MTPROTO_30D)
         self.vpn_provider_data = {
             "receipt": {
@@ -40,11 +44,14 @@ class TestGetProductView(APITestCase):
             send_email_to_provider=True,
         )
 
-    def test_get_product_view_returns_mtproto_legacy_alias(self) -> None:
-        response = self.client.get(
-            path=self.url,
+    def get_product(self, path: str) -> Response:
+        return self.client.get(
+            path=path,
             headers={"Bot-Auth-Token": settings.BOT_AUTH_TOKEN},
         )
+
+    def test_get_product_view_returns_mtproto_legacy_alias(self) -> None:
+        response = self.get_product(path=self.url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(
             response.json(),
@@ -57,13 +64,13 @@ class TestGetProductView(APITestCase):
                 "stars_price": self.mtproto_product.stars_price,
                 "need_email": self.mtproto_product.need_email,
                 "send_email_to_provider": self.mtproto_product.send_email_to_provider,
+                "payment_methods": ["stars", "crypto_pay"],
             },
         )
 
     def test_get_product_by_code_returns_selected_active_product(self) -> None:
-        response = self.client.get(
-            path=reverse("product-by-code", kwargs={"code": ProductCodeEnum.VPN_30D}),
-            headers={"Bot-Auth-Token": settings.BOT_AUTH_TOKEN},
+        response = self.get_product(
+            path=reverse("product-by-code", kwargs={"code": ProductCodeEnum.VPN_30D})
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -74,11 +81,46 @@ class TestGetProductView(APITestCase):
         self.assertTrue(response.json()["need_email"])
         self.assertTrue(response.json()["send_email_to_provider"])
 
+    def test_returns_current_payment_methods_for_both_product_routes(self) -> None:
+        routes = (
+            self.url,
+            reverse("product-by-code", kwargs={"code": ProductCodeEnum.VPN_30D}),
+        )
+        states = (
+            (("stars", "crypto_pay"), ["stars", "crypto_pay"]),
+            (("stars",), ["stars"]),
+            (("crypto_pay",), ["crypto_pay"]),
+            ((), []),
+        )
+
+        for active_codes, expected in states:
+            PaymentMethod.objects.all().update(is_active=False)
+            PaymentMethod.objects.filter(code__in=active_codes).update(is_active=True)
+            for route in routes:
+                with self.subTest(route=route, active_codes=active_codes):
+                    response = self.get_product(path=route)
+                    self.assertEqual(response.status_code, status.HTTP_200_OK)
+                    self.assertEqual(response.json()["payment_methods"], expected)
+
+    def test_returns_current_payment_methods_on_sequential_gets(self) -> None:
+        first_response = self.get_product(path=self.url)
+        self.assertEqual(first_response.json()["payment_methods"], ["stars", "crypto_pay"])
+
+        self.crypto.is_active = False
+        self.crypto.save(update_fields=["is_active"])
+
+        second_response = self.get_product(path=self.url)
+        self.assertEqual(second_response.json()["payment_methods"], ["stars"])
+
     def test_returns_error_when_no_active_product(self) -> None:
         self.vpn_product.is_active = False
         self.vpn_product.save(update_fields=["is_active"])
-        response = self.client.get(
-            path=reverse("product-by-code", kwargs={"code": ProductCodeEnum.VPN_30D}),
-            headers={"Bot-Auth-Token": settings.BOT_AUTH_TOKEN},
+        response = self.get_product(
+            path=reverse("product-by-code", kwargs={"code": ProductCodeEnum.VPN_30D})
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_requires_bot_auth_token(self) -> None:
+        response = self.client.get(path=self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
