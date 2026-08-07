@@ -40,7 +40,9 @@ from src.handlers.start import (
 )
 from src.messages import (
     CRYPTO_INVOICE_ERROR_TEXT,
+    GIFT_CERTIFICATE_TEXT,
     KEY_GENERATED_TEXT,
+    PAYMENT_METHODS_TEXT,
     PRIVACY_URL,
     PRODUCT_MENU_TEXT,
     SITE_URL,
@@ -166,10 +168,12 @@ class FakePayments:
         self.confirmed: list[tuple] = []
         self.gift_confirmed: list[tuple] = []
         self.activated: list[tuple] = []
+        self.stars_invoice_calls = 0
         self.vpn_stars_invoice_calls = 0
         self.crypto_calls: list[tuple] = []
 
     async def get_stars_invoice(self):
+        self.stars_invoice_calls += 1
         return self._stars
 
     async def get_vpn_stars_invoice(self):
@@ -439,8 +443,16 @@ async def test_boost_free_claims_key_and_shows_expiry():
 
 async def test_payment_screen_includes_legal_links():
     callback = FakeCallback(chat_id=42)
+    payments = FakePayments(
+        stars=StarsInvoice(
+            title="Месяц",
+            description="прокси",
+            prices=[LabeledPrice(label="Месяц", amount=99)],
+            payment_methods=("stars", "crypto_pay"),
+        )
+    )
 
-    await process_boost_paid(callback)
+    await process_boost_paid(callback, make_deps(payments=payments))
 
     text, markup = callback.message.edits[0]
     assert TERMS_URL in text
@@ -457,26 +469,64 @@ async def test_payment_screen_includes_legal_links():
 
 
 @pytest.mark.parametrize(
-    ("markup", "expected_callbacks"),
+    ("builder", "kwargs", "expected_callbacks"),
     [
         (
-            keyboards.payment_methods(),
+            keyboards.payment_methods,
+            {"payment_methods": ("stars", "crypto_pay")},
             ["pay_stars", "pay_crypto", "show_mtproxy_menu"],
         ),
         (
-            keyboards.vpn_payment_methods(stars_price=149),
+            keyboards.vpn_payment_methods,
+            {
+                "stars_price": 149,
+                "payment_methods": ("stars", "crypto_pay"),
+            },
             ["vpn_pay_stars", "vpn_pay_crypto", "show_vpn_menu"],
         ),
         (
-            keyboards.gift_certificate_payment_methods(),
+            keyboards.gift_certificate_payment_methods,
+            {"payment_methods": ("stars", "crypto_pay")},
             ["gift_stars", "gift_crypto", "show_mtproxy_menu"],
         ),
     ],
 )
-def test_stars_first_crypto_second(markup, expected_callbacks) -> None:
+def test_stars_first_crypto_second(builder, kwargs, expected_callbacks) -> None:
+    markup = builder(**kwargs)
+
     assert [row[0].callback_data for row in markup.inline_keyboard] == expected_callbacks
     assert markup.inline_keyboard[0][0].text.startswith("⭐ Telegram Stars")
     assert markup.inline_keyboard[1][0].text == "💎 Crypto Pay"
+
+
+@pytest.mark.parametrize(
+    ("builder", "kwargs", "back_callback"),
+    [
+        (
+            keyboards.payment_methods,
+            {"payment_methods": ("unknown",)},
+            "show_mtproxy_menu",
+        ),
+        (
+            keyboards.vpn_payment_methods,
+            {"stars_price": 149, "payment_methods": ("unknown",)},
+            "show_vpn_menu",
+        ),
+        (
+            keyboards.gift_certificate_payment_methods,
+            {"payment_methods": ("unknown",)},
+            "show_mtproxy_menu",
+        ),
+    ],
+)
+def test_unknown_payment_method_keeps_only_back(
+    builder, kwargs, back_callback
+) -> None:
+    markup = builder(**kwargs)
+
+    assert [row[0].callback_data for row in markup.inline_keyboard] == [
+        back_callback
+    ]
 
 
 def test_mtproxy_menu_links_to_site_and_support():
@@ -504,8 +554,12 @@ def test_mtproxy_internal_back_buttons_return_to_mtproxy_menu(
         "key_generated": keyboards.key_generated(),
         "my_servers": keyboards.my_servers(servers.servers),
         "info": keyboards.info(),
-        "payment_methods": keyboards.payment_methods(),
-        "gift_certificate": keyboards.gift_certificate_payment_methods(),
+        "payment_methods": keyboards.payment_methods(
+            payment_methods=("stars", "crypto_pay"),
+        ),
+        "gift_certificate": keyboards.gift_certificate_payment_methods(
+            payment_methods=("stars", "crypto_pay"),
+        ),
         "referral_cabinet": keyboards.referral_cabinet(
             active_referrals_count=4,
             referral_link="https://t.me/bot?start=42",
@@ -614,6 +668,81 @@ async def test_referral_link_claims_reward():
 
 
 # --- payments ---------------------------------------------------------------
+
+
+SCREEN_CASES = {
+    "mtproxy": (
+        process_boost_paid,
+        PAYMENT_METHODS_TEXT,
+        {"stars": "pay_stars", "crypto_pay": "pay_crypto"},
+        "show_mtproxy_menu",
+    ),
+    "vpn": (
+        process_vpn,
+        VPN_MENU_TEXT,
+        {"stars": "vpn_pay_stars", "crypto_pay": "vpn_pay_crypto"},
+        "show_vpn_menu",
+    ),
+    "gift": (
+        process_gift_certificate,
+        GIFT_CERTIFICATE_TEXT,
+        {"stars": "gift_stars", "crypto_pay": "gift_crypto"},
+        "show_mtproxy_menu",
+    ),
+}
+
+
+@pytest.mark.parametrize("screen", tuple(SCREEN_CASES))
+@pytest.mark.parametrize(
+    "methods",
+    (
+        ("stars", "crypto_pay"),
+        ("stars",),
+        ("crypto_pay",),
+        (),
+    ),
+)
+async def test_payment_method_screen_matrix(screen, methods) -> None:
+    handler, normal_text, callback_by_method, back_callback = SCREEN_CASES[screen]
+    invoice = StarsInvoice(
+        title="Товар",
+        description="Описание",
+        prices=[LabeledPrice(label="Товар", amount=149)],
+        payment_methods=methods,
+    )
+    payments = FakePayments(stars=invoice)
+    callback = FakeCallback(chat_id=42, user_id=42)
+    if screen == "vpn":
+        deps = _deps_with_vpn(
+            vpn=FakeVPN(
+                menu=VPNMenu(
+                    status="none",
+                    expired_at=None,
+                    subscription_url=None,
+                )
+            ),
+            payments=payments,
+        )
+    else:
+        deps = make_deps(payments=payments)
+
+    await handler(callback, deps)
+
+    text, markup = callback.message.edits[0]
+    expected_payment_callbacks = [
+        callback_by_method[code]
+        for code in ("stars", "crypto_pay")
+        if code in methods
+    ]
+    actual_callbacks = [
+        row[0].callback_data for row in markup.inline_keyboard
+    ]
+    assert actual_callbacks == [*expected_payment_callbacks, back_callback]
+    assert text == (
+        normal_text if methods else "Оплата временно недоступна"
+    )
+    assert payments.stars_invoice_calls == (0 if screen == "vpn" else 1)
+    assert payments.vpn_stars_invoice_calls == (1 if screen == "vpn" else 0)
 
 
 @pytest.mark.parametrize(
@@ -833,8 +962,16 @@ async def test_pay_stars_sends_xtr_invoice(monkeypatch):
 
 async def test_gift_certificate_screen_shows_payment_options():
     callback = FakeCallback(chat_id=42)
+    payments = FakePayments(
+        stars=StarsInvoice(
+            title="Месяц",
+            description="прокси",
+            prices=[LabeledPrice(label="Месяц", amount=99)],
+            payment_methods=("stars", "crypto_pay"),
+        )
+    )
 
-    await process_gift_certificate(callback)
+    await process_gift_certificate(callback, make_deps(payments=payments))
 
     text, markup = callback.message.edits[0]
     assert "сертификат" in text.lower()

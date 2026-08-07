@@ -149,40 +149,78 @@ def info() -> InlineKeyboardMarkup:
     )
 
 
-def payment_methods() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="⭐ Telegram Stars — 99 ★", callback_data="pay_stars", style="primary")],
-            [InlineKeyboardButton(text=CRYPTO_PAY_BUTTON, callback_data="pay_crypto")],
-            [_MTPROXY_BACK],
-        ]
-    )
+def payment_methods(
+    *, payment_methods: tuple[str, ...]
+) -> InlineKeyboardMarkup:
+    active = set(payment_methods)
+    keyboard: list[list[InlineKeyboardButton]] = []
+    if "stars" in active:
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    text="⭐ Telegram Stars — 99 ★",
+                    callback_data="pay_stars",
+                    style="primary",
+                )
+            ]
+        )
+    if "crypto_pay" in active:
+        keyboard.append(
+            [InlineKeyboardButton(text=CRYPTO_PAY_BUTTON, callback_data="pay_crypto")]
+        )
+    keyboard.append([_MTPROXY_BACK])
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
-def vpn_payment_methods(*, stars_price: int) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
+def vpn_payment_methods(
+    *, stars_price: int, payment_methods: tuple[str, ...]
+) -> InlineKeyboardMarkup:
+    active = set(payment_methods)
+    keyboard: list[list[InlineKeyboardButton]] = []
+    if "stars" in active:
+        keyboard.append(
             [
                 InlineKeyboardButton(
                     text=f"⭐ Telegram Stars — {stars_price} ★",
                     callback_data="vpn_pay_stars",
                     style="primary",
                 )
-            ],
-            [InlineKeyboardButton(text=CRYPTO_PAY_BUTTON, callback_data="vpn_pay_crypto")],
-            [_VPN_BACK],
-        ]
-    )
+            ]
+        )
+    if "crypto_pay" in active:
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    text=CRYPTO_PAY_BUTTON,
+                    callback_data="vpn_pay_crypto",
+                )
+            ]
+        )
+    keyboard.append([_VPN_BACK])
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
-def gift_certificate_payment_methods() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="⭐ Telegram Stars — 99 ★", callback_data="gift_stars", style="primary")],
-            [InlineKeyboardButton(text=CRYPTO_PAY_BUTTON, callback_data="gift_crypto")],
-            [_MTPROXY_BACK],
-        ]
-    )
+def gift_certificate_payment_methods(
+    *, payment_methods: tuple[str, ...]
+) -> InlineKeyboardMarkup:
+    active = set(payment_methods)
+    keyboard: list[list[InlineKeyboardButton]] = []
+    if "stars" in active:
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    text="⭐ Telegram Stars — 99 ★",
+                    callback_data="gift_stars",
+                    style="primary",
+                )
+            ]
+        )
+    if "crypto_pay" in active:
+        keyboard.append(
+            [InlineKeyboardButton(text=CRYPTO_PAY_BUTTON, callback_data="gift_crypto")]
+        )
+    keyboard.append([_MTPROXY_BACK])
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
 def referral_cabinet(*, active_referrals_count: int, referral_link: str) -> InlineKeyboardMarkup:

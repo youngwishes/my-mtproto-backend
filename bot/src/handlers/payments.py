@@ -67,11 +67,18 @@ async def show_crypto_invoice(
 
 
 @router.callback_query(F.data == "boost_paid")
-async def process_boost_paid(callback: CallbackQuery):
+async def process_boost_paid(callback: CallbackQuery, deps: Dependencies):
     await callback.answer()
+    invoice = await deps.payments.get_stars_invoice()
     await callback.message.edit_text(
-        text=PAYMENT_METHODS_TEXT,
-        reply_markup=keyboards.payment_methods(),
+        text=(
+            PAYMENT_METHODS_TEXT
+            if invoice.payment_methods
+            else "Оплата временно недоступна"
+        ),
+        reply_markup=keyboards.payment_methods(
+            payment_methods=invoice.payment_methods,
+        ),
     )
 
 
@@ -107,11 +114,18 @@ async def process_pay_crypto(callback: CallbackQuery, deps: Dependencies) -> Non
 
 
 @router.callback_query(F.data == "gift_certificate")
-async def process_gift_certificate(callback: CallbackQuery):
+async def process_gift_certificate(callback: CallbackQuery, deps: Dependencies):
     await callback.answer()
+    invoice = await deps.payments.get_stars_invoice()
     await callback.message.edit_text(
-        text=GIFT_CERTIFICATE_TEXT,
-        reply_markup=keyboards.gift_certificate_payment_methods(),
+        text=(
+            GIFT_CERTIFICATE_TEXT
+            if invoice.payment_methods
+            else "Оплата временно недоступна"
+        ),
+        reply_markup=keyboards.gift_certificate_payment_methods(
+            payment_methods=invoice.payment_methods,
+        ),
     )
 
 
