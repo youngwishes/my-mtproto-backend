@@ -66,6 +66,18 @@ class Product(BaseDjangoModel):
         verbose_name_plural = "товары"
 
 
+class PaymentMethod(BaseDjangoModel):
+    code = models.CharField(
+        "код",
+        max_length=32,
+        unique=True,
+        choices=(
+            (PaymentProviderEnum.STARS, "Telegram Stars"),
+            (PaymentProviderEnum.CRYPTO_PAY, "Crypto Pay"),
+        ),
+    )
+
+
 class Payment(BaseDjangoModel):
     Kind = PaymentKindEnum
 

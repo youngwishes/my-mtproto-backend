@@ -4,6 +4,7 @@ from django.db import IntegrityError, transaction
 from django.test import TestCase
 
 from apps.payments.enums import PaymentKindEnum, PaymentProviderEnum, ProductCodeEnum
+from apps.payments.models import PaymentMethod, Product
 from apps.payments.tests.factories import PaymentFactory, ProductFactory
 
 
@@ -39,3 +40,35 @@ class TestPaymentModel(TestCase):
                 charge_id="subscription-charge-id",
                 kind=PaymentKindEnum.SUBSCRIPTION,
             )
+
+
+class TestPaymentMethodModel(TestCase):
+    def test_code_is_unique(self) -> None:
+        PaymentMethod.objects.all().delete()
+        PaymentMethod.objects.create(code=PaymentProviderEnum.STARS)
+
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                PaymentMethod.objects.create(code=PaymentProviderEnum.STARS)
+
+    def test_has_exact_supported_choices_and_global_fields(self) -> None:
+        code = PaymentMethod._meta.get_field("code")
+
+        self.assertTrue(code.unique)
+        self.assertEqual(
+            tuple(code.choices),
+            (
+                (PaymentProviderEnum.STARS, "Telegram Stars"),
+                (PaymentProviderEnum.CRYPTO_PAY, "Crypto Pay"),
+            ),
+        )
+        self.assertEqual(
+            {field.name for field in PaymentMethod._meta.fields},
+            {"id", "is_active", "created_at", "updated_at", "code"},
+        )
+        self.assertFalse(
+            any(
+                field.related_model is Product
+                for field in PaymentMethod._meta.get_fields()
+            )
+        )

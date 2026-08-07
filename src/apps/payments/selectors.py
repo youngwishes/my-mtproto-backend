@@ -6,13 +6,43 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 from django.db import IntegrityError, transaction
-from django.db.models import QuerySet
+from django.db.models import Case, IntegerField, QuerySet, When
 
-from apps.payments.enums import CryptoPaymentIntentStatusEnum, PaymentKindEnum
-from apps.payments.models import CryptoPaymentIntent, GiftCertificate, Payment, Product
+from apps.payments.enums import (
+    CryptoPaymentIntentStatusEnum,
+    PaymentKindEnum,
+    PaymentProviderEnum,
+)
+from apps.payments.models import (
+    CryptoPaymentIntent,
+    GiftCertificate,
+    Payment,
+    PaymentMethod,
+    Product,
+)
 
 if TYPE_CHECKING:
     from apps.payments.services.dtos.crypto_pay_dtos import CryptoInvoiceDTO
+
+
+_SUPPORTED_PAYMENT_METHOD_CODES = (
+    PaymentProviderEnum.STARS,
+    PaymentProviderEnum.CRYPTO_PAY,
+)
+
+
+def get_active_payment_method_codes() -> tuple[str, ...]:
+    order = Case(
+        When(code=PaymentProviderEnum.STARS, then=0),
+        When(code=PaymentProviderEnum.CRYPTO_PAY, then=1),
+        output_field=IntegerField(),
+    )
+    return tuple(
+        PaymentMethod.objects.active()
+        .filter(code__in=_SUPPORTED_PAYMENT_METHOD_CODES)
+        .order_by(order)
+        .values_list("code", flat=True)
+    )
 
 
 def get_active_product_by_code(*, code: str) -> Product | None:
