@@ -119,13 +119,17 @@
 | Поле | Тип | Описание |
 |------|-----|----------|
 | `code` | str (unique) | Поддержанный код: `platega_sbp`, `stars` или `crypto_pay` |
+| `commission_percent` | Decimal(5,2) | Глобальная комиссия способа, default `0.00`; включительный диапазон `0.00..999.99` закреплён validators и DB constraint `payment_method_commission_percent_range` |
 | `is_active` | inherited bool | Показывать способ на новых экранах оплаты MTProto, VPN и подарочного сертификата |
 | `created_at`, `updated_at` | inherited DateTime | Стандартные служебные даты |
 
-Django admin разрешает менять только `is_active`; создание, удаление и
-переименование строк запрещены. Migration создаёт `platega_sbp` неактивным и
-идемпотентно сохраняет уже выбранное администратором значение. Selector возвращает
-только активные поддержанные коды в фиксированном порядке СБП → Stars → Crypto Pay.
+Django admin разрешает менять `commission_percent` и `is_active`; создание,
+удаление и переименование строк запрещены. Commission migration задаёт
+`platega_sbp` ставку `8.00`, не меняя сохранённый `is_active`; если строки нет,
+она создаётся неактивной. Остальные способы получают default `0.00`, а их
+переключатели не меняются. Selector доступности возвращает только активные
+поддержанные коды в фиксированном порядке СБП → Stars → Crypto Pay; отдельный
+selector ставки читает текущий процент независимо от переключателя.
 
 ---
 
@@ -170,10 +174,11 @@ Partial constraint `(initiator, purchase_kind)` для статусов `creatin
 ## PlategaPaymentIntent (apps/payments)
 
 Локальная запись one-time SBP покупки через Platega. Содержит публичный UUID,
-инициатора, вид покупки, code товара, ожидаемые `rub_amount`, `currency=RUB` и
-`payment_method=2`, а также provider transaction/link/expiry и даты выдачи и
-уведомления. `payment` — nullable one-to-one связь с `Payment`; `initiator` —
-FK с `PROTECT`.
+инициатора, вид покупки, code товара, полную пользовательскую `rub_amount`,
+`currency=RUB` и `payment_method=2`, а также provider transaction/link/expiry и
+даты выдачи и уведомления. Уменьшенная на комиссию provider amount в intent не
+хранится. `payment` — nullable one-to-one связь с `Payment`; `initiator` — FK с
+`PROTECT`.
 
 Статусы: `creating`, `active`, `local_expired`, `processing`, `retryable`,
 `provider_canceled`, `create_failed`, `fulfilled`. Partial constraint

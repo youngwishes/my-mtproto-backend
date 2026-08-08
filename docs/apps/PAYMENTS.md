@@ -9,9 +9,10 @@ Pay, а также fulfilment ранее созданных не-XTR счето�
 
 ## Ключевые модели
 
-- **PaymentMethod** — глобальная доступность поддержанного способа оплаты.
-  Django admin меняет только `is_active` существующих `platega_sbp`, `stars` и `crypto_pay`;
-  произвольное создание, удаление, label/order и связь с товаром отсутствуют.
+- **PaymentMethod** — глобальные доступность и процент комиссии поддержанного
+  способа оплаты. Django admin меняет `commission_percent` и `is_active`
+  существующих `platega_sbp`, `stars` и `crypto_pay`; произвольное создание,
+  удаление, label/order и связь с товаром отсутствуют.
 - **Product** — товар для Telegram Payments API. Бот использует `stars_price`
   для новых Stars-счетов. Crypto Pay берёт текущий `Product.price` нужного
   товара, а Platega SBP создаёт из него snapshot суммы. Поле хранит целое число
@@ -45,8 +46,9 @@ Crypto Pay.
 Нажатие уже показанной старой кнопки не проверяет активность повторно, а цены,
 invoice, successful-payment routing и fulfilment действующих Stars/Crypto Pay
 сценариев не меняются. Миграция сохраняет существующие Stars/Crypto Pay строки и
-создаёт `platega_sbp` неактивным; повторный seed не перезаписывает сохранённое
-администратором состояние.
+их активность, задаёт всем способам default commission `0.00%`, а
+`platega_sbp` — `8.00%` без изменения сохранённого `is_active`. Отсутствующая
+строка Platega создаётся неактивной.
 
 ## Сервисы
 
@@ -58,8 +60,15 @@ invoice, successful-payment routing и fulfilment действующих Stars/C
   RUB-счёт для USDT/TON без PII в provider payload.
 - **CreateOrReusePlategaInvoiceService** — для `subscription` и
   `gift_certificate` выбирает `mtproto_30d`, для `vpn_subscription` —
-  `vpn_30d`; сохраняет текущую Decimal RUB-сумму и создаёт либо возвращает
-  15-минутную SBP-ссылку. Живой `active` intent возвращается повторно. Локально
+  `vpn_30d`; сохраняет полную пользовательскую Decimal RUB-сумму, а для нового
+  intent читает текущий глобальный процент `platega_sbp` и передаёт provider
+  amount `user_amount / (1 + commission_percent / 100)`, один раз округлённую
+  до `0.01` с `ROUND_HALF_UP`. При `99.00` и `8.00%` Platega получает numeric
+  `91.67`, тогда как intent/API/bot сохраняют `99.00`; при `0.00%` provider
+  получает `99.00`. Отсутствующая строка настройки даёт безопасный
+  `payment_method_unavailable` 503 без provider POST. Сервис создаёт либо
+  возвращает 15-минутную SBP-ссылку. Живой `active` intent возвращается
+  повторно без перечитывания ставки. Локально
   истёкший `active` становится `local_expired`, зависший дольше двух provider
   timeout `creating` — `create_failed`, а `provider_canceled` и
   `create_failed` разрешают новую ссылку. Текущие `creating`, `processing` и
@@ -71,8 +80,10 @@ invoice, successful-payment routing и fulfilment действующих Stars/C
   signed invoice и условно выполняют выдачу ровно один раз.
 - **ValidatePlategaCallbackService** — после HTTP-аутентификации находит intent
   по provider transaction UUID с загруженными initiator/payment и принимает
-  только точное совпадение сохранённых transaction ID, Decimal RUB-суммы,
-  `currency=RUB` и `payment_method=2`. `CONFIRMED` валиден для
+  совпавшие transaction ID, `currency=RUB`, `payment_method=2` и Decimal amount
+  не меньше сохранённой пользовательской `rub_amount`. Amount сравнивается без
+  округления: равенство и любая переплата проходят, недоплата остаётся mismatch.
+  `CONFIRMED` валиден для
   `active|local_expired|retryable|processing|fulfilled`; применение duplicate и
   concurrent состояний остаётся обязанностью apply-сервиса. Совпавший
   `CANCELED` переводит только `active|local_expired` в `provider_canceled`.
@@ -114,7 +125,10 @@ authentication/permission lists. До request data/body parsing он выпол�
 отдельные constant-time проверки raw `X-MerchantId` и `X-Secret`; пустые
 configured credentials и missing/invalid headers дают `401`. Только
 authenticated exact-key payload преобразуется в `PlategaCallbackDTO` и
-передаётся validator/apply factories.
+передаётся validator/apply factories. Callback-only JSON parser разбирает
+integer, fraction и finite exponent tokens напрямую в Decimal. Amount принимает
+только конечное JSON-число произвольной точности; numeric strings, boolean,
+`null`, containers, `NaN` и бесконечности отклоняются без domain processing.
 
 Malformed, unknown, mismatch, unsupported (включая `CHARGEBACKED`), canceled и
 duplicate исходы дают empty `200`; successful fulfilled+queued также даёт

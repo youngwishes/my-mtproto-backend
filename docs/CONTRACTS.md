@@ -270,10 +270,14 @@ Crypto Pay-счёт или возвращает существующий акт�
 }
 ```
 
-`rub_amount` — decimal-строка с двумя знаками из backend snapshot текущей
-RUB-цены. Ошибки формы и неподдерживаемый kind используют DRF `400`; текущий
-`creating`, `processing` или `retryable` intent возвращает `409`; provider и
-временные storage failures возвращают `503` только с безопасным reason code.
+`rub_amount` — decimal-строка с двумя знаками из backend snapshot полной
+пользовательской RUB-цены; она не уменьшается на provider commission и остаётся
+`99.00` в intent, API и bot. Ошибки формы и неподдерживаемый kind используют DRF
+`400`; текущий `creating`, `processing` или `retryable` intent возвращает `409`;
+provider и временные storage failures возвращают `503` только с безопасным
+reason code. Если обязательная строка `PaymentMethod(platega_sbp)` отсутствует,
+backend не подставляет ставку по умолчанию и возвращает безопасный `503` с
+`payment_method_unavailable` до provider POST.
 
 ### Platega outbound provider contract
 
@@ -281,10 +285,14 @@ Django backend creates an SBP transaction only with
 `POST {PLATEGA_BASE_URL}/transaction/process`; there is no Platega GET method.
 Request headers are `X-MerchantId`, `X-Secret` and `Content-Type: application/json`.
 The JSON sends `paymentMethod: 2`, `paymentDetails` with a two-decimal numeric
-RUB amount serialized directly from `Decimal`, the product description, both
-`return` and `failedUrl` equal to backend `BOT_LINK`, a UUID-only `payload`, and
-`metadata.userId` / `metadata.userName`. The latter falls back to string Telegram
-ID if a saved username is absent.
+RUB provider amount serialized directly from `Decimal`, the product description,
+both `return` and `failedUrl` equal to backend `BOT_LINK`, a UUID-only `payload`,
+and `metadata.userId` / `metadata.userName`. The provider amount is calculated
+for each new intent from the current global payment-method setting as
+`user_amount / (1 + commission_percent / 100)` and rounded once to two decimals
+with `ROUND_HALF_UP`. Thus user amount `99.00` and commission `8.00%` send
+numeric `paymentDetails.amount: 91.67`; `0.00%` sends `99.00`. The latter
+metadata field falls back to string Telegram ID if a saved username is absent.
 
 A usable creation response is exactly HTTP `200` with a JSON object containing
 UUID `transactionId`, `status: "PENDING"`, and HTTPS `redirect`. All
@@ -307,12 +315,21 @@ Missing/invalid header возвращает пустой `401` без body parsi
 ```json
 {
   "id": "6765c89d-4800-4e07-b45d-d886e696e87c",
-  "amount": "99.00",
+  "amount": 99.0036,
   "currency": "RUB",
   "status": "CONFIRMED",
   "paymentMethod": 2
 }
 ```
+
+`amount` должен быть конечным JSON-числом. Integer, fraction и finite exponent
+принимаются без продуктового ограничения на число целых или дробных знаков и
+разбираются точно в Decimal без промежуточного binary float. Numeric string,
+boolean, `null`, container, `NaN` и бесконечность недопустимы. Amount проходит
+проверку, когда `received >= intent.rub_amount`; сравнение не округляет вход.
+Поэтому `99`, `99.0036` и любая переплата валидны при сохранённых `99.00`, а
+`98.999999999999999999` остаётся mismatch. Проверки transaction ID, точных
+`RUB`, method `2`, статуса и состояния intent сохраняются.
 
 Authenticated malformed JSON, missing/extra/malformed fields, unknown
 transaction, mismatch, unsupported status, normal/repeated `CANCELED` и

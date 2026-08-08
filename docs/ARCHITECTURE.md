@@ -111,13 +111,20 @@ provider boundary; bot не получает merchant ID или secret. `Platega
 выполняет только `POST {PLATEGA_BASE_URL}/transaction/process`: отправляет
 method `2`, `RUB` decimal amount с двумя знаками без float, оба redirect URL из
 `BOT_LINK`, случайный local UUID payload и antifraud metadata с Telegram ID и
-username (либо Telegram ID как fallback).
+username (либо Telegram ID как fallback). Для нового intent сервис через
+selector читает текущий глобальный `commission_percent` и вычисляет provider
+amount как `user_amount / (1 + commission_percent / 100)`, один раз округляя
+результат до `0.01` с `ROUND_HALF_UP`; `99.00` при `8.00%` даёт numeric `91.67`.
+Intent, invoice API и bot сохраняют пользовательский snapshot `99.00`, а не
+provider amount. Живой intent переиспользуется без повторного чтения ставки.
+Отсутствующая строка настройки даёт безопасный
+`payment_method_unavailable` и существующий ответ `503` до provider POST.
 
 Успешным считается только HTTP `200` с UUID transaction ID, `PENDING` и usable
 HTTPS redirect. Provider-controlled echoes, включая `expiresIn`, `return`,
 `paymentMethod`, `merchantId` и `paymentDetails`, не используются для
-валидации; локальный intent получает фиксированный TTL 15 минут. Ошибки
-наружу несут только reason code `timeout`, `unavailable`, `malformed` или
+валидации; локальный intent получает фиксированный TTL 15 минут. Ошибки provider
+client наружу несут только reason code `timeout`, `unavailable`, `malformed` или
 `create_mismatch`; request/response body, URL, metadata и credentials не
 логируются. HTTP GET, polling и bot credentials для Platega отсутствуют.
 
@@ -126,8 +133,13 @@ HTTPS redirect. Provider-controlled echoes, включая `expiresIn`, `return`
 всегда вычисляет две отдельные constant-time проверки; пустая backend
 конфигурация fail-closed. Только после этого exact-key serializer принимает
 `id`, `amount`, `currency`, `status`, `paymentMethod`, а validation service
-сопоставляет normalized DTO с сохранённым intent. Callback не вызывает
-Platega client и не делает status GET.
+сопоставляет normalized DTO с сохранённым intent. Callback-only JSON parser
+разбирает integer, fraction и exponent tokens сразу в Decimal без binary float;
+serializer принимает только конечное JSON-число произвольной точности и
+отклоняет строки, boolean, `NaN` и бесконечности. Validator без округления
+отклоняет только `amount < intent.rub_amount`; равенство и любая переплата
+проходят при сохранении остальных exact-проверок. Callback не вызывает Platega
+client и не делает status GET.
 
 Совпавший `CONFIRMED` проходит через атомарный fulfilment существующей MTProto,
 VPN или gift границы. После commit отдельная bound Celery-задача читает только
@@ -143,12 +155,14 @@ unsupported safe acknowledgement без доменного перехода.
 
 ## Доступность способов оплаты
 
-`PaymentMethod` в `apps.payments` хранит единственный глобальный флаг
-`is_active` для каждого поддержанного кодом способа (`platega_sbp`, `stars`,
-`crypto_pay`).
+`PaymentMethod` в `apps.payments` хранит глобальные `is_active` и
+`commission_percent` для каждого поддержанного кодом способа (`platega_sbp`,
+`stars`, `crypto_pay`). Процент — non-null Decimal `0.00..999.99` с model- и
+DB-ограничением; настройка относится к способу, а не к товару.
 Модель не связана с `Product`: один переключатель в Django admin действует для
-MTProto, VPN и подарочного сертификата. Admin разрешает менять только
-`is_active`; добавление, удаление и переименование способов отключены.
+MTProto, VPN и подарочного сертификата. Admin разрешает менять
+`commission_percent` и `is_active`; добавление, удаление и переименование
+способов отключены.
 
 При каждом `GET /api/v1/payments/` или
 `GET /api/v1/payments/products/<code>/` selector читает активные строки из БД
@@ -159,11 +173,14 @@ MTProto, VPN и подарочного сертификата. Admin разре�
 «Назад». Ошибки product API не маскируются под это состояние, а обработчики уже
 показанных платёжных кнопок не перечитывают активность.
 
-Миграция сохраняет Stars/Crypto Pay активными и добавляет `platega_sbp`
-неактивным, поэтому rollout совместим со старым ботом: сначала разворачиваются
-migration/backend с аддитивным API-полем, затем bot и только после этого
-администратор вручную включает новый method. Операционный rollback выполняется
-в обратном порядке без удаления таблицы и сохранённого admin-состояния.
+Commission migration даёт остальным способам `0.00%`, устанавливает
+`platega_sbp` ставку `8.00%` и не изменяет ни один сохранённый `is_active`;
+отсутствующая строка создаётся выключенной. Поэтому перед whole-stack deploy
+операционный gate обязан подтвердить, что `platega_sbp` выключен. После deploy
+проверяются migration state, ставка и сохранённые переключатели, а включение
+остаётся отдельным последующим gate. Перед rollback способ снова выключается и
+остаётся выключенным на старом SHA; additive column/data и реальные платежи не
+удаляются.
 
 ### Ежедневная выдача бесплатных периодов
 
