@@ -1,6 +1,4 @@
-import json
 import logging
-from json import JSONDecodeError
 from re import compile
 
 logger = logging.getLogger(__name__)
@@ -12,13 +10,6 @@ _REDACTED_CRYPTO_WEBHOOK_PATH = "/api/v1/payments/crypto/webhooks/[REDACTED]/"
 _PLATEGA_CALLBACK_PATH = "/api/v1/payments/platega/callback/"
 
 
-def _decode_body(raw_body: bytes) -> object:
-    try:
-        return json.loads(raw_body)
-    except (JSONDecodeError, UnicodeDecodeError):
-        return raw_body.decode("utf-8", errors="replace")
-
-
 def _safe_request_log(request) -> dict[str, object]:
     if _CRYPTO_WEBHOOK_PATH.fullmatch(request.path):
         return {
@@ -28,8 +19,6 @@ def _safe_request_log(request) -> dict[str, object]:
     return {
         "method": request.method,
         "path": request.path,
-        "headers": dict(request.headers),
-        "body": _decode_body(request.body),
     }
 
 

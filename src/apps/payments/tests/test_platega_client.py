@@ -92,10 +92,11 @@ class TestPlategaClient(SimpleTestCase):
         self.assertEqual(json.loads(body)["metadata"], {"userId": "123456789", "userName": "123456789"})
 
     @responses.activate
-    def test_accepts_matching_optional_echoes_in_object_or_json_string_form(self) -> None:
+    def test_ignores_optional_payment_details_provider_echo(self) -> None:
         for payment_details in (
             {"amount": "99.00", "currency": "RUB"},
-            '{"amount": 99.00, "currency": "RUB"}',
+            "99 RUB",
+            {"unexpected": "provider-controlled"},
         ):
             with self.subTest(payment_details=payment_details):
                 payload = deepcopy(VALID_TRANSACTION_JSON)
@@ -122,8 +123,6 @@ class TestPlategaClient(SimpleTestCase):
             ("paymentMethod", "CARD", "create_mismatch"),
             ("merchantId", "other-merchant", "create_mismatch"),
             ("return", "https://example.test", "create_mismatch"),
-            ("paymentDetails", {"amount": "98.00", "currency": "RUB"}, "create_mismatch"),
-            ("paymentDetails", {"amount": "99.00", "currency": "USD"}, "create_mismatch"),
         )
         for field, value, code in cases:
             with self.subTest(field=field, value=value):

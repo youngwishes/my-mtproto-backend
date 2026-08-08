@@ -288,10 +288,11 @@ ID if a saved username is absent.
 
 A usable creation response is exactly HTTP `200` with a JSON object containing
 UUID `transactionId`, `status: "PENDING"`, HTTPS `redirect`, and
-`expiresIn: "00:15:00"`. Optional `paymentMethod: "SBPQR"`, `paymentDetails`,
-`return`, and `merchantId` are accepted only when they match the request. Client
-errors expose only `timeout`, `unavailable`, `malformed`, or `create_mismatch`;
-credentials, metadata, bodies and payment URLs are not logged.
+`expiresIn: "00:15:00"`. Optional `paymentMethod: "SBPQR"`, `return`, and
+`merchantId` are accepted only when they match the request. Provider-controlled
+`paymentDetails` is ignored because Platega may return it as either a string or
+an object. Client errors expose only `timeout`, `unavailable`, `malformed`, or
+`create_mismatch`; credentials, metadata, bodies and payment URLs are not logged.
 
 ### POST /api/v1/payments/platega/callback/
 

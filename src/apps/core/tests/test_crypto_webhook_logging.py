@@ -59,18 +59,24 @@ class TestCryptoWebhookLogging(APITestCase):
         self.assertNotIn("path-secret", "\n".join(request_logs.output))
         self.assertIn("[REDACTED]", "\n".join(request_logs.output))
 
-    def test_non_webhook_post_keeps_headers_and_decoded_body(self) -> None:
+    def test_non_webhook_post_omits_headers_and_body(self) -> None:
         with self.assertLogs("config.middlewares", level="INFO") as captured:
             self.client.generic(
                 "POST",
                 "/ordinary-path/",
-                b'{"visible":"ordinary-body"}',
+                b'{"username":"private-telegram-id"}',
                 content_type="application/json",
-                HTTP_X_REQUEST_CONTEXT="ordinary-header",
+                HTTP_BOT_AUTH_TOKEN="private-bot-token",
             )
 
         logged = captured.records[0].msg
-        self.assertEqual(logged["method"], "POST")
-        self.assertEqual(logged["path"], "/ordinary-path/")
-        self.assertEqual(logged["body"], {"visible": "ordinary-body"})
-        self.assertEqual(logged["headers"]["X-Request-Context"], "ordinary-header")
+        self.assertEqual(
+            logged,
+            {
+                "method": "POST",
+                "path": "/ordinary-path/",
+            },
+        )
+        rendered = "\n".join(captured.output)
+        self.assertNotIn("private-telegram-id", rendered)
+        self.assertNotIn("private-bot-token", rendered)
