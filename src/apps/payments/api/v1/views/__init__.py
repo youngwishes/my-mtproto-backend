@@ -7,3 +7,14 @@ from .gift_certificate_views import (
     ActivateGiftCertificateView,
     CreateGiftCertificateView,
 )
+from .platega_views import CreatePlategaInvoiceView
+
+__all__ = [
+    "ActivateGiftCertificateView",
+    "CreateCryptoInvoiceView",
+    "CreateGiftCertificateView",
+    "CreatePaymentView",
+    "CreatePlategaInvoiceView",
+    "CryptoPayWebhookView",
+    "ProductAPIView",
+]

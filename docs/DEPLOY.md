@@ -116,6 +116,23 @@ component-level rollback. Не удалять и не откатывать ре�
 `CryptoPaymentIntent` строки и не менять продукты. Merge и production deploy
 требуют отдельных явных разрешений.
 
+## Platega SBP configuration
+
+Before a separately approved release, set only the Django/Celery backend `.env`
+values `PLATEGA_MERCHANT_ID`, `PLATEGA_SECRET`, `PLATEGA_BASE_URL` and positive
+`PLATEGA_REQUEST_TIMEOUT`. The bot `.env` receives none of them. Production
+values, request/response payloads, metadata and payment URLs must not be put in
+Git, logs or command history.
+
+The additive migration creates `platega_sbp` inactive, so rollout does not show
+SBP until an administrator explicitly enables the existing global payment-method
+toggle. The provider boundary creates links only with POST and redirects both
+provider outcomes to `BOT_LINK`; a redirect is never payment proof. Rollback
+first disables the toggle, waits for unfinished intents, disables the provider
+callback, and only then deploys a compatible earlier whole-stack SHA. It keeps
+the additive intent rows and backend environment in place; it never deletes real
+payments or tries to reverse a completed migration.
+
 ## VPN rollout
 
 До включения VPN-продаж задать `VPN_SUBSCRIPTION_BASE_URL` и защищённый

@@ -8,6 +8,10 @@ from apps.payments.services.create_crypto_invoice import (
     CreateOrReuseCryptoInvoiceService,
     get_create_or_reuse_crypto_invoice_service,
 )
+from apps.payments.services.create_platega_invoice import (
+    CreateOrReusePlategaInvoiceService,
+    get_create_or_reuse_platega_invoice_service,
+)
 from apps.payments.services.create_payment_service import (
     CreatePaymentService,
     get_create_payment_service,
@@ -36,6 +40,8 @@ __all__ = [
     "get_apply_crypto_payment_service",
     "CreateOrReuseCryptoInvoiceService",
     "get_create_or_reuse_crypto_invoice_service",
+    "CreateOrReusePlategaInvoiceService",
+    "get_create_or_reuse_platega_invoice_service",
     "CreatePaymentService",
     "get_create_payment_service",
     "ExtendKeyService",

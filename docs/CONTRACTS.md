@@ -226,7 +226,8 @@ referrer.
 `GET /api/v1/payments/products/vpn_30d/` возвращает активный VPN-товар в том же
 формате, что и legacy `GET /api/v1/payments/`; legacy route остаётся MTProto alias.
 Оба защищённых `Bot-Auth-Token` маршрута на каждом запросе добавляют один и тот
-же глобальный список активных способов оплаты `payment_methods`.
+же глобальный список активных способов оплаты `payment_methods` и точную
+decimal-строку `rub_amount`.
 
 ### POST /api/v1/payments/crypto/invoices/
 
@@ -249,6 +250,48 @@ Crypto Pay-счёт или возвращает существующий акт�
 `reused` равен `true` только для уже активного счёта. Одновременное создание
 возвращает `409`, недоступность провайдера — `503`; ошибки входных данных следуют
 стандартному DRF `400`. Сумма сохраняется decimal-строкой, без float.
+
+### POST /api/v1/payments/platega/invoices/
+
+Защищён `Bot-Auth-Token`. Принимает только `username` (Telegram ID) и
+`purchase_kind` (`subscription`, `vpn_subscription` или `gift_certificate`):
+бот не передаёт сумму, metadata, redirects или provider credentials. Создаёт
+15-минутную Platega SBP-ссылку либо возвращает ещё живую ссылку того же
+инициатора и purchase kind.
+
+Успешный ответ — `200 OK` с ровно четырьмя полями:
+
+```json
+{
+  "payment_url": "https://pay.platega.io/…",
+  "rub_amount": "99.00",
+  "expires_at": "2026-08-31T12:00:00Z",
+  "reused": false
+}
+```
+
+`rub_amount` — decimal-строка с двумя знаками из backend snapshot текущей
+RUB-цены. Ошибки формы и неподдерживаемый kind используют DRF `400`; текущий
+`creating`, `processing` или `retryable` intent возвращает `409`; provider и
+временные storage failures возвращают `503` только с безопасным reason code.
+
+### Platega outbound provider contract
+
+Django backend creates an SBP transaction only with
+`POST {PLATEGA_BASE_URL}/transaction/process`; there is no Platega GET method.
+Request headers are `X-MerchantId`, `X-Secret` and `Content-Type: application/json`.
+The JSON sends `paymentMethod: 2`, `paymentDetails` with a two-decimal numeric
+RUB amount serialized directly from `Decimal`, the product description, both
+`return` and `failedUrl` equal to backend `BOT_LINK`, a UUID-only `payload`, and
+`metadata.userId` / `metadata.userName`. The latter falls back to string Telegram
+ID if a saved username is absent.
+
+A usable creation response is exactly HTTP `200` with a JSON object containing
+UUID `transactionId`, `status: "PENDING"`, HTTPS `redirect`, and
+`expiresIn: "00:15:00"`. Optional `paymentMethod: "SBPQR"`, `paymentDetails`,
+`return`, and `merchantId` are accepted only when they match the request. Client
+errors expose only `timeout`, `unavailable`, `malformed`, or `create_mismatch`;
+credentials, metadata, bodies and payment URLs are not logged.
 
 ### POST /api/v1/payments/crypto/webhooks/<secret>/
 
@@ -330,22 +373,24 @@ Telegram-инвойса. `GET /api/v1/payments/products/<code>/` возвращ�
   "send_email_to_provider": true,
   "need_email": true,
   "price": 9900.0,
+  "rub_amount": "99.00",
   "stars_price": 99,
-  "payment_methods": ["stars", "crypto_pay"]
+  "payment_methods": ["platega_sbp", "stars", "crypto_pay"]
 }
 ```
 
 `price` хранится и возвращается в копейках: `9900.0` соответствует 99 RUB.
-Преобразование в рубли выполняется только при обращении к платёжному провайдеру;
-`stars_price` хранит отдельную цену в Telegram Stars.
+`rub_amount` аддитивно возвращает ту же цену как строку с ровно двумя
+десятичными знаками, без float; `stars_price` хранит отдельную цену в Telegram
+Stars. Все прежние product-поля сохраняют свой JSON-контракт.
 
 `payment_methods` всегда присутствует и содержит только активные способы,
-поддержанные кодом. Текущие допустимые значения: `["stars", "crypto_pay"]`,
-`["stars"]`, `["crypto_pay"]` или `[]`; порядок при двух активных способах
-всегда Stars → Crypto Pay. Список глобален и одинаков для MTProto, VPN и
-подарочного сертификата. Изменение в Django admin видно на следующем GET без
-перезапуска или кеша. Пустой список является штатным состоянием, а отсутствие
-активного товара сохраняет прежнюю ошибку `400`.
+поддержанные кодом. Порядок фиксирован: активный `platega_sbp` всегда первый,
+затем `stars`, затем `crypto_pay`; допустима любая активная подпоследовательность
+или `[]`. Список глобален и одинаков для MTProto, VPN и подарочного сертификата.
+Изменение в Django admin видно на следующем GET без перезапуска или кеша. Пустой
+список является штатным состоянием, а отсутствие активного товара сохраняет
+прежнюю ошибку `400`.
 
 ---
 

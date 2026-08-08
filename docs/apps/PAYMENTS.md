@@ -10,13 +10,13 @@
 ## Ключевые модели
 
 - **PaymentMethod** — глобальная доступность поддержанного способа оплаты.
-  Django admin меняет только `is_active` существующих `stars` и `crypto_pay`;
+  Django admin меняет только `is_active` существующих `platega_sbp`, `stars` и `crypto_pay`;
   произвольное создание, удаление, label/order и связь с товаром отсутствуют.
 - **Product** — товар для Telegram Payments API. Бот использует `stars_price`
   для новых Stars-счетов. Crypto Pay берёт текущий `Product.price` нужного
-  товара: существующее поле хранит целое число копеек, которое backend точно
-  делит на 100 и quantize до двух RUB-знаков без float. Для подарочного
-  сертификата используется `mtproto_30d`.
+  товара, а Platega SBP создаёт из него snapshot суммы. Поле хранит целое число
+  копеек, которое backend точно делит на 100 и quantize до двух RUB-знаков без
+  float. Для подарочного сертификата используется `mtproto_30d`.
 - **Payment** — запись об оплате. Связывает пользователя, ключ, charge_id,
   провайдер и тип платежа: `SUBSCRIPTION`, `VPN_SUBSCRIPTION` или
   `GIFT_CERTIFICATE`; это покрывает соответственно MTProto, VPN и подарок.
@@ -24,12 +24,19 @@
 - **CryptoPaymentIntent** — backend-owned lifecycle счёта Crypto Pay. Один
   активный или создаваемый intent доступен для пары инициатор/вид покупки;
   provider invoice и `Payment` связываются однократно.
+- **PlategaPaymentIntent** — отдельный backend-owned lifecycle one-time SBP
+  ссылки. `creating|active` ограничены одной парой инициатор/вид покупки;
+  provider transaction и `Payment` имеют независимые unique связи. Admin
+  доступен только для чтения.
 
 ## Доступность способов оплаты
 
-Оба существующих product GET возвращают аддитивное поле `payment_methods`.
-Selector на каждом запросе читает `PaymentMethod.objects.active()` без кеша,
-ограничивает результат поддержанными кодами и сортирует Stars → Crypto Pay.
+Оба существующих product GET возвращают аддитивные поля `payment_methods` и
+`rub_amount`. Последнее — строка с ровно двумя знаками RUB, вычисленная из
+целых копеек `Product.price`; прежние `price`, `stars_price` и provider data не
+меняются. Selector на каждом запросе читает `PaymentMethod.objects.active()`
+без кеша, ограничивает результат поддержанными кодами и сортирует СБП → Stars →
+Crypto Pay.
 Список глобален для MTProto, VPN и подарочного сертификата; отдельной связи с
 `Product` и отдельного config endpoint нет.
 
@@ -37,8 +44,9 @@ Selector на каждом запросе читает `PaymentMethod.objects.ac
 показывает `Оплата временно недоступна` и только соответствующую кнопку «Назад».
 Нажатие уже показанной старой кнопки не проверяет активность повторно, а цены,
 invoice, successful-payment routing и fulfilment действующих Stars/Crypto Pay
-сценариев не меняются. Миграция создаёт обе поддержанные строки активными и не
-перезаписывает сохранённое выключенное состояние при повторном seed.
+сценариев не меняются. Миграция сохраняет существующие Stars/Crypto Pay строки и
+создаёт `platega_sbp` неактивным; повторный seed не перезаписывает сохранённое
+администратором состояние.
 
 ## Сервисы
 
@@ -48,6 +56,17 @@ invoice, successful-payment routing и fulfilment действующих Stars/C
 - **ActivateGiftCertificateService** — активирует валидный сертификат: продлевает активный ключ получателя на 30 дней или выдаёт новый ключ на 30 дней.
 - **CreateOrReuseCryptoInvoiceService** — создаёт либо возвращает 30-минутный
   RUB-счёт для USDT/TON без PII в provider payload.
+- **CreateOrReusePlategaInvoiceService** — для `subscription` и
+  `gift_certificate` выбирает `mtproto_30d`, для `vpn_subscription` —
+  `vpn_30d`; сохраняет текущую Decimal RUB-сумму и создаёт либо возвращает
+  15-минутную SBP-ссылку. Живой `active` intent возвращается повторно. Локально
+  истёкший `active` становится `local_expired`, зависший дольше двух provider
+  timeout `creating` — `create_failed`, а `provider_canceled` и
+  `create_failed` разрешают новую ссылку. Текущие `creating`, `processing` и
+  `retryable` безопасно блокируют новое создание. Резервирование
+  `creating`/выбор winner выполняется в короткой DB-транзакции; provider POST
+  выполняется после неё и переводит только свой `creating` в `active` либо
+  `create_failed` с allowlisted reason code.
 - **ValidateCryptoInvoiceService** и **ApplyCryptoPaymentService** — проверяют
   signed invoice и условно выполняют выдачу ровно один раз.
 - **ReconcileCryptoPaymentsService** — каждые 10 минут повторно сверяет
@@ -57,6 +76,6 @@ invoice, successful-payment routing и fulfilment действующих Stars/C
 
 Зависит от: core (декораторы, исключения), users (поиск пользователя), vds
 (выдача/продление ключей), vpn (выдача подписки), notifications (уведомление об
-оплате) и Crypto Pay HTTP API. От него зависят: бот (Stars, создание
-Crypto-счёта и активация сертификата). Crypto Pay token и webhook secret остаются
-только в Django/Celery environment.
+оплате), Crypto Pay HTTP API и Platega create API. От него зависят: бот (Stars,
+создание Crypto/Platega-счёта и активация сертификата). Provider credentials
+остаются только в Django/Celery environment.

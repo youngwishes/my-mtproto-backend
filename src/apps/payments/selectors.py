@@ -11,30 +11,36 @@ from django.db.models import Case, IntegerField, QuerySet, When
 from apps.payments.enums import (
     CryptoPaymentIntentStatusEnum,
     PaymentKindEnum,
+    PaymentMethodCodeEnum,
     PaymentProviderEnum,
+    PlategaPaymentIntentStatusEnum,
 )
 from apps.payments.models import (
     CryptoPaymentIntent,
     GiftCertificate,
     Payment,
     PaymentMethod,
+    PlategaPaymentIntent,
     Product,
 )
 
 if TYPE_CHECKING:
     from apps.payments.services.dtos.crypto_pay_dtos import CryptoInvoiceDTO
+    from apps.payments.services.dtos.platega_dtos import PlategaTransactionDTO
 
 
 _SUPPORTED_PAYMENT_METHOD_CODES = (
-    PaymentProviderEnum.STARS,
-    PaymentProviderEnum.CRYPTO_PAY,
+    PaymentMethodCodeEnum.PLATEGA_SBP,
+    PaymentMethodCodeEnum.STARS,
+    PaymentMethodCodeEnum.CRYPTO_PAY,
 )
 
 
 def get_active_payment_method_codes() -> tuple[str, ...]:
     order = Case(
-        When(code=PaymentProviderEnum.STARS, then=0),
-        When(code=PaymentProviderEnum.CRYPTO_PAY, then=1),
+        When(code=PaymentMethodCodeEnum.PLATEGA_SBP, then=0),
+        When(code=PaymentMethodCodeEnum.STARS, then=1),
+        When(code=PaymentMethodCodeEnum.CRYPTO_PAY, then=2),
         output_field=IntegerField(),
     )
     return tuple(
@@ -379,3 +385,134 @@ def activate_crypto_intent_from_provider(
     if updated_rows != 1:
         return None
     return CryptoPaymentIntent.objects.get(pk=intent_id)
+
+
+def get_reusable_platega_intent(
+    *, initiator_id: int, purchase_kind: str, now: datetime
+) -> PlategaPaymentIntent | None:
+    return PlategaPaymentIntent.objects.filter(
+        initiator_id=initiator_id,
+        purchase_kind=purchase_kind,
+        status=PlategaPaymentIntentStatusEnum.ACTIVE,
+        provider_expires_at__gt=now,
+    ).first()
+
+
+def get_blocking_platega_intent(
+    *, initiator_id: int, purchase_kind: str
+) -> PlategaPaymentIntent | None:
+    return PlategaPaymentIntent.objects.filter(
+        initiator_id=initiator_id,
+        purchase_kind=purchase_kind,
+        status__in=(
+            PlategaPaymentIntentStatusEnum.CREATING,
+            PlategaPaymentIntentStatusEnum.PROCESSING,
+            PlategaPaymentIntentStatusEnum.RETRYABLE,
+        ),
+    ).first()
+
+
+def expire_active_platega_intent(
+    *, initiator_id: int, purchase_kind: str, now: datetime
+) -> int:
+    return PlategaPaymentIntent.objects.filter(
+        initiator_id=initiator_id,
+        purchase_kind=purchase_kind,
+        status=PlategaPaymentIntentStatusEnum.ACTIVE,
+        provider_expires_at__lte=now,
+    ).update(status=PlategaPaymentIntentStatusEnum.LOCAL_EXPIRED, updated_at=now)
+
+
+def fail_stale_creating_platega_intent(
+    *, initiator_id: int, purchase_kind: str, stale_before: datetime
+) -> int:
+    return PlategaPaymentIntent.objects.filter(
+        initiator_id=initiator_id,
+        purchase_kind=purchase_kind,
+        status=PlategaPaymentIntentStatusEnum.CREATING,
+        created_at__lte=stale_before,
+    ).update(
+        status=PlategaPaymentIntentStatusEnum.CREATE_FAILED,
+        last_error_code="creating_stale",
+    )
+
+
+def create_platega_intent(
+    *,
+    initiator_id: int,
+    purchase_kind: str,
+    product_code: str,
+    rub_amount: Decimal,
+    public_id: UUID,
+) -> PlategaPaymentIntent:
+    return PlategaPaymentIntent.objects.create(
+        initiator_id=initiator_id,
+        purchase_kind=purchase_kind,
+        product_code=product_code,
+        rub_amount=rub_amount,
+        public_id=public_id,
+    )
+
+
+def reserve_platega_intent_or_read_winner(
+    *,
+    initiator_id: int,
+    purchase_kind: str,
+    product_code: str,
+    rub_amount: Decimal,
+    public_id: UUID,
+) -> tuple[PlategaPaymentIntent, bool]:
+    try:
+        with transaction.atomic():
+            intent = create_platega_intent(
+                initiator_id=initiator_id,
+                purchase_kind=purchase_kind,
+                product_code=product_code,
+                rub_amount=rub_amount,
+                public_id=public_id,
+            )
+    except IntegrityError:
+        winner = PlategaPaymentIntent.objects.filter(
+            initiator_id=initiator_id,
+            purchase_kind=purchase_kind,
+            status__in=(
+                PlategaPaymentIntentStatusEnum.CREATING,
+                PlategaPaymentIntentStatusEnum.ACTIVE,
+            ),
+        ).first()
+        if winner is None:
+            raise
+        return winner, False
+    return intent, True
+
+
+def fail_platega_intent_creation(*, intent_id: int, error_code: str) -> int:
+    return PlategaPaymentIntent.objects.filter(
+        pk=intent_id,
+        status=PlategaPaymentIntentStatusEnum.CREATING,
+    ).update(
+        status=PlategaPaymentIntentStatusEnum.CREATE_FAILED,
+        last_error_code=error_code,
+    )
+
+
+def activate_platega_intent_from_provider(
+    *,
+    intent_id: int,
+    transaction: PlategaTransactionDTO,
+    expires_at: datetime,
+) -> PlategaPaymentIntent | None:
+    updated_rows = PlategaPaymentIntent.objects.filter(
+        pk=intent_id,
+        status=PlategaPaymentIntentStatusEnum.CREATING,
+    ).update(
+        status=PlategaPaymentIntentStatusEnum.ACTIVE,
+        provider_transaction_id=transaction.transaction_id,
+        provider_payment_url=transaction.redirect_url,
+        provider_expires_at=expires_at,
+        last_error_code="",
+        updated_at=expires_at,
+    )
+    if updated_rows != 1:
+        return None
+    return PlategaPaymentIntent.objects.get(pk=intent_id)

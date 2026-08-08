@@ -9,7 +9,9 @@ from apps.core import ActiveQuerySet, BaseDjangoModel
 from apps.payments.enums import (
     CryptoPaymentIntentStatusEnum,
     PaymentKindEnum,
+    PaymentMethodCodeEnum,
     PaymentProviderEnum,
+    PlategaPaymentIntentStatusEnum,
     ProductCodeEnum,
 )
 
@@ -71,10 +73,7 @@ class PaymentMethod(BaseDjangoModel):
         "код",
         max_length=32,
         unique=True,
-        choices=(
-            (PaymentProviderEnum.STARS, "Telegram Stars"),
-            (PaymentProviderEnum.CRYPTO_PAY, "Crypto Pay"),
-        ),
+        choices=PaymentMethodCodeEnum.choices(),
     )
 
 
@@ -178,6 +177,56 @@ class CryptoPaymentIntent(BaseDjangoModel):
                     )
                 ),
                 name="uniq_active_crypto_intent_per_user_kind",
+            ),
+        ]
+
+
+class PlategaPaymentIntent(BaseDjangoModel):
+    """Локальная покупка через Platega SBP до и после выдачи результата."""
+
+    public_id = models.UUIDField(default=uuid4, unique=True, editable=False)
+    initiator = models.ForeignKey(
+        "users.SystemUser",
+        on_delete=models.PROTECT,
+        related_name="platega_payment_intents",
+    )
+    purchase_kind = models.CharField(max_length=32, choices=PaymentKindEnum.choices())
+    product_code = models.CharField(max_length=32)
+    rub_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    currency = models.CharField(max_length=3, default="RUB")
+    payment_method = models.PositiveSmallIntegerField(default=2)
+    status = models.CharField(
+        max_length=32,
+        choices=PlategaPaymentIntentStatusEnum.choices(),
+        default=PlategaPaymentIntentStatusEnum.CREATING,
+    )
+    provider_transaction_id = models.UUIDField(null=True, blank=True, unique=True)
+    provider_payment_url = models.URLField(max_length=512, blank=True)
+    provider_expires_at = models.DateTimeField(null=True, blank=True)
+    fulfillment_attempted_at = models.DateTimeField(null=True, blank=True)
+    fulfilled_at = models.DateTimeField(null=True, blank=True)
+    notification_queued_at = models.DateTimeField(null=True, blank=True)
+    notification_sent_at = models.DateTimeField(null=True, blank=True)
+    payment = models.OneToOneField(
+        "payments.Payment",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="platega_intent",
+    )
+    last_error_code = models.CharField(max_length=64, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("initiator", "purchase_kind"),
+                condition=models.Q(
+                    status__in=(
+                        PlategaPaymentIntentStatusEnum.CREATING,
+                        PlategaPaymentIntentStatusEnum.ACTIVE,
+                    )
+                ),
+                name="uniq_active_platega_intent_per_user_kind",
             ),
         ]
 

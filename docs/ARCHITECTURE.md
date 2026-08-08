@@ -99,10 +99,27 @@ PII и URL результата в логи не попадают. Celery Beat �
 `*/10`, чтобы повторно обработать оплаченные незавершённые покупки и отдельно
 доставить пропущенные уведомления.
 
+## Platega SBP
+
+Platega используется только из Django/Celery как отдельный one-time SBP
+provider boundary; bot не получает merchant ID или secret. `PlategaClient`
+выполняет только `POST {PLATEGA_BASE_URL}/transaction/process`: отправляет
+method `2`, `RUB` decimal amount с двумя знаками без float, оба redirect URL из
+`BOT_LINK`, случайный local UUID payload и antifraud metadata с Telegram ID и
+username (либо Telegram ID как fallback).
+
+Успешным считается только HTTP `200` с UUID transaction ID, `PENDING`, usable
+HTTPS redirect и `expiresIn=00:15:00`. Необязательные provider echoes при
+наличии сверяются с `SBPQR`, суммой/RUB, `BOT_LINK` и merchant ID. Ошибки
+наружу несут только reason code `timeout`, `unavailable`, `malformed` или
+`create_mismatch`; request/response body, URL, metadata и credentials не
+логируются. HTTP GET, polling и bot credentials для Platega отсутствуют.
+
 ## Доступность способов оплаты
 
 `PaymentMethod` в `apps.payments` хранит единственный глобальный флаг
-`is_active` для каждого поддержанного кодом способа (`stars`, `crypto_pay`).
+`is_active` для каждого поддержанного кодом способа (`platega_sbp`, `stars`,
+`crypto_pay`).
 Модель не связана с `Product`: один переключатель в Django admin действует для
 MTProto, VPN и подарочного сертификата. Admin разрешает менять только
 `is_active`; добавление, удаление и переименование способов отключены.
@@ -110,16 +127,17 @@ MTProto, VPN и подарочного сертификата. Admin разре�
 При каждом `GET /api/v1/payments/` или
 `GET /api/v1/payments/products/<code>/` selector читает активные строки из БД
 без кеша, отбрасывает неизвестные коды и возвращает `payment_methods` в
-фиксированном порядке Stars → Crypto Pay. Бот получает список вместе с уже
+фиксированном порядке СБП → Stars → Crypto Pay. Бот получает список вместе с уже
 нужными данными товара и строит соответствующую клавиатуру. Пустой список —
 штатное состояние: экран содержит `Оплата временно недоступна` и текущую кнопку
 «Назад». Ошибки product API не маскируются под это состояние, а обработчики уже
 показанных платёжных кнопок не перечитывают активность.
 
-Миграция создаёт Stars и Crypto Pay активными, поэтому rollout совместим со
-старым ботом: сначала разворачиваются migration/backend с аддитивным API-полем,
-затем bot. Операционный rollback выполняется в обратном порядке без удаления
-таблицы и сохранённого admin-состояния.
+Миграция сохраняет Stars/Crypto Pay активными и добавляет `platega_sbp`
+неактивным, поэтому rollout совместим со старым ботом: сначала разворачиваются
+migration/backend с аддитивным API-полем, затем bot и только после этого
+администратор вручную включает новый method. Операционный rollback выполняется
+в обратном порядке без удаления таблицы и сохранённого admin-состояния.
 
 ### Ежедневная выдача бесплатных периодов
 

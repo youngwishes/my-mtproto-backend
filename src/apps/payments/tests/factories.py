@@ -8,9 +8,16 @@ from apps.payments.enums import (
     CryptoPaymentIntentStatusEnum,
     PaymentKindEnum,
     PaymentProviderEnum,
+    PlategaPaymentIntentStatusEnum,
     ProductCodeEnum,
 )
-from apps.payments.models import CryptoPaymentIntent, GiftCertificate, Payment, Product
+from apps.payments.models import (
+    CryptoPaymentIntent,
+    GiftCertificate,
+    Payment,
+    PlategaPaymentIntent,
+    Product,
+)
 from apps.payments.services.dtos.crypto_pay_dtos import CryptoInvoiceDTO
 
 
@@ -46,6 +53,17 @@ class CryptoPaymentIntentFactory(factory.django.DjangoModelFactory):
 
     class Meta:
         model = CryptoPaymentIntent
+
+
+class PlategaPaymentIntentFactory(factory.django.DjangoModelFactory):
+    initiator = factory.SubFactory("apps.users.tests.factories.SystemUserFactory")
+    purchase_kind = PaymentKindEnum.SUBSCRIPTION
+    product_code = ProductCodeEnum.MTPROTO_30D
+    rub_amount = Decimal("99.00")
+    status = PlategaPaymentIntentStatusEnum.CREATING
+
+    class Meta:
+        model = PlategaPaymentIntent
 
 
 class GiftCertificateFactory(factory.django.DjangoModelFactory):
