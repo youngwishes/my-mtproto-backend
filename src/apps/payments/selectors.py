@@ -513,9 +513,15 @@ def activate_platega_intent_from_provider(
         last_error_code="",
         updated_at=expires_at,
     )
-    if updated_rows != 1:
-        return None
-    return PlategaPaymentIntent.objects.get(pk=intent_id)
+    if updated_rows == 1:
+        return PlategaPaymentIntent.objects.get(pk=intent_id)
+    return PlategaPaymentIntent.objects.filter(
+        pk=intent_id,
+        status=PlategaPaymentIntentStatusEnum.ACTIVE,
+        provider_transaction_id=transaction.transaction_id,
+        provider_payment_url=transaction.redirect_url,
+        provider_expires_at=expires_at,
+    ).first()
 
 
 def get_platega_intent_by_provider_transaction_id(

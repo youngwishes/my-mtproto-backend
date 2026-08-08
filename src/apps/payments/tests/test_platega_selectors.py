@@ -95,3 +95,54 @@ class TestPlategaSelectors(TestCase):
         )
         self.assertEqual(activated.status, PlategaPaymentIntentStatusEnum.ACTIVE)
         self.assertEqual(activated.rub_amount, Decimal("149.00"))
+
+    def test_activation_retry_recovers_only_exact_already_active_intent(self) -> None:
+        transaction = PlategaTransactionDTO(
+            transaction_id=uuid4(),
+            status="PENDING",
+            redirect_url="https://pay.example/retry",
+            expires_in=timedelta(minutes=15),
+        )
+        expires_at = self.now + timedelta(minutes=15)
+        self.intent.provider_transaction_id = transaction.transaction_id
+        self.intent.provider_payment_url = transaction.redirect_url
+        self.intent.provider_expires_at = expires_at
+        self.intent.save(
+            update_fields=(
+                "provider_transaction_id",
+                "provider_payment_url",
+                "provider_expires_at",
+            )
+        )
+
+        recovered = activate_platega_intent_from_provider(
+            intent_id=self.intent.pk,
+            transaction=transaction,
+            expires_at=expires_at,
+        )
+        self.assertIsNotNone(recovered)
+        assert recovered is not None
+        self.assertEqual(recovered.pk, self.intent.pk)
+
+        cases = (
+            ("transaction", {"provider_transaction_id": uuid4()}),
+            ("url", {"provider_payment_url": "https://pay.example/different"}),
+            ("expiry", {"provider_expires_at": expires_at + timedelta(seconds=1)}),
+            ("status", {"status": PlategaPaymentIntentStatusEnum.LOCAL_EXPIRED}),
+        )
+        for name, updates in cases:
+            with self.subTest(name=name):
+                type(self.intent).objects.filter(pk=self.intent.pk).update(
+                    status=PlategaPaymentIntentStatusEnum.ACTIVE,
+                    provider_transaction_id=transaction.transaction_id,
+                    provider_payment_url=transaction.redirect_url,
+                    provider_expires_at=expires_at,
+                )
+                type(self.intent).objects.filter(pk=self.intent.pk).update(**updates)
+                self.assertIsNone(
+                    activate_platega_intent_from_provider(
+                        intent_id=self.intent.pk,
+                        transaction=transaction,
+                        expires_at=expires_at,
+                    )
+                )

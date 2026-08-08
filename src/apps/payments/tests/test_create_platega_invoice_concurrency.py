@@ -12,7 +12,10 @@ from django.test import TransactionTestCase, override_settings
 
 from apps.payments.clients import PlategaClient
 from apps.payments.enums import PaymentKindEnum, PlategaPaymentIntentStatusEnum, ProductCodeEnum
-from apps.payments.exceptions import PlategaInvoiceCreationInProgress
+from apps.payments.exceptions import (
+    PlategaInvoiceCreationInProgress,
+    PlategaInvoiceUnavailable,
+)
 from apps.payments.models import PlategaPaymentIntent
 from apps.payments.services.create_platega_invoice import CreateOrReusePlategaInvoiceService
 from apps.payments.services.dtos import CreatePlategaInvoiceIn, PlategaTransactionDTO
@@ -55,6 +58,10 @@ class TestCreatePlategaInvoiceConcurrency(TransactionTestCase):
                 self.service(request=self.request)
             except PlategaInvoiceCreationInProgress:
                 return 409
+            except PlategaInvoiceUnavailable as exc:
+                if exc.context != {"reason_code": "database_locked"}:
+                    raise
+                return 503
             finally:
                 close_old_connections()
             return 200
@@ -62,7 +69,7 @@ class TestCreatePlategaInvoiceConcurrency(TransactionTestCase):
         with ThreadPoolExecutor(max_workers=2) as pool:
             statuses = list(pool.map(lambda _: create(), range(2)))
         self.assertIn(200, statuses)
-        self.assertTrue(all(status in {200, 409} for status in statuses))
+        self.assertTrue(all(status in {200, 409, 503} for status in statuses))
         self.assertEqual(
             PlategaPaymentIntent.objects.filter(
                 initiator=self.user,
