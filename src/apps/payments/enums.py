@@ -12,11 +12,27 @@ class PaymentProviderEnum(enum.StrEnum):
     YUKASSA = "yukassa"
     STARS = "stars"
     CRYPTO_PAY = "crypto_pay"
+    PLATEGA = "platega"
 
     @classmethod
     def choices(cls) -> list[tuple[str, str]]:
         return [
             (cls.YUKASSA, "ЮKassa"),
+            (cls.STARS, "Telegram Stars"),
+            (cls.CRYPTO_PAY, "Crypto Pay"),
+            (cls.PLATEGA, "Platega"),
+        ]
+
+
+class PaymentMethodCodeEnum(enum.StrEnum):
+    PLATEGA_SBP = "platega_sbp"
+    STARS = "stars"
+    CRYPTO_PAY = "crypto_pay"
+
+    @classmethod
+    def choices(cls) -> list[tuple[str, str]]:
+        return [
+            (cls.PLATEGA_SBP, "СБП"),
             (cls.STARS, "Telegram Stars"),
             (cls.CRYPTO_PAY, "Crypto Pay"),
         ]
@@ -45,6 +61,21 @@ class CryptoPaymentIntentStatusEnum(enum.StrEnum):
     FULFILLED = "fulfilled"
     CREATE_FAILED = "create_failed"
     PROVIDER_EXPIRED = "provider_expired"
+
+    @classmethod
+    def choices(cls) -> list[tuple[str, str]]:
+        return [(status, status.value) for status in cls]
+
+
+class PlategaPaymentIntentStatusEnum(enum.StrEnum):
+    CREATING = "creating"
+    ACTIVE = "active"
+    LOCAL_EXPIRED = "local_expired"
+    PROCESSING = "processing"
+    RETRYABLE = "retryable"
+    PROVIDER_CANCELED = "provider_canceled"
+    CREATE_FAILED = "create_failed"
+    FULFILLED = "fulfilled"
 
     @classmethod
     def choices(cls) -> list[tuple[str, str]]:

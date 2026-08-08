@@ -9,6 +9,7 @@ _VPN_SUBSCRIPTION_PATH = compile(r"^/api/v1/vpn/subscriptions/[^/]+/$")
 _REDACTED_VPN_SUBSCRIPTION_PATH = "/api/v1/vpn/subscriptions/[REDACTED]/"
 _CRYPTO_WEBHOOK_PATH = compile(r"^/api/v1/payments/crypto/webhooks/[^/]+/$")
 _REDACTED_CRYPTO_WEBHOOK_PATH = "/api/v1/payments/crypto/webhooks/[REDACTED]/"
+_PLATEGA_CALLBACK_PATH = "/api/v1/payments/platega/callback/"
 
 
 def _decode_body(raw_body: bytes) -> object:
@@ -37,6 +38,9 @@ class RequestLoggingMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
+        if request.path == _PLATEGA_CALLBACK_PATH:
+            return self.get_response(request)
+
         if request.path.startswith("/admin"):
             return self.get_response(request)
 

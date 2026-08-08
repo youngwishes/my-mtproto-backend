@@ -3,7 +3,12 @@ from __future__ import annotations
 from django.db import IntegrityError, transaction
 from django.test import TestCase
 
-from apps.payments.enums import PaymentKindEnum, PaymentProviderEnum, ProductCodeEnum
+from apps.payments.enums import (
+    PaymentKindEnum,
+    PaymentMethodCodeEnum,
+    PaymentProviderEnum,
+    ProductCodeEnum,
+)
 from apps.payments.models import PaymentMethod, Product
 from apps.payments.tests.factories import PaymentFactory, ProductFactory
 
@@ -45,11 +50,11 @@ class TestPaymentModel(TestCase):
 class TestPaymentMethodModel(TestCase):
     def test_code_is_unique(self) -> None:
         PaymentMethod.objects.all().delete()
-        PaymentMethod.objects.create(code=PaymentProviderEnum.STARS)
+        PaymentMethod.objects.create(code=PaymentMethodCodeEnum.STARS)
 
         with self.assertRaises(IntegrityError):
             with transaction.atomic():
-                PaymentMethod.objects.create(code=PaymentProviderEnum.STARS)
+                PaymentMethod.objects.create(code=PaymentMethodCodeEnum.STARS)
 
     def test_has_exact_supported_choices_and_global_fields(self) -> None:
         code = PaymentMethod._meta.get_field("code")
@@ -58,8 +63,9 @@ class TestPaymentMethodModel(TestCase):
         self.assertEqual(
             tuple(code.choices),
             (
-                (PaymentProviderEnum.STARS, "Telegram Stars"),
-                (PaymentProviderEnum.CRYPTO_PAY, "Crypto Pay"),
+                (PaymentMethodCodeEnum.PLATEGA_SBP, "СБП"),
+                (PaymentMethodCodeEnum.STARS, "Telegram Stars"),
+                (PaymentMethodCodeEnum.CRYPTO_PAY, "Crypto Pay"),
             ),
         )
         self.assertEqual(

@@ -27,6 +27,22 @@ class CryptoPayClientError(RuntimeError):
     """Safe internal provider failure used by service mapping/Celery retry."""
 
 
+class PlategaClientError(RuntimeError):
+    """Safe internal Platega provider failure used by service mapping."""
+
+
+class PlategaInvoiceCreationInProgress(BaseServiceError):
+    """Счёт СБП уже создаётся. Повторите попытку через несколько секунд."""
+
+
+class PlategaInvoiceUnavailable(BaseInfraError):
+    """Не удалось создать счёт СБП. Попробуйте ещё раз."""
+
+
+class PlategaPaymentRetryable(BaseInfraError):
+    """Оплата подтверждена, выдача будет повторена автоматически."""
+
+
 class CryptoInvoiceCreationInProgress(BaseServiceError):
     """Счёт уже создаётся. Повторите попытку через несколько секунд."""
 

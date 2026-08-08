@@ -7,6 +7,7 @@ from apps.payments.models import (
     GiftCertificate,
     Payment,
     PaymentMethod,
+    PlategaPaymentIntent,
     Product,
 )
 
@@ -111,6 +112,42 @@ class CryptoPaymentIntentAdmin(admin.ModelAdmin):
     ]
     list_filter = ["status", "purchase_kind"]
     search_fields = ["public_id", "provider_invoice_id"]
+    list_select_related = ["initiator", "payment"]
+
+    def has_add_permission(self, request: HttpRequest) -> bool:
+        return False
+
+    def has_change_permission(self, request: HttpRequest, obj: object | None = None) -> bool:
+        return False
+
+    def has_delete_permission(self, request: HttpRequest, obj: object | None = None) -> bool:
+        return False
+
+    def get_readonly_fields(
+        self, request: HttpRequest, obj: object | None = None
+    ) -> tuple[str, ...]:
+        return tuple(field.name for field in self.model._meta.fields)
+
+
+@admin.register(PlategaPaymentIntent)
+class PlategaPaymentIntentAdmin(admin.ModelAdmin):
+    """Read-only diagnostics for Platega SBP purchase lifecycle."""
+
+    actions = None
+    list_display = [
+        "id",
+        "public_id",
+        "initiator",
+        "purchase_kind",
+        "rub_amount",
+        "status",
+        "provider_transaction_id",
+        "fulfilled_at",
+        "notification_sent_at",
+        "payment",
+    ]
+    list_filter = ["status", "purchase_kind"]
+    search_fields = ["public_id", "provider_transaction_id"]
     list_select_related = ["initiator", "payment"]
 
     def has_add_permission(self, request: HttpRequest) -> bool:

@@ -13,6 +13,16 @@ from apps.payments.services.dtos.gift_certificate_dtos import (
     CreateGiftCertificateIn,
     CreateGiftCertificateOut,
 )
+from apps.payments.services.dtos.platega_dtos import (
+    ApplyPlategaPaymentOut,
+    CreatePlategaInvoiceIn,
+    CreatePlategaInvoiceOut,
+    PlategaCallbackDTO,
+    PlategaCallbackWarningDTO,
+    PlategaTransactionDTO,
+    ValidatedPlategaPaymentDTO,
+    ValidatePlategaCallbackOut,
+)
 
 __all__ = [
     "CreatePaymentIn",
@@ -26,4 +36,12 @@ __all__ = [
     "ActivateGiftCertificateOut",
     "CreateGiftCertificateIn",
     "CreateGiftCertificateOut",
+    "ApplyPlategaPaymentOut",
+    "CreatePlategaInvoiceIn",
+    "CreatePlategaInvoiceOut",
+    "PlategaCallbackDTO",
+    "PlategaCallbackWarningDTO",
+    "PlategaTransactionDTO",
+    "ValidatedPlategaPaymentDTO",
+    "ValidatePlategaCallbackOut",
 ]

@@ -17,6 +17,7 @@ class TestGetProductView(APITestCase):
     def setUp(self) -> None:
         Product.objects.all().delete()
         PaymentMethod.objects.all().delete()
+        self.platega = PaymentMethod.objects.create(code="platega_sbp")
         self.stars = PaymentMethod.objects.create(code="stars")
         self.crypto = PaymentMethod.objects.create(code="crypto_pay")
         self.mtproto_product = ProductFactory(code=ProductCodeEnum.MTPROTO_30D)
@@ -61,10 +62,11 @@ class TestGetProductView(APITestCase):
                 "provider_data": self.mtproto_product.provider_data_json,
                 "currency": "RUB",
                 "price": self.mtproto_product.price,
+                "rub_amount": "0.99",
                 "stars_price": self.mtproto_product.stars_price,
                 "need_email": self.mtproto_product.need_email,
                 "send_email_to_provider": self.mtproto_product.send_email_to_provider,
-                "payment_methods": ["stars", "crypto_pay"],
+                "payment_methods": ["platega_sbp", "stars", "crypto_pay"],
             },
         )
 
@@ -76,6 +78,7 @@ class TestGetProductView(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.json()["title"], self.vpn_product.title)
         self.assertEqual(response.json()["price"], float(self.vpn_product.price))
+        self.assertEqual(response.json()["rub_amount"], "149.00")
         self.assertEqual(response.json()["stars_price"], self.vpn_product.stars_price)
         self.assertEqual(response.json()["provider_data"], self.vpn_provider_data)
         self.assertTrue(response.json()["need_email"])
@@ -87,6 +90,10 @@ class TestGetProductView(APITestCase):
             reverse("product-by-code", kwargs={"code": ProductCodeEnum.VPN_30D}),
         )
         states = (
+            (("platega_sbp", "stars", "crypto_pay"), ["platega_sbp", "stars", "crypto_pay"]),
+            (("platega_sbp", "crypto_pay"), ["platega_sbp", "crypto_pay"]),
+            (("platega_sbp", "stars"), ["platega_sbp", "stars"]),
+            (("platega_sbp",), ["platega_sbp"]),
             (("stars", "crypto_pay"), ["stars", "crypto_pay"]),
             (("stars",), ["stars"]),
             (("crypto_pay",), ["crypto_pay"]),
@@ -104,13 +111,16 @@ class TestGetProductView(APITestCase):
 
     def test_returns_current_payment_methods_on_sequential_gets(self) -> None:
         first_response = self.get_product(path=self.url)
-        self.assertEqual(first_response.json()["payment_methods"], ["stars", "crypto_pay"])
+        self.assertEqual(
+            first_response.json()["payment_methods"],
+            ["platega_sbp", "stars", "crypto_pay"],
+        )
 
-        self.crypto.is_active = False
-        self.crypto.save(update_fields=["is_active"])
+        self.platega.is_active = False
+        self.platega.save(update_fields=["is_active"])
 
         second_response = self.get_product(path=self.url)
-        self.assertEqual(second_response.json()["payment_methods"], ["stars"])
+        self.assertEqual(second_response.json()["payment_methods"], ["stars", "crypto_pay"])
 
     def test_returns_error_when_no_active_product(self) -> None:
         self.vpn_product.is_active = False

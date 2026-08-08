@@ -8,7 +8,7 @@ from aiogram.types import CallbackQuery
 from src import keyboards
 from src.bot import bot
 from src.exceptions import VPNSubscriptionDoesNotExist
-from src.handlers.payments import show_crypto_invoice
+from src.handlers.payments import show_crypto_invoice, show_platega_invoice
 from src.messages import (
     VPN_ACTIVE_TEXT,
     VPN_EXPIRED_TEXT,
@@ -43,6 +43,7 @@ async def process_vpn(callback: CallbackQuery, deps: Dependencies) -> None:
         ),
         reply_markup=keyboards.vpn_payment_methods(
             stars_price=stars_invoice.prices[0].amount,
+            rub_amount=stars_invoice.rub_amount,
             payment_methods=stars_invoice.payment_methods,
         ),
     )
@@ -105,6 +106,19 @@ async def process_vpn_pay_crypto(
     deps: Dependencies,
 ) -> None:
     await show_crypto_invoice(
+        callback=callback,
+        deps=deps,
+        purchase_kind="vpn_subscription",
+        back_callback="show_vpn_menu",
+    )
+
+
+@router.callback_query(F.data == "vpn_pay_platega_sbp")
+async def process_vpn_pay_platega_sbp(
+    callback: CallbackQuery,
+    deps: Dependencies,
+) -> None:
+    await show_platega_invoice(
         callback=callback,
         deps=deps,
         purchase_kind="vpn_subscription",

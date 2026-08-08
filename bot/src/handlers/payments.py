@@ -21,6 +21,8 @@ from src.messages import (
     GIFT_CERTIFICATE_PURCHASED_TEXT,
     GIFT_CERTIFICATE_TEXT,
     PAYMENT_METHODS_TEXT,
+    PLATEGA_INVOICE_ERROR_TEXT,
+    PLATEGA_INVOICE_TEXT,
     VPN_PURCHASED_TEXT,
 )
 
@@ -66,6 +68,42 @@ async def show_crypto_invoice(
     )
 
 
+async def show_platega_invoice(
+    *,
+    callback: CallbackQuery,
+    deps: Dependencies,
+    purchase_kind: str,
+    back_callback: str,
+) -> None:
+    await callback.answer()
+    try:
+        invoice = await deps.payments.create_platega_invoice(
+            telegram_id=callback.from_user.id,
+            purchase_kind=purchase_kind,
+        )
+    except APIError:
+        await callback.message.answer(PLATEGA_INVOICE_ERROR_TEXT)
+        return
+    markup = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="Оплатить через СБП",
+                    url=invoice.payment_url,
+                )
+            ],
+            [InlineKeyboardButton(text="🔙 Назад", callback_data=back_callback)],
+        ]
+    )
+    await callback.message.edit_text(
+        text=PLATEGA_INVOICE_TEXT.format(
+            rub_amount=invoice.rub_amount,
+            expires_at=invoice.expires_at,
+        ),
+        reply_markup=markup,
+    )
+
+
 @router.callback_query(F.data == "boost_paid")
 async def process_boost_paid(callback: CallbackQuery, deps: Dependencies):
     await callback.answer()
@@ -77,6 +115,7 @@ async def process_boost_paid(callback: CallbackQuery, deps: Dependencies):
             else "Оплата временно недоступна"
         ),
         reply_markup=keyboards.payment_methods(
+            rub_amount=invoice.rub_amount,
             payment_methods=invoice.payment_methods,
         ),
     )
@@ -113,6 +152,19 @@ async def process_pay_crypto(callback: CallbackQuery, deps: Dependencies) -> Non
     )
 
 
+@router.callback_query(F.data == "pay_platega_sbp")
+async def process_pay_platega_sbp(
+    callback: CallbackQuery,
+    deps: Dependencies,
+) -> None:
+    await show_platega_invoice(
+        callback=callback,
+        deps=deps,
+        purchase_kind="subscription",
+        back_callback="show_mtproxy_menu",
+    )
+
+
 @router.callback_query(F.data == "gift_certificate")
 async def process_gift_certificate(callback: CallbackQuery, deps: Dependencies):
     await callback.answer()
@@ -124,6 +176,7 @@ async def process_gift_certificate(callback: CallbackQuery, deps: Dependencies):
             else "Оплата временно недоступна"
         ),
         reply_markup=keyboards.gift_certificate_payment_methods(
+            rub_amount=invoice.rub_amount,
             payment_methods=invoice.payment_methods,
         ),
     )
@@ -153,6 +206,19 @@ async def process_gift_stars(callback: CallbackQuery, deps: Dependencies):
 @router.callback_query(F.data == "gift_crypto")
 async def process_gift_crypto(callback: CallbackQuery, deps: Dependencies) -> None:
     await show_crypto_invoice(
+        callback=callback,
+        deps=deps,
+        purchase_kind="gift_certificate",
+        back_callback="show_mtproxy_menu",
+    )
+
+
+@router.callback_query(F.data == "gift_platega_sbp")
+async def process_gift_platega_sbp(
+    callback: CallbackQuery,
+    deps: Dependencies,
+) -> None:
+    await show_platega_invoice(
         callback=callback,
         deps=deps,
         purchase_kind="gift_certificate",

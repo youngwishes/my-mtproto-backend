@@ -14,6 +14,7 @@ _BUY_PATH = "/api/v1/payments/buy/"
 _GIFT_BUY_PATH = "/api/v1/payments/gift-certificates/buy/"
 _GIFT_ACTIVATE_PATH = "/api/v1/payments/gift-certificates/activate/"
 _CRYPTO_INVOICE_PATH = "/api/v1/payments/crypto/invoices/"
+_PLATEGA_INVOICE_PATH = "/api/v1/payments/platega/invoices/"
 
 
 @final
@@ -22,6 +23,7 @@ class StarsInvoice:
     title: str
     description: str
     prices: list[LabeledPrice]
+    rub_amount: str
     payment_methods: tuple[str, ...]
     currency: str = "XTR"
     provider_token: str = ""
@@ -50,6 +52,15 @@ class CryptoInvoice:
 
 @final
 @dataclass(kw_only=True, slots=True, frozen=True)
+class PlategaInvoice:
+    payment_url: str
+    rub_amount: str
+    expires_at: str
+    reused: bool
+
+
+@final
+@dataclass(kw_only=True, slots=True, frozen=True)
 class PaymentsClient:
     backend: BackendClient
 
@@ -65,6 +76,7 @@ class PaymentsClient:
             title=data["title"],
             description=data["description"],
             prices=[LabeledPrice(label=data["title"], amount=data["stars_price"])],
+            rub_amount=str(data["rub_amount"]),
             payment_methods=tuple(str(code) for code in data["payment_methods"]),
         )
 
@@ -116,6 +128,21 @@ class PaymentsClient:
         )
         return CryptoInvoice(
             invoice_url=str(response["invoice_url"]),
+            rub_amount=str(response["rub_amount"]),
+            expires_at=str(response["expires_at"]),
+            reused=bool(response["reused"]),
+        )
+
+    async def create_platega_invoice(
+        self, *, telegram_id: str | int, purchase_kind: str
+    ) -> PlategaInvoice:
+        response = await self.backend.post(
+            _PLATEGA_INVOICE_PATH,
+            data={"username": str(telegram_id), "purchase_kind": purchase_kind},
+            telegram_id=telegram_id,
+        )
+        return PlategaInvoice(
+            payment_url=str(response["payment_url"]),
             rub_amount=str(response["rub_amount"]),
             expires_at=str(response["expires_at"]),
             reused=bool(response["reused"]),

@@ -118,13 +118,14 @@
 
 | Поле | Тип | Описание |
 |------|-----|----------|
-| `code` | str (unique) | Поддержанный код: `stars` или `crypto_pay` |
+| `code` | str (unique) | Поддержанный код: `platega_sbp`, `stars` или `crypto_pay` |
 | `is_active` | inherited bool | Показывать способ на новых экранах оплаты MTProto, VPN и подарочного сертификата |
 | `created_at`, `updated_at` | inherited DateTime | Стандартные служебные даты |
 
 Django admin разрешает менять только `is_active`; создание, удаление и
-переименование строк запрещены. Selector возвращает только активные
-поддержанные коды в фиксированном порядке Stars → Crypto Pay.
+переименование строк запрещены. Migration создаёт `platega_sbp` неактивным и
+идемпотентно сохраняет уже выбранное администратором значение. Selector возвращает
+только активные поддержанные коды в фиксированном порядке СБП → Stars → Crypto Pay.
 
 ---
 
@@ -137,7 +138,7 @@ Django admin разрешает менять только `is_active`; созд�
 | `user` | FK → SystemUser | Кто заплатил |
 | `key` | OneToOne → MTPRotoKey? | За какой ключ (nullable) |
 | `charge_id` | str | ID платежа от провайдера |
-| `provider` | str | `YUKASSA`, `STARS` или `CRYPTO_PAY` |
+| `provider` | str | `YUKASSA`, `STARS`, `CRYPTO_PAY` или `PLATEGA` (`platega`); provider value отличается от глобального method code `platega_sbp` |
 | `kind` | str | `SUBSCRIPTION`, `VPN_SUBSCRIPTION` или `GIFT_CERTIFICATE`; отличает MTProto, VPN и подарочную покупку |
 
 Для VPN-платежа `key` остаётся `NULL`; уникальность `(provider, charge_id, kind)`
@@ -163,6 +164,23 @@ Partial constraint `(initiator, purchase_kind)` для статусов `creatin
 `active` не позволяет одному пользователю иметь два живых счёта одного вида;
 уникальный provider invoice связывает intent с платежом. Переходы выполняются
 условными обновлениями, а не ручным mark-paid из admin.
+
+---
+
+## PlategaPaymentIntent (apps/payments)
+
+Локальная запись one-time SBP покупки через Platega. Содержит публичный UUID,
+инициатора, вид покупки, code товара, ожидаемые `rub_amount`, `currency=RUB` и
+`payment_method=2`, а также provider transaction/link/expiry и даты выдачи и
+уведомления. `payment` — nullable one-to-one связь с `Payment`; `initiator` —
+FK с `PROTECT`.
+
+Статусы: `creating`, `active`, `local_expired`, `processing`, `retryable`,
+`provider_canceled`, `create_failed`, `fulfilled`. Partial constraint
+`(initiator, purchase_kind)` действует только для `creating|active`; unique
+provider transaction ID и one-to-one `Payment` образуют остальные identity
+границы. Переходы не выполняются из admin: он показывает intent только для
+диагностики и не разрешает add/change/delete.
 
 ---
 

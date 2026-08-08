@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
@@ -150,10 +151,20 @@ def info() -> InlineKeyboardMarkup:
 
 
 def payment_methods(
-    *, payment_methods: tuple[str, ...]
+    *, rub_amount: str, payment_methods: tuple[str, ...]
 ) -> InlineKeyboardMarkup:
     active = set(payment_methods)
     keyboard: list[list[InlineKeyboardButton]] = []
+    if "platega_sbp" in active:
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    text=f"⚡ СБП — {_format_rub_amount(rub_amount)} ₽",
+                    callback_data="pay_platega_sbp",
+                    style="primary",
+                )
+            ]
+        )
     if "stars" in active:
         keyboard.append(
             [
@@ -173,10 +184,20 @@ def payment_methods(
 
 
 def vpn_payment_methods(
-    *, stars_price: int, payment_methods: tuple[str, ...]
+    *, stars_price: int, rub_amount: str, payment_methods: tuple[str, ...]
 ) -> InlineKeyboardMarkup:
     active = set(payment_methods)
     keyboard: list[list[InlineKeyboardButton]] = []
+    if "platega_sbp" in active:
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    text=f"⚡ СБП — {_format_rub_amount(rub_amount)} ₽",
+                    callback_data="vpn_pay_platega_sbp",
+                    style="primary",
+                )
+            ]
+        )
     if "stars" in active:
         keyboard.append(
             [
@@ -201,10 +222,20 @@ def vpn_payment_methods(
 
 
 def gift_certificate_payment_methods(
-    *, payment_methods: tuple[str, ...]
+    *, rub_amount: str, payment_methods: tuple[str, ...]
 ) -> InlineKeyboardMarkup:
     active = set(payment_methods)
     keyboard: list[list[InlineKeyboardButton]] = []
+    if "platega_sbp" in active:
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    text=f"⚡ СБП — {_format_rub_amount(rub_amount)} ₽",
+                    callback_data="gift_platega_sbp",
+                    style="primary",
+                )
+            ]
+        )
     if "stars" in active:
         keyboard.append(
             [
@@ -241,3 +272,10 @@ def referral_cabinet(*, active_referrals_count: int, referral_link: str) -> Inli
 
 def referral_reward() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[[_MY_SERVERS]])
+
+
+def _format_rub_amount(rub_amount: str) -> str:
+    amount = Decimal(rub_amount).quantize(Decimal("0.01"))
+    if amount == amount.to_integral_value():
+        return format(amount, ".0f")
+    return format(amount, ".2f").replace(".", ",")

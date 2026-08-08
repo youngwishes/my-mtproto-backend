@@ -8,6 +8,7 @@ import respx
 from aiogram.types import LabeledPrice
 
 from src.core.backend_client import BackendClient
+from src.domains import payments as payments_domain
 from src.domains.payments import (
     ActivatedGiftCertificate,
     CryptoInvoice,
@@ -23,6 +24,7 @@ BUY_URL = f"{BASE}/api/v1/payments/buy/"
 GIFT_BUY_URL = f"{BASE}/api/v1/payments/gift-certificates/buy/"
 GIFT_ACTIVATE_URL = f"{BASE}/api/v1/payments/gift-certificates/activate/"
 CRYPTO_INVOICE_URL = f"{BASE}/api/v1/payments/crypto/invoices/"
+PLATEGA_INVOICE_URL = f"{BASE}/api/v1/payments/platega/invoices/"
 
 PRODUCT_JSON = {
     "title": "MTPRoto на месяц",
@@ -33,6 +35,7 @@ PRODUCT_JSON = {
     "need_email": False,
     "price": 9900,
     "stars_price": 99,
+    "rub_amount": "99.00",
     "payment_methods": ["stars", "crypto_pay"],
 }
 
@@ -53,11 +56,13 @@ async def test_get_stars_invoice_maps_fields(client: PaymentsClient):
         title="MTPRoto на месяц",
         description="Безлимитный прокси",
         prices=[LabeledPrice(label="MTPRoto на месяц", amount=99)],
+        rub_amount="99.00",
         payment_methods=("stars", "crypto_pay"),
     )
     assert invoice.currency == "XTR"
     assert invoice.provider_token == ""
     assert invoice.payment_methods == ("stars", "crypto_pay")
+    assert invoice.rub_amount == "99.00"
     assert isinstance(invoice.payment_methods, tuple)
 
 
@@ -75,6 +80,7 @@ async def test_get_vpn_stars_invoice_uses_vpn_product(client: PaymentsClient):
 
     assert invoice.title == "VPN на месяц"
     assert invoice.prices == [LabeledPrice(label="VPN на месяц", amount=149)]
+    assert invoice.rub_amount == "99.00"
     assert invoice.payment_methods == ("crypto_pay",)
     assert isinstance(invoice.payment_methods, tuple)
 
@@ -160,5 +166,39 @@ async def test_create_crypto_invoice_posts_kind_and_maps_exact_decimal_string(
     assert parse_qs(route.calls.last.request.content) == {
         b"username": [b"42"],
         b"purchase_kind": [b"subscription"],
+    }
+    assert route.calls.last.request.headers["Bot-Auth-Token"] == "t"
+
+
+@respx.mock
+async def test_create_platega_invoice_posts_only_identity_and_kind(
+    client: PaymentsClient,
+) -> None:
+    route = respx.post(PLATEGA_INVOICE_URL).mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "payment_url": "https://pay.example/invoice/opaque",
+                "rub_amount": "99.50",
+                "expires_at": "2026-08-08T12:15:00Z",
+                "reused": True,
+            },
+        )
+    )
+
+    result = await client.create_platega_invoice(
+        telegram_id=42,
+        purchase_kind="gift_certificate",
+    )
+
+    assert result == payments_domain.PlategaInvoice(
+        payment_url="https://pay.example/invoice/opaque",
+        rub_amount="99.50",
+        expires_at="2026-08-08T12:15:00Z",
+        reused=True,
+    )
+    assert parse_qs(route.calls.last.request.content) == {
+        b"username": [b"42"],
+        b"purchase_kind": [b"gift_certificate"],
     }
     assert route.calls.last.request.headers["Bot-Auth-Token"] == "t"

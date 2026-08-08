@@ -4,9 +4,18 @@ from apps.payments.services.apply_crypto_payment import (
     ApplyCryptoPaymentService,
     get_apply_crypto_payment_service,
 )
+from apps.payments.services.apply_platega_payment import (
+    ApplyPlategaPaymentService,
+    EnqueuePlategaNotification,
+    get_apply_platega_payment_service,
+)
 from apps.payments.services.create_crypto_invoice import (
     CreateOrReuseCryptoInvoiceService,
     get_create_or_reuse_crypto_invoice_service,
+)
+from apps.payments.services.create_platega_invoice import (
+    CreateOrReusePlategaInvoiceService,
+    get_create_or_reuse_platega_invoice_service,
 )
 from apps.payments.services.create_payment_service import (
     CreatePaymentService,
@@ -30,12 +39,21 @@ from apps.payments.services.validate_crypto_invoice import (
     ValidateCryptoInvoiceService,
     get_validate_crypto_invoice_service,
 )
+from apps.payments.services.validate_platega_callback import (
+    ValidatePlategaCallbackService,
+    get_validate_platega_callback_service,
+)
 
 __all__ = [
     "ApplyCryptoPaymentService",
     "get_apply_crypto_payment_service",
+    "ApplyPlategaPaymentService",
+    "EnqueuePlategaNotification",
+    "get_apply_platega_payment_service",
     "CreateOrReuseCryptoInvoiceService",
     "get_create_or_reuse_crypto_invoice_service",
+    "CreateOrReusePlategaInvoiceService",
+    "get_create_or_reuse_platega_invoice_service",
     "CreatePaymentService",
     "get_create_payment_service",
     "ExtendKeyService",
@@ -48,4 +66,6 @@ __all__ = [
     "get_reconcile_crypto_payments_service",
     "ValidateCryptoInvoiceService",
     "get_validate_crypto_invoice_service",
+    "ValidatePlategaCallbackService",
+    "get_validate_platega_callback_service",
 ]
