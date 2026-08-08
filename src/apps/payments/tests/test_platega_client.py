@@ -56,7 +56,10 @@ class TestPlategaClient(SimpleTestCase):
         self.assertEqual(request.headers["X-MerchantId"], "merchant-id")
         self.assertEqual(request.headers["X-Secret"], "test-secret")
         self.assertEqual(request.headers["Content-Type"], "application/json")
-        self.assertIn('"amount":91.67', body)
+        self.assertIn(
+            '"paymentDetails":{"amount":91.67,"currency":"RUB"}',
+            body,
+        )
         self.assertEqual(
             json.loads(body),
             {
