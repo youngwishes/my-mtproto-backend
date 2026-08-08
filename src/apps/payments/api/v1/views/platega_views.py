@@ -75,12 +75,12 @@ class PlategaCallbackView(APIView):
         supplied_secret = request.META.get("HTTP_X_SECRET", "")
 
         merchant_matches = secrets.compare_digest(
-            supplied_merchant,
-            configured_merchant,
+            supplied_merchant.encode("utf-8"),
+            configured_merchant.encode("utf-8"),
         )
         secret_matches = secrets.compare_digest(
-            supplied_secret,
-            configured_secret,
+            supplied_secret.encode("utf-8"),
+            configured_secret.encode("utf-8"),
         )
         credentials_configured = bool(
             configured_merchant.strip() and configured_secret.strip()

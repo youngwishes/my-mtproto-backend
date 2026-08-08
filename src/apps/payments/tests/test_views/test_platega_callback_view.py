@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import secrets
 from dataclasses import asdict
 from decimal import Decimal
 from unittest import mock
@@ -106,8 +107,38 @@ class TestPlategaCallbackView(APITestCase):
         self.assertEqual(
             compare.call_args_list,
             [
-                mock.call("wrong-merchant", _MERCHANT_ID),
-                mock.call(_SECRET, _SECRET),
+                mock.call(b"wrong-merchant", _MERCHANT_ID.encode()),
+                mock.call(_SECRET.encode(), _SECRET.encode()),
+            ],
+        )
+        parse.assert_not_called()
+        self.assert_no_domain_processing()
+
+    def test_non_ascii_credentials_are_compared_as_bytes_before_body_parsing(
+        self,
+    ) -> None:
+        with mock.patch(
+            f"{_VIEW}.secrets.compare_digest",
+            wraps=secrets.compare_digest,
+        ) as compare, mock.patch.object(
+            Request,
+            "_load_data_and_files",
+        ) as parse:
+            response = self.client.generic(
+                "POST",
+                _URL,
+                b'{"private":"body"}',
+                content_type="application/json",
+                HTTP_X_MERCHANTID="неверный-merchant",
+                HTTP_X_SECRET="неверный-secret-💥",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(
+            compare.call_args_list,
+            [
+                mock.call("неверный-merchant".encode(), _MERCHANT_ID.encode()),
+                mock.call("неверный-secret-💥".encode(), _SECRET.encode()),
             ],
         )
         parse.assert_not_called()
