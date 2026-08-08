@@ -34,3 +34,48 @@ class CreatePlategaInvoiceOut(BaseServiceDTO):
     rub_amount: Decimal
     expires_at: datetime
     reused: bool
+
+
+@dataclass(kw_only=True, slots=True, frozen=True)
+class PlategaCallbackDTO(BaseServiceDTO):
+    """Normalized authenticated Platega callback fields."""
+
+    transaction_id: UUID
+    amount: Decimal
+    currency: str
+    status: str
+    payment_method: int
+
+
+@dataclass(kw_only=True, slots=True, frozen=True)
+class ValidatedPlategaPaymentDTO(BaseServiceDTO):
+    """Exact confirmed Platega transaction bound to its local intent."""
+
+    intent_id: int
+    transaction_id: UUID
+
+
+@dataclass(kw_only=True, slots=True, frozen=True)
+class PlategaCallbackWarningDTO(BaseServiceDTO):
+    """Allowlisted callback rejection context safe for structured logging."""
+
+    reason_code: str
+    intent_id: int | None
+    provider_transaction_id: UUID | None
+
+
+@dataclass(kw_only=True, slots=True, frozen=True)
+class ValidatePlategaCallbackOut(BaseServiceDTO):
+    """Safe callback validation disposition."""
+
+    payment: ValidatedPlategaPaymentDTO | None
+    reason_code: str
+    warning: PlategaCallbackWarningDTO | None
+
+
+@dataclass(kw_only=True, slots=True, frozen=True)
+class ApplyPlategaPaymentOut(BaseServiceDTO):
+    """Idempotent Platega fulfilment disposition."""
+
+    fulfilled: bool
+    already_fulfilled: bool

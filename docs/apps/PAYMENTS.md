@@ -69,6 +69,31 @@ invoice, successful-payment routing и fulfilment действующих Stars/C
   `create_failed` с allowlisted reason code.
 - **ValidateCryptoInvoiceService** и **ApplyCryptoPaymentService** — проверяют
   signed invoice и условно выполняют выдачу ровно один раз.
+- **ValidatePlategaCallbackService** — после HTTP-аутентификации находит intent
+  по provider transaction UUID с загруженными initiator/payment и принимает
+  только точное совпадение сохранённых transaction ID, Decimal RUB-суммы,
+  `currency=RUB` и `payment_method=2`. `CONFIRMED` валиден для
+  `active|local_expired|retryable|processing|fulfilled`; применение duplicate и
+  concurrent состояний остаётся обязанностью apply-сервиса. Совпавший
+  `CANCELED` переводит только `active|local_expired` в `provider_canceled`.
+  Unknown transaction, mismatch и unsupported status, включая
+  `CHARGEBACKED`, возвращают обязательный warning только из `reason_code`,
+  nullable internal intent ID и nullable provider transaction UUID. Обычная или
+  повторная отмена warning не создаёт. Эти safe-ack исходы не меняют продукт и
+  не выполняют Platega GET/status polling.
+- **ApplyPlategaPaymentService** — условно захватывает подтверждённый
+  `active|local_expired|retryable` intent в `processing` и в одной атомарной
+  операции вызывает ровно одну существующую MTProto, VPN или gift fulfilment
+  границу с `provider=platega` и UUID transaction как `charge_id`, связывает
+  созданный `Payment` и завершает intent. Поэтому поздний `CONFIRMED` старого
+  `local_expired` intent обрабатывается независимо и не меняет более новый
+  `active` intent. Ошибка откатывает продукт и Payment, а intent становится
+  `retryable`; duplicate/concurrent вызов не повторяет выдачу. После успешной
+  фиксации сервис условно ставит `notification_queued_at` и только через
+  `transaction.on_commit` вызывает инъецированный publisher. Для fulfilled
+  intent с пустым marker повторяется только публикация. Ошибка publisher-а
+  очищает лишь захваченный marker и возвращает безопасную retryable ошибку;
+  непустой marker исключает вторую постановку.
 - **ReconcileCryptoPaymentsService** — каждые 10 минут повторно сверяет
   незавершённые покупки и восстанавливает доставку результата.
 

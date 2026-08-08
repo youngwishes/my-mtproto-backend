@@ -39,6 +39,10 @@ class PlategaInvoiceUnavailable(BaseInfraError):
     """Не удалось создать счёт СБП. Попробуйте ещё раз."""
 
 
+class PlategaPaymentRetryable(BaseInfraError):
+    """Оплата подтверждена, выдача будет повторена автоматически."""
+
+
 class CryptoInvoiceCreationInProgress(BaseServiceError):
     """Счёт уже создаётся. Повторите попытку через несколько секунд."""
 

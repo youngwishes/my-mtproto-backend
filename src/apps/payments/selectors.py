@@ -516,3 +516,104 @@ def activate_platega_intent_from_provider(
     if updated_rows != 1:
         return None
     return PlategaPaymentIntent.objects.get(pk=intent_id)
+
+
+def get_platega_intent_by_provider_transaction_id(
+    *, provider_transaction_id: UUID
+) -> PlategaPaymentIntent | None:
+    return (
+        PlategaPaymentIntent.objects.select_related("initiator", "payment")
+        .filter(provider_transaction_id=provider_transaction_id)
+        .first()
+    )
+
+
+def cancel_platega_intent(*, intent_id: int, canceled_at: datetime) -> int:
+    return PlategaPaymentIntent.objects.filter(
+        pk=intent_id,
+        status__in=(
+            PlategaPaymentIntentStatusEnum.ACTIVE,
+            PlategaPaymentIntentStatusEnum.LOCAL_EXPIRED,
+        ),
+    ).update(
+        status=PlategaPaymentIntentStatusEnum.PROVIDER_CANCELED,
+        updated_at=canceled_at,
+    )
+
+
+def get_platega_intent_by_id(*, intent_id: int) -> PlategaPaymentIntent | None:
+    return (
+        PlategaPaymentIntent.objects.select_related("initiator", "payment")
+        .filter(pk=intent_id)
+        .first()
+    )
+
+
+def claim_platega_intent_for_fulfillment(
+    *, intent_id: int, attempted_at: datetime
+) -> int:
+    return PlategaPaymentIntent.objects.filter(
+        pk=intent_id,
+        payment__isnull=True,
+        status__in=(
+            PlategaPaymentIntentStatusEnum.ACTIVE,
+            PlategaPaymentIntentStatusEnum.LOCAL_EXPIRED,
+            PlategaPaymentIntentStatusEnum.RETRYABLE,
+        ),
+    ).update(
+        status=PlategaPaymentIntentStatusEnum.PROCESSING,
+        fulfillment_attempted_at=attempted_at,
+        updated_at=attempted_at,
+    )
+
+
+def finalize_platega_intent_fulfillment(
+    *, intent_id: int, payment_id: int, fulfilled_at: datetime
+) -> int:
+    return PlategaPaymentIntent.objects.filter(
+        pk=intent_id,
+        payment__isnull=True,
+        status=PlategaPaymentIntentStatusEnum.PROCESSING,
+    ).update(
+        payment_id=payment_id,
+        fulfilled_at=fulfilled_at,
+        status=PlategaPaymentIntentStatusEnum.FULFILLED,
+        last_error_code="",
+        updated_at=fulfilled_at,
+    )
+
+
+def mark_platega_intent_retryable(*, intent_id: int, error_code: str) -> int:
+    return PlategaPaymentIntent.objects.filter(
+        pk=intent_id,
+        payment__isnull=True,
+        status__in=(
+            PlategaPaymentIntentStatusEnum.ACTIVE,
+            PlategaPaymentIntentStatusEnum.LOCAL_EXPIRED,
+            PlategaPaymentIntentStatusEnum.PROCESSING,
+            PlategaPaymentIntentStatusEnum.RETRYABLE,
+        ),
+    ).update(
+        status=PlategaPaymentIntentStatusEnum.RETRYABLE,
+        last_error_code=error_code,
+    )
+
+
+def claim_platega_notification_enqueue(
+    *, intent_id: int, queued_at: datetime
+) -> int:
+    return PlategaPaymentIntent.objects.filter(
+        pk=intent_id,
+        status=PlategaPaymentIntentStatusEnum.FULFILLED,
+        notification_queued_at__isnull=True,
+    ).update(notification_queued_at=queued_at, updated_at=queued_at)
+
+
+def clear_platega_notification_enqueue(
+    *, intent_id: int, queued_at: datetime
+) -> int:
+    return PlategaPaymentIntent.objects.filter(
+        pk=intent_id,
+        status=PlategaPaymentIntentStatusEnum.FULFILLED,
+        notification_queued_at=queued_at,
+    ).update(notification_queued_at=None)
