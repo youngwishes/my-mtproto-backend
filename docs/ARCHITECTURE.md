@@ -28,6 +28,11 @@ telemt (MTProto-прокси)
 
 **VDS Instance** — FastAPI-сервис на каждом VDS-сервере. Принимает команды от Django и управляет прокси-сервером telemt.
 
+`RequestLoggingMiddleware` для mutating API-запросов сохраняет только HTTP
+method и безопасный path. Headers и body не логируются; секреты в URL Crypto
+webhook маскируются, а публичный Platega callback полностью обходит middleware
+logging до чтения body.
+
 ## Стек
 
 | Компонент | Технология |
@@ -110,7 +115,8 @@ username (либо Telegram ID как fallback).
 
 Успешным считается только HTTP `200` с UUID transaction ID, `PENDING`, usable
 HTTPS redirect и `expiresIn=00:15:00`. Необязательные provider echoes при
-наличии сверяются с `SBPQR`, суммой/RUB, `BOT_LINK` и merchant ID. Ошибки
+наличии сверяются с `SBPQR`, `BOT_LINK` и merchant ID; provider-controlled
+`paymentDetails` в ответе не используется для валидации. Ошибки
 наружу несут только reason code `timeout`, `unavailable`, `malformed` или
 `create_mismatch`; request/response body, URL, metadata и credentials не
 логируются. HTTP GET, polling и bot credentials для Platega отсутствуют.

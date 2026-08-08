@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from datetime import timedelta
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from math import isfinite
 from typing import final
 from urllib.parse import urlsplit
@@ -73,7 +73,6 @@ class PlategaClient:
             raise PlategaClientError(response_error)
         transaction, validation_error = self._to_transaction(
             payload=payload,
-            amount=amount,
             return_url=return_url,
         )
         if validation_error is not None:
@@ -85,7 +84,6 @@ class PlategaClient:
         self,
         *,
         payload: object,
-        amount: Decimal,
         return_url: str,
     ) -> tuple[PlategaTransactionDTO | None, str | None]:
         try:
@@ -103,7 +101,6 @@ class PlategaClient:
                 raise TypeError
             echo_error = _validate_optional_echoes(
                 payload=payload,
-                amount=amount,
                 return_url=return_url,
                 merchant_id=self.merchant_id,
             )
@@ -115,7 +112,7 @@ class PlategaClient:
                 redirect_url=redirect_url,
                 expires_in=expires_in,
             ), None
-        except (AttributeError, InvalidOperation, KeyError, TypeError, ValueError):
+        except (AttributeError, KeyError, TypeError, ValueError):
             return None, "malformed"
 
 
@@ -153,7 +150,6 @@ def _serialize_create_transaction_body(
 def _validate_optional_echoes(
     *,
     payload: dict[str, object],
-    amount: Decimal,
     return_url: str,
     merchant_id: str,
 ) -> str | None:
@@ -163,22 +159,6 @@ def _validate_optional_echoes(
         return "create_mismatch"
     if "merchantId" in payload and payload["merchantId"] != merchant_id:
         return "create_mismatch"
-    if "paymentDetails" in payload:
-        payment_details = payload["paymentDetails"]
-        if isinstance(payment_details, str):
-            try:
-                payment_details = json.loads(payment_details)
-            except ValueError:
-                return "malformed"
-        if not isinstance(payment_details, dict):
-            return "malformed"
-        try:
-            echoed_amount = Decimal(str(payment_details["amount"]))
-            echoed_currency = payment_details["currency"]
-        except (InvalidOperation, KeyError, TypeError, ValueError):
-            return "malformed"
-        if echoed_amount != amount or echoed_currency != "RUB":
-            return "create_mismatch"
     return None
 
 
