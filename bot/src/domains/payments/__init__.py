@@ -3,6 +3,7 @@ from src.domains.payments.client import (
     CryptoInvoice,
     GiftCertificate,
     PaymentsClient,
+    PlategaInvoice,
     StarsInvoice,
 )
 
@@ -11,5 +12,6 @@ __all__ = [
     "CryptoInvoice",
     "GiftCertificate",
     "PaymentsClient",
+    "PlategaInvoice",
     "StarsInvoice",
 ]

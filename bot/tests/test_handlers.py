@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import pytest
 from aiogram.types import LabeledPrice
 
-from src import keyboards
+from src import keyboards, messages as messages_module
 from src.exceptions import APIError, VPNSubscriptionDoesNotExist
 from src.handlers import payments as payments_module
 from src.handlers import vpn as vpn_module
@@ -155,6 +155,8 @@ class FakePayments:
         activation_error=None,
         crypto=None,
         crypto_error=None,
+        platega=None,
+        platega_error=None,
     ) -> None:
         self._stars = stars
         self._gift = gift or GiftCertificate(code="KEY-ABCD-1234")
@@ -165,12 +167,15 @@ class FakePayments:
         self._activation_error = activation_error
         self._crypto = crypto
         self._crypto_error = crypto_error
+        self._platega = platega
+        self._platega_error = platega_error
         self.confirmed: list[tuple] = []
         self.gift_confirmed: list[tuple] = []
         self.activated: list[tuple] = []
         self.stars_invoice_calls = 0
         self.vpn_stars_invoice_calls = 0
         self.crypto_calls: list[tuple] = []
+        self.platega_calls: list[tuple] = []
 
     async def get_stars_invoice(self):
         self.stars_invoice_calls += 1
@@ -203,6 +208,12 @@ class FakePayments:
             raise self._crypto_error
         return self._crypto
 
+    async def create_platega_invoice(self, *, telegram_id, purchase_kind):
+        self.platega_calls.append((telegram_id, purchase_kind))
+        if self._platega_error is not None:
+            raise self._platega_error
+        return self._platega
+
 
 class FakeVPN:
     def __init__(self, *, menu: VPNMenu, purchase: VPNPurchase | None = None) -> None:
@@ -232,6 +243,7 @@ def _deps_with_vpn(*, vpn: FakeVPN, payments: FakePayments | None = None):
                 title="VPN на месяц",
                 description="VPN-подписка",
                 prices=[LabeledPrice(label="VPN на месяц", amount=149)],
+                rub_amount="149.00",
                 payment_methods=("stars", "crypto_pay"),
             ),
         )
@@ -448,6 +460,7 @@ async def test_payment_screen_includes_legal_links():
             title="Месяц",
             description="прокси",
             prices=[LabeledPrice(label="Месяц", amount=99)],
+            rub_amount="99.00",
             payment_methods=("stars", "crypto_pay"),
         )
     )
@@ -473,30 +486,56 @@ async def test_payment_screen_includes_legal_links():
     [
         (
             keyboards.payment_methods,
-            {"payment_methods": ("stars", "crypto_pay")},
-            ["pay_stars", "pay_crypto", "show_mtproxy_menu"],
+            {
+                "rub_amount": "99.00",
+                "payment_methods": ("platega_sbp", "stars", "crypto_pay"),
+            },
+            [
+                "pay_platega_sbp",
+                "pay_stars",
+                "pay_crypto",
+                "show_mtproxy_menu",
+            ],
         ),
         (
             keyboards.vpn_payment_methods,
             {
                 "stars_price": 149,
-                "payment_methods": ("stars", "crypto_pay"),
+                "rub_amount": "149.00",
+                "payment_methods": ("platega_sbp", "stars", "crypto_pay"),
             },
-            ["vpn_pay_stars", "vpn_pay_crypto", "show_vpn_menu"],
+            [
+                "vpn_pay_platega_sbp",
+                "vpn_pay_stars",
+                "vpn_pay_crypto",
+                "show_vpn_menu",
+            ],
         ),
         (
             keyboards.gift_certificate_payment_methods,
-            {"payment_methods": ("stars", "crypto_pay")},
-            ["gift_stars", "gift_crypto", "show_mtproxy_menu"],
+            {
+                "rub_amount": "99.00",
+                "payment_methods": ("platega_sbp", "stars", "crypto_pay"),
+            },
+            [
+                "gift_platega_sbp",
+                "gift_stars",
+                "gift_crypto",
+                "show_mtproxy_menu",
+            ],
         ),
     ],
 )
-def test_stars_first_crypto_second(builder, kwargs, expected_callbacks) -> None:
+def test_sbp_first_stars_second_crypto_third(
+    builder, kwargs, expected_callbacks
+) -> None:
     markup = builder(**kwargs)
 
     assert [row[0].callback_data for row in markup.inline_keyboard] == expected_callbacks
-    assert markup.inline_keyboard[0][0].text.startswith("⭐ Telegram Stars")
-    assert markup.inline_keyboard[1][0].text == "💎 Crypto Pay"
+    assert markup.inline_keyboard[0][0].text.startswith("⚡ СБП — ")
+    assert markup.inline_keyboard[0][0].style == "primary"
+    assert markup.inline_keyboard[1][0].text.startswith("⭐ Telegram Stars")
+    assert markup.inline_keyboard[2][0].text == "💎 Crypto Pay"
 
 
 @pytest.mark.parametrize(
@@ -504,17 +543,21 @@ def test_stars_first_crypto_second(builder, kwargs, expected_callbacks) -> None:
     [
         (
             keyboards.payment_methods,
-            {"payment_methods": ("unknown",)},
+            {"rub_amount": "99.00", "payment_methods": ("unknown",)},
             "show_mtproxy_menu",
         ),
         (
             keyboards.vpn_payment_methods,
-            {"stars_price": 149, "payment_methods": ("unknown",)},
+            {
+                "stars_price": 149,
+                "rub_amount": "149.00",
+                "payment_methods": ("unknown",),
+            },
             "show_vpn_menu",
         ),
         (
             keyboards.gift_certificate_payment_methods,
-            {"payment_methods": ("unknown",)},
+            {"rub_amount": "99.00", "payment_methods": ("unknown",)},
             "show_mtproxy_menu",
         ),
     ],
@@ -555,9 +598,11 @@ def test_mtproxy_internal_back_buttons_return_to_mtproxy_menu(
         "my_servers": keyboards.my_servers(servers.servers),
         "info": keyboards.info(),
         "payment_methods": keyboards.payment_methods(
+            rub_amount="99.00",
             payment_methods=("stars", "crypto_pay"),
         ),
         "gift_certificate": keyboards.gift_certificate_payment_methods(
+            rub_amount="99.00",
             payment_methods=("stars", "crypto_pay"),
         ),
         "referral_cabinet": keyboards.referral_cabinet(
@@ -674,19 +719,31 @@ SCREEN_CASES = {
     "mtproxy": (
         process_boost_paid,
         PAYMENT_METHODS_TEXT,
-        {"stars": "pay_stars", "crypto_pay": "pay_crypto"},
+        {
+            "platega_sbp": "pay_platega_sbp",
+            "stars": "pay_stars",
+            "crypto_pay": "pay_crypto",
+        },
         "show_mtproxy_menu",
     ),
     "vpn": (
         process_vpn,
         VPN_MENU_TEXT,
-        {"stars": "vpn_pay_stars", "crypto_pay": "vpn_pay_crypto"},
+        {
+            "platega_sbp": "vpn_pay_platega_sbp",
+            "stars": "vpn_pay_stars",
+            "crypto_pay": "vpn_pay_crypto",
+        },
         "show_vpn_menu",
     ),
     "gift": (
         process_gift_certificate,
         GIFT_CERTIFICATE_TEXT,
-        {"stars": "gift_stars", "crypto_pay": "gift_crypto"},
+        {
+            "platega_sbp": "gift_platega_sbp",
+            "stars": "gift_stars",
+            "crypto_pay": "gift_crypto",
+        },
         "show_mtproxy_menu",
     ),
 }
@@ -696,6 +753,10 @@ SCREEN_CASES = {
 @pytest.mark.parametrize(
     "methods",
     (
+        ("platega_sbp", "stars", "crypto_pay"),
+        ("platega_sbp", "stars"),
+        ("platega_sbp", "crypto_pay"),
+        ("platega_sbp",),
         ("stars", "crypto_pay"),
         ("stars",),
         ("crypto_pay",),
@@ -708,6 +769,7 @@ async def test_payment_method_screen_matrix(screen, methods) -> None:
         title="Товар",
         description="Описание",
         prices=[LabeledPrice(label="Товар", amount=149)],
+        rub_amount="99.00",
         payment_methods=methods,
     )
     payments = FakePayments(stars=invoice)
@@ -731,7 +793,7 @@ async def test_payment_method_screen_matrix(screen, methods) -> None:
     text, markup = callback.message.edits[0]
     expected_payment_callbacks = [
         callback_by_method[code]
-        for code in ("stars", "crypto_pay")
+        for code in ("platega_sbp", "stars", "crypto_pay")
         if code in methods
     ]
     actual_callbacks = [
@@ -743,6 +805,40 @@ async def test_payment_method_screen_matrix(screen, methods) -> None:
     )
     assert payments.stars_invoice_calls == (0 if screen == "vpn" else 1)
     assert payments.vpn_stars_invoice_calls == (1 if screen == "vpn" else 0)
+    if "platega_sbp" in methods:
+        sbp_button = markup.inline_keyboard[0][0]
+        assert sbp_button.text == "⚡ СБП — 99 ₽"
+        assert sbp_button.style == "primary"
+
+
+@pytest.mark.parametrize(
+    ("builder", "kwargs"),
+    [
+        (
+            keyboards.payment_methods,
+            {"rub_amount": "99.50", "payment_methods": ("platega_sbp",)},
+        ),
+        (
+            keyboards.vpn_payment_methods,
+            {
+                "stars_price": 149,
+                "rub_amount": "99.50",
+                "payment_methods": ("platega_sbp",),
+            },
+        ),
+        (
+            keyboards.gift_certificate_payment_methods,
+            {"rub_amount": "99.50", "payment_methods": ("platega_sbp",)},
+        ),
+    ],
+)
+def test_sbp_fractional_rub_label_uses_comma_and_primary_style(
+    builder, kwargs
+) -> None:
+    button = builder(**kwargs).inline_keyboard[0][0]
+
+    assert button.text == "⚡ СБП — 99,50 ₽"
+    assert button.style == "primary"
 
 
 @pytest.mark.parametrize(
@@ -819,6 +915,7 @@ async def test_vpn_purchase_fetches_stars_invoice_and_shows_stars_only_screen():
         title="VPN на месяц",
         description="VPN-подписка",
         prices=[LabeledPrice(label="VPN на месяц", amount=237)],
+        rub_amount="149.00",
         payment_methods=("stars", "crypto_pay"),
     )
     deps = _deps_with_vpn(
@@ -925,6 +1022,7 @@ async def test_vpn_stars_invoice_uses_distinct_payload_and_vpn_product(monkeypat
         title="VPN на месяц",
         description="VPN-подписка",
         prices=[LabeledPrice(label="VPN на месяц", amount=149)],
+        rub_amount="149.00",
         payment_methods=("stars", "crypto_pay"),
     )
 
@@ -949,6 +1047,7 @@ async def test_pay_stars_sends_xtr_invoice(monkeypatch):
         title="Месяц",
         description="прокси",
         prices=[LabeledPrice(label="Месяц", amount=99)],
+        rub_amount="99.00",
         payment_methods=("stars", "crypto_pay"),
     )
     callback = FakeCallback(chat_id=42)
@@ -967,6 +1066,7 @@ async def test_gift_certificate_screen_shows_payment_options():
             title="Месяц",
             description="прокси",
             prices=[LabeledPrice(label="Месяц", amount=99)],
+            rub_amount="99.00",
             payment_methods=("stars", "crypto_pay"),
         )
     )
@@ -992,6 +1092,7 @@ async def test_gift_stars_invoice_uses_gift_payload(monkeypatch):
         title="Месяц",
         description="прокси",
         prices=[LabeledPrice(label="Месяц", amount=99)],
+        rub_amount="99.00",
         payment_methods=("stars", "crypto_pay"),
     )
     callback = FakeCallback(chat_id=42)
@@ -1050,6 +1151,96 @@ async def test_crypto_error_keeps_current_keyboard_retryable() -> None:
     assert payments.crypto_calls == [(42, "subscription")]
     assert callback.message.edits == []
     assert callback.message.answers == [(CRYPTO_INVOICE_ERROR_TEXT, None)]
+
+
+@pytest.mark.parametrize(
+    ("handler_module", "handler_name", "purchase_kind", "back_callback"),
+    [
+        (
+            payments_module,
+            "process_pay_platega_sbp",
+            "subscription",
+            "show_mtproxy_menu",
+        ),
+        (
+            vpn_module,
+            "process_vpn_pay_platega_sbp",
+            "vpn_subscription",
+            "show_vpn_menu",
+        ),
+        (
+            payments_module,
+            "process_gift_platega_sbp",
+            "gift_certificate",
+            "show_mtproxy_menu",
+        ),
+    ],
+)
+async def test_platega_callback_uses_kind_and_shows_url_with_correct_back_target(
+    handler_module,
+    handler_name: str,
+    purchase_kind: str,
+    back_callback: str,
+) -> None:
+    payments = FakePayments(
+        platega=SimpleNamespace(
+            payment_url="https://pay.example/invoice/opaque",
+            rub_amount="99.50",
+            expires_at="2026-08-08T12:15:00Z",
+            reused=False,
+        )
+    )
+    callback = FakeCallback(user_id=42, username=None)
+
+    await getattr(handler_module, handler_name)(
+        callback,
+        make_deps(payments=payments),
+    )
+
+    assert callback.answers == [((), {})]
+    assert payments.platega_calls == [(42, purchase_kind)]
+    text, markup = callback.message.edits[0]
+    assert "99.50" in text
+    assert "2026-08-08T12:15:00Z" in text
+    assert "не подтверждает оплату" in text
+    assert markup.inline_keyboard[0][0].text == "Оплатить через СБП"
+    assert markup.inline_keyboard[0][0].url == (
+        "https://pay.example/invoice/opaque"
+    )
+    assert markup.inline_keyboard[1][0].callback_data == back_callback
+
+
+@pytest.mark.parametrize(
+    ("handler_module", "handler_name", "purchase_kind"),
+    [
+        (payments_module, "process_pay_platega_sbp", "subscription"),
+        (vpn_module, "process_vpn_pay_platega_sbp", "vpn_subscription"),
+        (
+            payments_module,
+            "process_gift_platega_sbp",
+            "gift_certificate",
+        ),
+    ],
+)
+async def test_platega_backend_error_shows_retryable_error_without_editing_screen(
+    handler_module,
+    handler_name: str,
+    purchase_kind: str,
+) -> None:
+    payments = FakePayments(platega_error=APIError(42, message="safe"))
+    callback = FakeCallback(user_id=42)
+
+    await getattr(handler_module, handler_name)(
+        callback,
+        make_deps(payments=payments),
+    )
+
+    assert callback.answers == [((), {})]
+    assert payments.platega_calls == [(42, purchase_kind)]
+    assert callback.message.edits == []
+    assert callback.message.answers == [
+        (messages_module.PLATEGA_INVOICE_ERROR_TEXT, None)
+    ]
 
 
 @pytest.mark.parametrize(
