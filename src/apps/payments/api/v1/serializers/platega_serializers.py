@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from decimal import Decimal, DecimalException
 
 from rest_framework import serializers
 
@@ -27,11 +28,28 @@ class CreatePlategaInvoiceResponseSerializer(serializers.Serializer):
     reused = serializers.BooleanField()
 
 
+class _FiniteJSONDecimalField(serializers.Field):
+    default_error_messages = {"invalid": "A finite JSON number is required."}
+
+    def to_internal_value(self, data: object) -> Decimal:
+        if isinstance(data, bool) or not isinstance(data, (Decimal, int, float)):
+            self.fail("invalid")
+
+        try:
+            value = data if isinstance(data, Decimal) else Decimal(str(data))
+        except (DecimalException, ValueError):
+            self.fail("invalid")
+
+        if not value.is_finite():
+            self.fail("invalid")
+        return value
+
+
 class PlategaCallbackSerializer(serializers.Serializer):
     """Normalize the exact authenticated Platega callback payload."""
 
     id = serializers.UUIDField(source="transaction_id")
-    amount = serializers.DecimalField(max_digits=10, decimal_places=2)
+    amount = _FiniteJSONDecimalField()
     currency = serializers.CharField()
     status = serializers.CharField()
     paymentMethod = serializers.IntegerField(source="payment_method")

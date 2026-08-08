@@ -59,14 +59,13 @@ class TestValidatePlategaCallbackService(TestCase):
         )
         provider_get.assert_not_called()
 
-    def test_amount_currency_and_method_mismatches_never_change_state(self) -> None:
+    def test_currency_and_method_mismatches_never_change_state(self) -> None:
         transaction_id = uuid4()
         intent = PlategaPaymentIntentFactory(
             status=PlategaPaymentIntentStatusEnum.ACTIVE,
             provider_transaction_id=transaction_id,
         )
         callbacks = (
-            self._callback(transaction_id=transaction_id, amount=Decimal("99.01")),
             self._callback(transaction_id=transaction_id, currency="USD"),
             self._callback(transaction_id=transaction_id, payment_method=3),
         )
@@ -87,6 +86,67 @@ class TestValidatePlategaCallbackService(TestCase):
                 )
                 self.assertEqual(intent.status, PlategaPaymentIntentStatusEnum.ACTIVE)
 
+    def test_confirmed_amount_at_or_above_saved_is_valid_without_rounding(
+        self,
+    ) -> None:
+        accepted_amounts = (
+            Decimal("99"),
+            Decimal("99.0036"),
+            Decimal("999999999999999999999999.12345678901234567890123456789"),
+        )
+        for amount in accepted_amounts:
+            with self.subTest(amount=amount):
+                transaction_id = uuid4()
+                intent = PlategaPaymentIntentFactory(
+                    status=PlategaPaymentIntentStatusEnum.ACTIVE,
+                    provider_transaction_id=transaction_id,
+                    rub_amount=Decimal("99.00"),
+                )
+
+                result = self.service(
+                    callback=self._callback(
+                        transaction_id=transaction_id,
+                        amount=amount,
+                    )
+                )
+
+                self.assertIsNotNone(result.payment)
+                self.assertEqual(
+                    result.payment.asdict(),  # type: ignore[union-attr]
+                    {
+                        "intent_id": intent.pk,
+                        "transaction_id": transaction_id,
+                    },
+                )
+                self.assertEqual(result.reason_code, "confirmed")
+                self.assertIsNone(result.warning)
+
+    def test_precise_underpayment_is_mismatch_without_rounding(self) -> None:
+        transaction_id = uuid4()
+        intent = PlategaPaymentIntentFactory(
+            status=PlategaPaymentIntentStatusEnum.ACTIVE,
+            provider_transaction_id=transaction_id,
+            rub_amount=Decimal("99.00"),
+        )
+
+        result = self.service(
+            callback=self._callback(
+                transaction_id=transaction_id,
+                amount=Decimal("98.999999999999999999"),
+            )
+        )
+
+        self.assertIsNone(result.payment)
+        self.assertEqual(result.reason_code, "callback_mismatch")
+        self.assertEqual(
+            result.warning.asdict(),
+            {
+                "reason_code": "callback_mismatch",
+                "intent_id": intent.pk,
+                "provider_transaction_id": transaction_id,
+            },
+        )
+
     def test_unsupported_status_including_chargeback_is_safe_and_non_mutating(self) -> None:
         for status in ("PENDING", "CHARGEBACKED", "REFUNDED"):
             with self.subTest(status=status):
@@ -99,6 +159,7 @@ class TestValidatePlategaCallbackService(TestCase):
                 result = self.service(
                     callback=self._callback(
                         transaction_id=transaction_id,
+                        amount=Decimal("98.999999999999999999"),
                         status=status,
                     )
                 )

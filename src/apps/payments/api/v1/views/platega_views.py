@@ -1,15 +1,20 @@
 from __future__ import annotations
 
+import codecs
 import logging
 import secrets
 from dataclasses import asdict
+from decimal import Decimal, DecimalException
+from typing import TYPE_CHECKING
 
 from django.conf import settings
 from django.db import DatabaseError
 from rest_framework import status
 from rest_framework.exceptions import ParseError, UnsupportedMediaType
+from rest_framework.parsers import JSONParser
 from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.utils import json
 from rest_framework.views import APIView
 
 from apps.payments.api.v1.serializers import (
@@ -30,8 +35,33 @@ from apps.payments.services import (
 from apps.payments.services.dtos import CreatePlategaInvoiceIn, PlategaCallbackDTO
 from apps.users.permissions import BotAuthToken
 
+if TYPE_CHECKING:
+    from typing import IO
+
 
 logger = logging.getLogger(__name__)
+
+
+class _DecimalJSONParser(JSONParser):
+    def parse(
+        self,
+        stream: IO[bytes],
+        media_type: str | None = None,
+        parser_context: dict[str, object] | None = None,
+    ) -> object:
+        parser_context = parser_context or {}
+        encoding = parser_context.get("encoding") or settings.DEFAULT_CHARSET
+
+        try:
+            decoded_stream = codecs.getreader(str(encoding))(stream)
+            return json.load(
+                decoded_stream,
+                parse_int=Decimal,
+                parse_float=Decimal,
+                parse_constant=json.strict_constant,
+            )
+        except (ValueError, DecimalException) as exc:
+            raise ParseError(f"JSON parse error - {exc}") from exc
 
 
 class CreatePlategaInvoiceView(APIView):
@@ -66,6 +96,7 @@ class PlategaCallbackView(APIView):
 
     authentication_classes = ()
     permission_classes = ()
+    parser_classes = (_DecimalJSONParser,)
     http_method_names = ["post"]
 
     def post(self, request: Request) -> Response:
