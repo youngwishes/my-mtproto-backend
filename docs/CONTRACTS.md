@@ -293,6 +293,41 @@ UUID `transactionId`, `status: "PENDING"`, HTTPS `redirect`, and
 errors expose only `timeout`, `unavailable`, `malformed`, or `create_mismatch`;
 credentials, metadata, bodies and payment URLs are not logged.
 
+### POST /api/v1/payments/platega/callback/
+
+Публичный callback не использует `Bot-Auth-Token`, DRF authentication или
+permissions. До чтения JSON backend извлекает raw headers `X-MerchantId` и
+`X-Secret`, вычисляет обе отдельные `secrets.compare_digest` проверки и только
+затем объединяет результаты. Пустые configured credentials fail-closed.
+Missing/invalid header возвращает пустой `401` без body parsing.
+
+После успешной аутентификации принимается JSON-объект с ровно пятью ключами:
+
+```json
+{
+  "id": "6765c89d-4800-4e07-b45d-d886e696e87c",
+  "amount": "99.00",
+  "currency": "RUB",
+  "status": "CONFIRMED",
+  "paymentMethod": 2
+}
+```
+
+Authenticated malformed JSON, missing/extra/malformed fields, unknown
+transaction, mismatch, unsupported status, normal/repeated `CANCELED` и
+duplicate fulfillment возвращают пустой `200` без небезопасной выдачи.
+`CHARGEBACKED` относится только к unsupported safe acknowledgement и не
+запускает refund/revocation. Точный `CONFIRMED`, после успешной атомарной выдачи
+и резервирования notification enqueue, также возвращает пустой `200`.
+Временная DB/fulfilment/Celery publish ошибка или уже идущий concurrent
+processing возвращает пустой `503`, чтобы тот же callback можно было повторить.
+
+Для authenticated unknown/mismatch/unsupported backend делает один warning с
+ровно тремя полями: `reason_code`, nullable internal `intent_id` и nullable
+`provider_transaction_id`. Callback body/headers, settings/credentials,
+Telegram ID/username, metadata, payload, provider content и payment URL не
+логируются. Endpoint не вызывает provider GET и не имеет polling schedule.
+
 ### POST /api/v1/payments/crypto/webhooks/<secret>/
 
 Публичный endpoint принимает только `invoice_paid`. URL secret должен совпасть

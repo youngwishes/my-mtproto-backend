@@ -116,22 +116,39 @@ component-level rollback. Не удалять и не откатывать ре�
 `CryptoPaymentIntent` строки и не менять продукты. Merge и production deploy
 требуют отдельных явных разрешений.
 
-## Platega SBP configuration
+## Platega SBP rollout и rollback
 
-Before a separately approved release, set only the Django/Celery backend `.env`
-values `PLATEGA_MERCHANT_ID`, `PLATEGA_SECRET`, `PLATEGA_BASE_URL` and positive
-`PLATEGA_REQUEST_TIMEOUT`. The bot `.env` receives none of them. Production
-values, request/response payloads, metadata and payment URLs must not be put in
-Git, logs or command history.
+До отдельно одобренного release задать только в Django/Celery backend `.env`
+четыре значения: `PLATEGA_MERCHANT_ID`, `PLATEGA_SECRET`, HTTPS
+`PLATEGA_BASE_URL` и положительный `PLATEGA_REQUEST_TIMEOUT`. Bot `.env` не
+получает ни одно из них. Production credentials, callback/request/response
+body/headers, Telegram metadata, payload и payment URL нельзя помещать в Git,
+логи или командную историю.
 
-The additive migration creates `platega_sbp` inactive, so rollout does not show
-SBP until an administrator explicitly enables the existing global payment-method
-toggle. The provider boundary creates links only with POST and redirects both
-provider outcomes to `BOT_LINK`; a redirect is never payment proof. Rollback
-first disables the toggle, waits for unfinished intents, disables the provider
-callback, and only then deploys a compatible earlier whole-stack SHA. It keeps
-the additive intent rows and backend environment in place; it never deletes real
-payments or tries to reverse a completed migration.
+В кабинете Platega настроить HTTPS callback ровно на
+`https://<public-host>/api/v1/payments/platega/callback/` с теми же
+`X-MerchantId`/`X-Secret`. Endpoint аутентифицирует оба raw header до body
+parsing; redirects успеха и ошибки ведут в `BOT_LINK`, но не являются
+доказательством платежа. Для SBP нет status GET, polling schedule или ручной
+проверки.
+
+Additive migration создаёт `platega_sbp` выключенным по умолчанию и не меняет
+сохранённое admin-состояние при повторном seed. Сначала развернуть отдельно
+проверенный whole-stack SHA, применить migration, проверить `401` без/с
+неверными headers и безопасный create smoke без оплаты. Только после этого
+администратор вручную включает глобальный toggle. Само наличие настроек,
+migration или этого документа не разрешает commit/merge либо production
+deploy: соответствующие явные gates из раздела «Новый релиз» сохраняются.
+
+Для штатного rollback сначала выключить toggle и проверить отсутствие intent в
+`creating`, `active`, `processing` и `retryable`. Пока хотя бы один такой intent
+есть, откат прежнего SHA заблокирован: не заменять callback ручной выдачей и не
+терять данные. После прохождения gate отключить provider callback и только
+затем, по отдельному разрешению deploy, развернуть совместимый предыдущий
+whole-stack SHA. Additive migration, intent/Payment rows и backend environment
+остаются; реальные платежи не удаляются, migration автоматически не
+откатывается. `CHARGEBACKED` не имеет rollout/recovery процедуры в этой фиче и
+остаётся только unsupported safe acknowledgement.
 
 ## VPN rollout
 

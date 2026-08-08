@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 from rest_framework import serializers
 
 from apps.payments.enums import PaymentKindEnum
@@ -23,3 +25,19 @@ class CreatePlategaInvoiceResponseSerializer(serializers.Serializer):
     )
     expires_at = serializers.DateTimeField()
     reused = serializers.BooleanField()
+
+
+class PlategaCallbackSerializer(serializers.Serializer):
+    """Normalize the exact authenticated Platega callback payload."""
+
+    id = serializers.UUIDField(source="transaction_id")
+    amount = serializers.DecimalField(max_digits=10, decimal_places=2)
+    currency = serializers.CharField()
+    status = serializers.CharField()
+    paymentMethod = serializers.IntegerField(source="payment_method")
+
+    def to_internal_value(self, data: object) -> dict[str, object]:
+        expected_keys = {"id", "amount", "currency", "status", "paymentMethod"}
+        if not isinstance(data, Mapping) or set(data) != expected_keys:
+            raise serializers.ValidationError("Expected exact callback fields.")
+        return super().to_internal_value(data)

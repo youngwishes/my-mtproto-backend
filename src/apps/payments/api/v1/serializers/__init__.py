@@ -15,6 +15,7 @@ from .gift_certificate_serializers import (
 from .platega_serializers import (
     CreatePlategaInvoiceRequestSerializer,
     CreatePlategaInvoiceResponseSerializer,
+    PlategaCallbackSerializer,
 )
 
 __all__ = [
@@ -28,4 +29,5 @@ __all__ = [
     "CryptoWebhookInvoiceSerializer",
     "CryptoWebhookSerializer",
     "GetProductSerializer",
+    "PlategaCallbackSerializer",
 ]

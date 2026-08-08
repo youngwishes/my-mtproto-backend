@@ -2,10 +2,10 @@
 
 ## Зона ответственности
 
-Обработка новых платежей через Telegram Stars и Crypto Pay, а также fulfilment
-ранее созданных не-XTR счетов. Фиксирует факт оплаты, определяет стратегию
-(продлить существующий ключ или выдать новый), создаёт подарочные сертификаты и
-уведомляет пользователя.
+Обработка новых платежей через one-time Platega SBP, Telegram Stars и Crypto
+Pay, а также fulfilment ранее созданных не-XTR счетов. Фиксирует факт оплаты,
+определяет стратегию (продлить существующий ключ или выдать новый), создаёт
+подарочные сертификаты и уведомляет пользователя.
 
 ## Ключевые модели
 
@@ -94,8 +94,36 @@ invoice, successful-payment routing и fulfilment действующих Stars/C
   intent с пустым marker повторяется только публикация. Ошибка publisher-а
   очищает лишь захваченный marker и возвращает безопасную retryable ошибку;
   непустой marker исключает вторую постановку.
+- **notify_platega_purchase_task** — bound Celery-задача с максимум тремя
+  retry. Selector допускает только `fulfilled` intent с непустым
+  `notification_queued_at` и пустым `notification_sent_at`, заранее загружая
+  initiator, Payment и связи сохранённого результата. MTProto получает текущую
+  дату окончания ключа через `proxy_purchased`, VPN — дату и постоянный
+  subscription URL через `crypto_vpn_purchased`, подарок — сохранённый code
+  через `crypto_gift_certificate_purchased`. Sent marker ставится условно
+  только после успешного Telegram transport; ошибка сохраняет unsent и
+  повторяется с безопасным exception context. Все slugs уже существуют,
+  поэтому notifications migration не добавляется.
 - **ReconcileCryptoPaymentsService** — каждые 10 минут повторно сверяет
   незавершённые покупки и восстанавливает доставку результата.
+
+## Platega callback boundary
+
+Публичный `POST /api/v1/payments/platega/callback/` имеет пустые DRF
+authentication/permission lists. До request data/body parsing он выполняет обе
+отдельные constant-time проверки raw `X-MerchantId` и `X-Secret`; пустые
+configured credentials и missing/invalid headers дают `401`. Только
+authenticated exact-key payload преобразуется в `PlategaCallbackDTO` и
+передаётся validator/apply factories.
+
+Malformed, unknown, mismatch, unsupported (включая `CHARGEBACKED`), canceled и
+duplicate исходы дают empty `200`; successful fulfilled+queued также даёт
+`200`. DB/fulfilment/publish failure и concurrent processing дают empty `503`.
+Mandatory warning для unknown/mismatch/unsupported содержит ровно
+`reason_code`, nullable internal intent ID и nullable provider transaction ID;
+ни request, body/headers, settings/credentials, user, provider content, metadata,
+payload или payment URL не логируются. Callback использует только сохранённые
+данные и никогда не вызывает provider GET/status polling.
 
 ## Зависимости
 

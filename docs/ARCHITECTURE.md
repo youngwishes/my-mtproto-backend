@@ -115,6 +115,26 @@ HTTPS redirect и `expiresIn=00:15:00`. Необязательные provider ec
 `create_mismatch`; request/response body, URL, metadata и credentials не
 логируются. HTTP GET, polling и bot credentials для Platega отсутствуют.
 
+Публичный `POST /api/v1/payments/platega/callback/` не использует Bot auth.
+До чтения body/request data Django извлекает raw `X-MerchantId` и `X-Secret` и
+всегда вычисляет две отдельные constant-time проверки; пустая backend
+конфигурация fail-closed. Только после этого exact-key serializer принимает
+`id`, `amount`, `currency`, `status`, `paymentMethod`, а validation service
+сопоставляет normalized DTO с сохранённым intent. Callback не вызывает
+Platega client и не делает status GET.
+
+Совпавший `CONFIRMED` проходит через атомарный fulfilment существующей MTProto,
+VPN или gift границы. После commit отдельная bound Celery-задача читает только
+сохранённый результат, повторяет Telegram delivery не более трёх раз и
+условно ставит `notification_sent_at`. Она переиспользует шаблоны
+`proxy_purchased`, `crypto_vpn_purchased` и
+`crypto_gift_certificate_purchased`; новой notifications migration нет.
+Unknown/mismatch/unsupported callback логирует только allowlist
+`reason_code`, nullable internal intent ID и nullable provider transaction ID.
+Credentials, headers/body, Telegram identity, metadata, payload, provider
+content и payment URL не передаются logger-у. `CHARGEBACKED` остаётся только
+unsupported safe acknowledgement без доменного перехода.
+
 ## Доступность способов оплаты
 
 `PaymentMethod` в `apps.payments` хранит единственный глобальный флаг

@@ -7,6 +7,7 @@ from apps.payments.api.v1.views import (
     CreateCryptoInvoiceView,
     CryptoPayWebhookView,
     CreatePaymentView,
+    PlategaCallbackView,
     CreatePlategaInvoiceView,
     CreateGiftCertificateView,
     ProductAPIView,
@@ -25,6 +26,11 @@ urlpatterns = [
         "platega/invoices/",
         CreatePlategaInvoiceView.as_view(),
         name="platega-invoice-create",
+    ),
+    path(
+        "platega/callback/",
+        PlategaCallbackView.as_view(),
+        name="platega-callback",
     ),
     path(
         "crypto/webhooks/<str:webhook_secret>/",

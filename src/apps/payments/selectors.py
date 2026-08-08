@@ -549,6 +549,36 @@ def get_platega_intent_by_id(*, intent_id: int) -> PlategaPaymentIntent | None:
     )
 
 
+def get_platega_intent_for_notification(
+    *, intent_id: int
+) -> PlategaPaymentIntent | None:
+    return (
+        PlategaPaymentIntent.objects.select_related(
+            "initiator",
+            "payment",
+            "payment__key",
+            "payment__gift_certificate",
+            "payment__user__vpn_subscription",
+        )
+        .filter(
+            pk=intent_id,
+            payment__isnull=False,
+            status=PlategaPaymentIntentStatusEnum.FULFILLED,
+            notification_queued_at__isnull=False,
+            notification_sent_at__isnull=True,
+        )
+        .first()
+    )
+
+
+def mark_platega_notification_sent(*, intent_id: int, sent_at: datetime) -> int:
+    return PlategaPaymentIntent.objects.filter(
+        pk=intent_id,
+        status=PlategaPaymentIntentStatusEnum.FULFILLED,
+        notification_sent_at__isnull=True,
+    ).update(notification_sent_at=sent_at, updated_at=sent_at)
+
+
 def claim_platega_intent_for_fulfillment(
     *, intent_id: int, attempted_at: datetime
 ) -> int:

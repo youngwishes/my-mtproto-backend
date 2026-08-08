@@ -1,6 +1,13 @@
 from __future__ import annotations
 
+import logging
+import secrets
+from dataclasses import asdict
+
+from django.conf import settings
+from django.db import DatabaseError
 from rest_framework import status
+from rest_framework.exceptions import ParseError, UnsupportedMediaType
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -8,14 +15,23 @@ from rest_framework.views import APIView
 from apps.payments.api.v1.serializers import (
     CreatePlategaInvoiceRequestSerializer,
     CreatePlategaInvoiceResponseSerializer,
+    PlategaCallbackSerializer,
 )
 from apps.payments.exceptions import (
     PlategaInvoiceCreationInProgress,
     PlategaInvoiceUnavailable,
+    PlategaPaymentRetryable,
 )
-from apps.payments.services import get_create_or_reuse_platega_invoice_service
-from apps.payments.services.dtos import CreatePlategaInvoiceIn
+from apps.payments.services import (
+    get_apply_platega_payment_service,
+    get_create_or_reuse_platega_invoice_service,
+    get_validate_platega_callback_service,
+)
+from apps.payments.services.dtos import CreatePlategaInvoiceIn, PlategaCallbackDTO
 from apps.users.permissions import BotAuthToken
+
+
+logger = logging.getLogger(__name__)
 
 
 class CreatePlategaInvoiceView(APIView):
@@ -43,6 +59,62 @@ class CreatePlategaInvoiceView(APIView):
             )
         outgoing = CreatePlategaInvoiceResponseSerializer(instance=result)
         return Response(outgoing.data, status=status.HTTP_200_OK)
+
+
+class PlategaCallbackView(APIView):
+    """Authenticate Platega headers before parsing and applying a callback."""
+
+    authentication_classes = ()
+    permission_classes = ()
+    http_method_names = ["post"]
+
+    def post(self, request: Request) -> Response:
+        configured_merchant = getattr(settings, "PLATEGA_MERCHANT_ID", "")
+        configured_secret = getattr(settings, "PLATEGA_SECRET", "")
+        supplied_merchant = request.META.get("HTTP_X_MERCHANTID", "")
+        supplied_secret = request.META.get("HTTP_X_SECRET", "")
+
+        merchant_matches = secrets.compare_digest(
+            supplied_merchant,
+            configured_merchant,
+        )
+        secret_matches = secrets.compare_digest(
+            supplied_secret,
+            configured_secret,
+        )
+        credentials_configured = bool(
+            configured_merchant.strip() and configured_secret.strip()
+        )
+        if not credentials_configured or not (
+            merchant_matches and secret_matches
+        ):
+            return Response(status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            callback_data = request.data
+        except (ParseError, UnsupportedMediaType):
+            return Response(status=status.HTTP_200_OK)
+        incoming = PlategaCallbackSerializer(data=callback_data)
+        if not incoming.is_valid():
+            return Response(status=status.HTTP_200_OK)
+
+        try:
+            validated = get_validate_platega_callback_service()(
+                callback=PlategaCallbackDTO(**incoming.validated_data),
+            )
+        except DatabaseError:
+            return Response(status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        if validated.warning is not None:
+            logger.warning(asdict(validated.warning))
+        if validated.payment is None:
+            return Response(status=status.HTTP_200_OK)
+
+        try:
+            get_apply_platega_payment_service()(payment=validated.payment)
+        except (PlategaPaymentRetryable, DatabaseError):
+            return Response(status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        return Response(status=status.HTTP_200_OK)
 
 
 def _safe_error_response(

@@ -7,7 +7,7 @@ from .gift_certificate_views import (
     ActivateGiftCertificateView,
     CreateGiftCertificateView,
 )
-from .platega_views import CreatePlategaInvoiceView
+from .platega_views import CreatePlategaInvoiceView, PlategaCallbackView
 
 __all__ = [
     "ActivateGiftCertificateView",
@@ -16,5 +16,6 @@ __all__ = [
     "CreatePaymentView",
     "CreatePlategaInvoiceView",
     "CryptoPayWebhookView",
+    "PlategaCallbackView",
     "ProductAPIView",
 ]
