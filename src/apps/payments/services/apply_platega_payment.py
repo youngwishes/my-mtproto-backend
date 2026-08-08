@@ -62,6 +62,16 @@ def _mark_retryable(*, intent_id: int) -> None:
             time.sleep(0.05)
 
 
+def _clear_notification_marker(*, intent_id: int, queued_at: datetime) -> None:
+    try:
+        clear_platega_notification_enqueue(
+            intent_id=intent_id,
+            queued_at=queued_at,
+        )
+    except OperationalError:
+        return
+
+
 @final
 @dataclass(kw_only=True, slots=True, frozen=True)
 class ApplyPlategaPaymentService:
@@ -97,6 +107,7 @@ class ApplyPlategaPaymentService:
 
         claimed = False
         retryable_failure = False
+        claimed_notification_at: datetime | None = None
         try:
             with transaction.atomic():
                 claimed_rows = claim_platega_intent_for_fulfillment(
@@ -202,6 +213,7 @@ class ApplyPlategaPaymentService:
                         "0",
                         reason_code="fulfillment_retryable",
                     )
+                claimed_notification_at = queued_at
                 self._enqueue_on_commit(
                     intent_id=intent.pk,
                     queued_at=queued_at,
@@ -223,6 +235,11 @@ class ApplyPlategaPaymentService:
             retryable_failure = True
 
         if retryable_failure:
+            if claimed_notification_at is not None:
+                _clear_notification_marker(
+                    intent_id=intent.pk,
+                    queued_at=claimed_notification_at,
+                )
             raise PlategaPaymentRetryable(
                 "0",
                 reason_code="fulfillment_retryable",

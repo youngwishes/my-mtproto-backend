@@ -7,7 +7,7 @@ from uuid import UUID, uuid4
 
 from django.conf import settings
 from django.db import OperationalError
-from django.test import SimpleTestCase, TestCase
+from django.test import SimpleTestCase, TestCase, TransactionTestCase
 from django.utils import timezone
 
 from apps.payments.enums import (
@@ -557,3 +557,63 @@ class TestApplyPlategaPaymentService(ApplyPlategaPaymentServiceMixin, TestCase):
 
         intent.refresh_from_db()
         self.assertEqual(intent.notification_queued_at, other_marker)
+
+
+class TestApplyPlategaPaymentCommitFailure(
+    ApplyPlategaPaymentServiceMixin,
+    TransactionTestCase,
+):
+    def test_earlier_commit_hook_failure_clears_marker_for_duplicate_retry(
+        self,
+    ) -> None:
+        transaction_id = uuid4()
+        intent = PlategaPaymentIntentFactory(
+            status=PlategaPaymentIntentStatusEnum.ACTIVE,
+            provider_transaction_id=transaction_id,
+        )
+        validated = self.validated(
+            intent_id=intent.pk,
+            transaction_id=transaction_id,
+        )
+        enqueue = mock.Mock()
+        service = self.build_service(enqueue_notification=enqueue)
+        publish_error = "sensitive issue-key publish detail"
+
+        with mock.patch(
+            "apps.vds.services.issue_key_service.push_key_to_servers_task"
+        ) as push_task:
+            push_task.delay.side_effect = RuntimeError(publish_error)
+
+            with self.assertRaises(PlategaPaymentRetryable) as raised:
+                service(payment=validated)
+
+            intent.refresh_from_db()
+            self.assertEqual(
+                raised.exception.context,
+                {"reason_code": "fulfillment_retryable"},
+            )
+            self.assertIsNone(raised.exception.__cause__)
+            self.assertIsNone(raised.exception.__context__)
+            self.assertNotIn(publish_error, repr(raised.exception))
+            self.assertNotIn(publish_error, str(raised.exception))
+            self.assertNotIn(publish_error, repr(raised.exception.to_dict()))
+            self.assertEqual(
+                intent.status,
+                PlategaPaymentIntentStatusEnum.FULFILLED,
+            )
+            self.assertIsNotNone(intent.payment_id)
+            self.assertIsNone(intent.notification_queued_at)
+            self.assertEqual(Payment.objects.count(), 1)
+            self.assertEqual(MTPRotoKey.objects.count(), 1)
+            enqueue.assert_not_called()
+
+            push_task.delay.side_effect = None
+            result = service(payment=validated)
+
+        intent.refresh_from_db()
+        self.assertFalse(result.fulfilled)
+        self.assertTrue(result.already_fulfilled)
+        self.assertEqual(intent.notification_queued_at, self.now)
+        enqueue.assert_called_once_with(intent_id=intent.pk)
+        self.assertEqual(Payment.objects.count(), 1)
+        self.assertEqual(MTPRotoKey.objects.count(), 1)

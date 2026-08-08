@@ -68,7 +68,7 @@ class TestApplyPlategaPaymentConcurrency(TransactionTestCase):
             return "fulfilled" if result.fulfilled else "duplicate"
 
         with mock.patch(
-            "apps.vds.services.issue_key_service.push_key_to_servers_task.delay"
+            "apps.vds.services.issue_key_service.push_key_to_servers_task"
         ), ThreadPoolExecutor(max_workers=2) as pool:
             outcomes = list(pool.map(lambda _: apply(), range(2)))
 
