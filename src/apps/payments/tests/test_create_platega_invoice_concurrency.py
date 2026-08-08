@@ -34,6 +34,7 @@ class TestCreatePlategaInvoiceConcurrency(TransactionTestCase):
         self.service = CreateOrReusePlategaInvoiceService(
             platega_client=self.client,
             clock=lambda: self.now,
+            commission_percent_selector=Mock(return_value=Decimal("0.00")),
         )
         self.request = CreatePlategaInvoiceIn(
             username=self.user.username,

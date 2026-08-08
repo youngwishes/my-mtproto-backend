@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+from decimal import Decimal
 from uuid import uuid4
 
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 from apps.core import ActiveQuerySet, BaseDjangoModel
@@ -75,6 +77,27 @@ class PaymentMethod(BaseDjangoModel):
         unique=True,
         choices=PaymentMethodCodeEnum.choices(),
     )
+    commission_percent = models.DecimalField(
+        "комиссия, %",
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        validators=(
+            MinValueValidator(Decimal("0.00")),
+            MaxValueValidator(Decimal("999.99")),
+        ),
+    )
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(
+                    commission_percent__gte=Decimal("0.00"),
+                    commission_percent__lte=Decimal("999.99"),
+                ),
+                name="payment_method_commission_percent_range",
+            ),
+        ]
 
 
 class Payment(BaseDjangoModel):

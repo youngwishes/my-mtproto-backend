@@ -89,7 +89,12 @@ class TestCreatePlategaInvoiceView(APITestCase):
     @override_settings(PLATEGA_SECRET="provider-secret")
     @patch(_SERVICE_FACTORY)
     def test_provider_or_storage_error_returns_safe_503(self, get_service: Mock) -> None:
-        for reason_code in ("timeout", "database_error", "database_locked"):
+        for reason_code in (
+            "timeout",
+            "database_error",
+            "database_locked",
+            "payment_method_unavailable",
+        ):
             with self.subTest(reason_code=reason_code):
                 get_service.return_value.side_effect = PlategaInvoiceUnavailable(
                     "1487189460",

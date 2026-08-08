@@ -1,12 +1,19 @@
 from __future__ import annotations
 
+from decimal import Decimal
+
 from django.test import TestCase
 
-from apps.payments.enums import PaymentProviderEnum, ProductCodeEnum
+from apps.payments.enums import (
+    PaymentMethodCodeEnum,
+    PaymentProviderEnum,
+    ProductCodeEnum,
+)
 from apps.payments.models import PaymentMethod, Product
 from apps.payments.selectors import (
     get_active_payment_method_codes,
     get_active_product_by_code,
+    get_payment_method_commission_percent,
 )
 from apps.payments.tests.factories import ProductFactory
 
@@ -61,4 +68,36 @@ class TestActivePaymentMethodCodes(TestCase):
 
         self.assertEqual(
             get_active_payment_method_codes(), ("stars", "crypto_pay")
+        )
+
+
+class TestPaymentMethodCommissionPercentSelector(TestCase):
+    def setUp(self) -> None:
+        PaymentMethod.objects.all().delete()
+
+    def test_reads_current_commission_regardless_of_active_toggle(self) -> None:
+        for is_active, commission_percent in (
+            (True, Decimal("8.00")),
+            (False, Decimal("12.34")),
+        ):
+            with self.subTest(is_active=is_active):
+                PaymentMethod.objects.all().delete()
+                PaymentMethod.objects.create(
+                    code=PaymentMethodCodeEnum.PLATEGA_SBP,
+                    is_active=is_active,
+                    commission_percent=commission_percent,
+                )
+
+                self.assertEqual(
+                    get_payment_method_commission_percent(
+                        code=PaymentMethodCodeEnum.PLATEGA_SBP
+                    ),
+                    commission_percent,
+                )
+
+    def test_returns_none_when_method_is_absent(self) -> None:
+        self.assertIsNone(
+            get_payment_method_commission_percent(
+                code=PaymentMethodCodeEnum.PLATEGA_SBP
+            )
         )

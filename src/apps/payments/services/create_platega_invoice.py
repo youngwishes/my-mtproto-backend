@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from time import sleep
 from typing import TYPE_CHECKING, Callable, TypeVar, final
 from uuid import uuid4
@@ -12,7 +12,12 @@ from django.db import OperationalError
 from django.utils import timezone
 
 from apps.payments.clients import get_platega_client
-from apps.payments.enums import PaymentKindEnum, PlategaPaymentIntentStatusEnum, ProductCodeEnum
+from apps.payments.enums import (
+    PaymentKindEnum,
+    PaymentMethodCodeEnum,
+    PlategaPaymentIntentStatusEnum,
+    ProductCodeEnum,
+)
 from apps.payments.exceptions import (
     BadPaymentData,
     PlategaClientError,
@@ -27,6 +32,7 @@ from apps.payments.selectors import (
     fail_stale_creating_platega_intent,
     get_active_product_by_code,
     get_blocking_platega_intent,
+    get_payment_method_commission_percent,
     get_reusable_platega_intent,
     reserve_platega_intent_or_read_winner,
 )
@@ -90,6 +96,7 @@ class CreateOrReusePlategaInvoiceService:
 
     platega_client: PlategaClient
     clock: Callable[[], datetime]
+    commission_percent_selector: Callable[..., Decimal | None]
 
     def __call__(self, *, request: CreatePlategaInvoiceIn) -> CreatePlategaInvoiceOut:
         now = self.clock()
@@ -134,12 +141,24 @@ class CreateOrReusePlategaInvoiceService:
                 raise BadPaymentData(request.username, reason_code="invalid_currency")
             if kopecks <= 0 or kopecks != kopecks.to_integral_value():
                 raise BadPaymentData(request.username, reason_code="invalid_price")
-            amount = (kopecks / Decimal("100")).quantize(Decimal("0.01"))
+            user_amount = (kopecks / Decimal("100")).quantize(Decimal("0.01"))
+            commission_percent = self.commission_percent_selector(
+                code=PaymentMethodCodeEnum.PLATEGA_SBP
+            )
+            if commission_percent is None:
+                raise PlategaInvoiceUnavailable(
+                    request.username,
+                    reason_code="payment_method_unavailable",
+                )
+            provider_amount = (
+                user_amount
+                / (Decimal("1") + commission_percent / Decimal("100"))
+            ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
             intent, created = reserve_platega_intent_or_read_winner(
                 initiator_id=user.pk,
                 purchase_kind=request.purchase_kind,
                 product_code=product_code,
-                rub_amount=amount,
+                rub_amount=user_amount,
                 public_id=uuid4(),
             )
         except PlategaInvoiceCreationInProgress:
@@ -166,7 +185,7 @@ class CreateOrReusePlategaInvoiceService:
 
         try:
             provider_transaction = self.platega_client.create_transaction(
-                amount=amount,
+                amount=provider_amount,
                 description=product.title,
                 return_url=settings.BOT_LINK,
                 public_id=intent.public_id,
@@ -210,4 +229,5 @@ def get_create_or_reuse_platega_invoice_service() -> CreateOrReusePlategaInvoice
     return CreateOrReusePlategaInvoiceService(
         platega_client=get_platega_client(),
         clock=timezone.now,
+        commission_percent_selector=get_payment_method_commission_percent,
     )

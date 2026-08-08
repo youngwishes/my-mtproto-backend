@@ -8,14 +8,18 @@ from apps.payments.models import PaymentMethod
 
 
 class TestPaymentMethodAdmin(TestCase):
-    def test_payment_method_admin_exposes_only_active_toggle(self) -> None:
+    def test_payment_method_admin_exposes_commission_and_active_toggle(self) -> None:
         model_admin = PaymentMethodAdmin(PaymentMethod, admin.site)
         request = RequestFactory().get("/admin/payments/paymentmethod/")
 
         self.assertEqual(
-            model_admin.list_display, ("code", "is_active", "updated_at")
+            model_admin.list_display,
+            ("code", "commission_percent", "is_active", "updated_at"),
         )
-        self.assertEqual(model_admin.list_editable, ("is_active",))
+        self.assertEqual(
+            model_admin.list_editable,
+            ("commission_percent", "is_active"),
+        )
         self.assertEqual(
             model_admin.readonly_fields,
             ("code", "created_at", "updated_at"),
