@@ -1,10 +1,26 @@
-## Summary
+## Review Brief
 
-<!-- What changed and why? -->
+<!-- Keep this brief. It is the final reviewer's source of task context. -->
 
-## Requirements
+### Goal
 
-<!-- List related BR/AC identifiers, or state that this is technical maintenance. -->
+<!-- What outcome is this change intended to achieve? -->
+
+### Observable behavior
+
+<!-- What can a user or operator observe after this change? -->
+
+### Non-goals
+
+<!-- What deliberately remains unchanged? -->
+
+### Acceptance criteria
+
+<!-- List concise BR/AC identifiers or verifiable outcomes. -->
+
+## Implementation summary
+
+<!-- Summarize the implementation without copying the diff or working plan. -->
 
 ## Verification
 
@@ -24,4 +40,5 @@
 - [ ] Full `make test` passes
 - [ ] Production Compose configuration is valid
 - [ ] Documentation is updated or confirmed unnecessary
+- [ ] Temporary agent artifacts are absent from the diff
 - [ ] Diff contains no secrets or unrelated changes

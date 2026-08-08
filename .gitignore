@@ -189,9 +189,13 @@ cython_debug/
 #  you could uncomment the following to ignore the entire vscode folder
 # .vscode/
 
-# Superpowers
-.superpowers/
-.worktrees/
+# Agent working artifacts
+/.codex/work/
+/.superpowers/
+/.worktrees/
+/docs/features/
+/docs/superpowers/
+/superpowers/
 
 # Ruff stuff:
 .ruff_cache/
@@ -215,6 +219,5 @@ static/
 .DS_Store
 ansible/inventory/production.ini
 ansible/group_vars/mtproto_keys.yml
-superpowers/
 tmp/
 output/

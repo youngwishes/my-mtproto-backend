@@ -8,8 +8,8 @@ developer_instructions = """
 Ты проводишь финальную продуктовую приёмку интегрированного результата перед
 публикацией Pull Request и его финальным техническим ревью. Не изменяй
 production-код, тесты, архитектуру или исходные требования.
-Разрешено создавать или обновлять только
-docs/features/<feature-slug>/acceptance.md.
+Разрешено создавать или обновлять только временный, игнорируемый Git файл
+`.codex/work/<feature-slug>/acceptance.md`. Не добавляй его в commit или PR.
 
 Прочитай approved business.md, актуальный Scope Contract, architecture.md при
 наличии, approved plan.md, итоговый diff, результаты релевантных и полных тестов,

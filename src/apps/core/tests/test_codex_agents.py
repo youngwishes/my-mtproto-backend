@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 import tomllib
 from pathlib import Path
 
@@ -105,6 +106,49 @@ class TestCodexAgents(SimpleTestCase):
         self.assertIn("gh pr review --comment", instructions)
         self.assertIn("оставляет PR открытым", instructions)
 
+    def test_agent_working_artifacts_are_ignored_and_untracked(self) -> None:
+        ignored_examples = (
+            ".codex/work/example-feature/business.md",
+            "docs/features/legacy-feature/plan.md",
+            "docs/superpowers/specs/legacy-design.md",
+            "superpowers/specs/legacy-design.md",
+        )
+
+        for relative_path in ignored_examples:
+            with self.subTest(relative_path=relative_path):
+                result = subprocess.run(
+                    ("git", "check-ignore", "--quiet", "--no-index", relative_path),
+                    cwd=self.repo_root,
+                    check=False,
+                )
+                self.assertEqual(result.returncode, 0)
+
+        tracked = subprocess.run(
+            (
+                "git",
+                "ls-files",
+                "--",
+                "docs/features",
+                "docs/superpowers",
+                "superpowers",
+            ),
+            cwd=self.repo_root,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(tracked.stdout, "")
+
+    def test_final_reviewer_uses_pr_review_brief_not_working_artifacts(self) -> None:
+        path = self.agents_dir / "code-reviewer.toml"
+        instructions = tomllib.loads(path.read_text(encoding="utf-8"))[
+            "developer_instructions"
+        ]
+
+        self.assertIn("Review Brief", instructions)
+        self.assertIn(".codex/work/", instructions)
+        self.assertIn("не читай", instructions)
+
     def test_delivery_workflow_publishes_a_reviewed_pull_request(self) -> None:
         workflow = (self.repo_root / "docs" / "DEVELOPMENT_WORKFLOW.md").read_text(
             encoding="utf-8"
@@ -118,6 +162,21 @@ class TestCodexAgents(SimpleTestCase):
         self.assertIn("--match-head-commit", workflow)
         self.assertIn("оставляет PR открытым", workflow)
         self.assertNotIn("git push origin main", workflow)
+
+    def test_pull_request_template_contains_compact_review_brief(self) -> None:
+        template = (
+            self.repo_root / ".github" / "pull_request_template.md"
+        ).read_text(encoding="utf-8")
+
+        for heading in (
+            "## Review Brief",
+            "### Goal",
+            "### Observable behavior",
+            "### Non-goals",
+            "### Acceptance criteria",
+        ):
+            with self.subTest(heading=heading):
+                self.assertIn(heading, template)
 
     def test_github_runs_tests_for_pull_requests_to_main(self) -> None:
         workflow = (self.repo_root / ".github" / "workflows" / "tests.yml").read_text(
