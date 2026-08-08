@@ -78,23 +78,25 @@ class ApplyPlategaPaymentService:
         *,
         payment: ValidatedPlategaPaymentDTO,
     ) -> ApplyPlategaPaymentOut:
+        initial_storage_failed = False
         try:
             intent = get_platega_intent_by_id(intent_id=payment.intent_id)
-            if (
-                intent is None
-                or intent.provider_transaction_id != payment.transaction_id
-            ):
-                raise PlategaPaymentRetryable(
-                    "0",
-                    reason_code="fulfillment_retryable",
-                )
         except OperationalError:
+            intent = None
+            initial_storage_failed = True
+
+        if (
+            initial_storage_failed
+            or intent is None
+            or intent.provider_transaction_id != payment.transaction_id
+        ):
             raise PlategaPaymentRetryable(
                 "0",
                 reason_code="fulfillment_retryable",
-            ) from None
+            )
 
         claimed = False
+        retryable_failure = False
         try:
             with transaction.atomic():
                 claimed_rows = claim_platega_intent_for_fulfillment(
@@ -213,20 +215,23 @@ class ApplyPlategaPaymentService:
                 _mark_retryable(intent_id=intent.pk)
             if exc.context.get("reason_code") == "processing":
                 raise
-            raise PlategaPaymentRetryable(
-                "0",
-                reason_code="fulfillment_retryable",
-            ) from None
+            retryable_failure = True
         except Exception:
             if claimed:
                 _mark_retryable(intent_id=intent.pk)
+
+            retryable_failure = True
+
+        if retryable_failure:
             raise PlategaPaymentRetryable(
                 "0",
                 reason_code="fulfillment_retryable",
-            ) from None
+            )
+        raise AssertionError("unreachable")
 
     def _enqueue_on_commit(self, *, intent_id: int, queued_at: datetime) -> None:
         def publish() -> None:
+            publish_failed = False
             try:
                 self.enqueue_notification(intent_id=intent_id)
             except Exception:
@@ -234,10 +239,13 @@ class ApplyPlategaPaymentService:
                     intent_id=intent_id,
                     queued_at=queued_at,
                 )
+                publish_failed = True
+
+            if publish_failed:
                 raise PlategaPaymentRetryable(
                     "0",
                     reason_code="fulfillment_retryable",
-                ) from None
+                )
 
         transaction.on_commit(publish)
 

@@ -83,6 +83,22 @@ class TestApplyPlategaPaymentService(ApplyPlategaPaymentServiceMixin, TestCase):
     def setUp(self) -> None:
         self.service = self.build_service()
 
+    def assert_safe_retryable(
+        self,
+        *,
+        error: PlategaPaymentRetryable,
+        raw_text: str,
+    ) -> None:
+        self.assertEqual(
+            error.context,
+            {"reason_code": "fulfillment_retryable"},
+        )
+        self.assertIsNone(error.__cause__)
+        self.assertIsNone(error.__context__)
+        self.assertNotIn(raw_text, repr(error))
+        self.assertNotIn(raw_text, str(error))
+        self.assertNotIn(raw_text, repr(error.to_dict()))
+
     @mock.patch("apps.vds.services.issue_key_service.push_key_to_servers_task.delay")
     def test_each_kind_uses_existing_fulfillment_once_with_platega_identity(
         self,
@@ -244,23 +260,18 @@ class TestApplyPlategaPaymentService(ApplyPlategaPaymentServiceMixin, TestCase):
         push_key.assert_not_called()
 
     def test_database_failure_is_normalized_and_marks_intent_retryable(self) -> None:
+        storage_error = "sensitive identity storage detail"
         transaction_id = uuid4()
         intent = PlategaPaymentIntentFactory(
             status=PlategaPaymentIntentStatusEnum.ACTIVE,
             provider_transaction_id=transaction_id,
         )
-        service = ApplyPlategaPaymentService(
-            create_payment_service=mock.Mock(
-                side_effect=OperationalError("sensitive database detail"),
-            ),
-            fulfill_vpn_purchase_service=self.service.fulfill_vpn_purchase_service,
-            create_gift_certificate_service=self.service.create_gift_certificate_service,
-            enqueue_notification=self.enqueue_notification,
-            clock=lambda: self.now,
-        )
 
-        with self.assertRaises(PlategaPaymentRetryable) as raised:
-            service(
+        with mock.patch(
+            "apps.payments.services.apply_platega_payment.get_payment_by_identity",
+            side_effect=OperationalError(storage_error),
+        ), self.assertRaises(PlategaPaymentRetryable) as raised:
+            self.service(
                 payment=self.validated(
                     intent_id=intent.pk,
                     transaction_id=transaction_id,
@@ -268,9 +279,9 @@ class TestApplyPlategaPaymentService(ApplyPlategaPaymentServiceMixin, TestCase):
             )
 
         intent.refresh_from_db()
-        self.assertEqual(
-            raised.exception.context,
-            {"reason_code": "fulfillment_retryable"},
+        self.assert_safe_retryable(
+            error=raised.exception,
+            raw_text=storage_error,
         )
         self.assertEqual(intent.status, PlategaPaymentIntentStatusEnum.RETRYABLE)
         self.assertEqual(intent.last_error_code, "fulfillment_retryable")
@@ -353,6 +364,9 @@ class TestApplyPlategaPaymentService(ApplyPlategaPaymentServiceMixin, TestCase):
             {"reason_code": "fulfillment_retryable"},
         )
         self.assertIsNone(raised.exception.__cause__)
+        self.assertIsNone(raised.exception.__context__)
+        self.assertNotIn(storage_error, repr(raised.exception))
+        self.assertNotIn(storage_error, str(raised.exception))
         self.assertNotIn(storage_error, repr(raised.exception.to_dict()))
 
     @mock.patch("apps.vds.services.issue_key_service.push_key_to_servers_task.delay")
@@ -467,7 +481,8 @@ class TestApplyPlategaPaymentService(ApplyPlategaPaymentServiceMixin, TestCase):
             status=PlategaPaymentIntentStatusEnum.ACTIVE,
             provider_transaction_id=transaction_id,
         )
-        failing_enqueue = mock.Mock(side_effect=RuntimeError("provider detail"))
+        publish_error = "sensitive publish detail"
+        failing_enqueue = mock.Mock(side_effect=RuntimeError(publish_error))
         service = self.build_service(enqueue_notification=failing_enqueue)
         validated = self.validated(
             intent_id=intent.pk,
@@ -479,9 +494,9 @@ class TestApplyPlategaPaymentService(ApplyPlategaPaymentServiceMixin, TestCase):
                 service(payment=validated)
 
         intent.refresh_from_db()
-        self.assertEqual(
-            raised.exception.context,
-            {"reason_code": "fulfillment_retryable"},
+        self.assert_safe_retryable(
+            error=raised.exception,
+            raw_text=publish_error,
         )
         self.assertEqual(intent.status, PlategaPaymentIntentStatusEnum.FULFILLED)
         self.assertIsNotNone(intent.payment_id)
