@@ -78,11 +78,21 @@ class ApplyPlategaPaymentService:
         *,
         payment: ValidatedPlategaPaymentDTO,
     ) -> ApplyPlategaPaymentOut:
-        intent = get_platega_intent_by_id(intent_id=payment.intent_id)
-        if intent is None:
-            raise PlategaPaymentRetryable("0", reason_code="fulfillment_retryable")
-        if intent.provider_transaction_id != payment.transaction_id:
-            raise PlategaPaymentRetryable("0", reason_code="fulfillment_retryable")
+        try:
+            intent = get_platega_intent_by_id(intent_id=payment.intent_id)
+            if (
+                intent is None
+                or intent.provider_transaction_id != payment.transaction_id
+            ):
+                raise PlategaPaymentRetryable(
+                    "0",
+                    reason_code="fulfillment_retryable",
+                )
+        except OperationalError:
+            raise PlategaPaymentRetryable(
+                "0",
+                reason_code="fulfillment_retryable",
+            ) from None
 
         claimed = False
         try:
@@ -128,6 +138,7 @@ class ApplyPlategaPaymentService:
                             provider=PaymentProviderEnum.PLATEGA,
                         ),
                         send_success_notification=False,
+                        notify_on_error=False,
                     )
                 elif intent.purchase_kind == PaymentKindEnum.VPN_SUBSCRIPTION:
                     self.fulfill_vpn_purchase_service(
@@ -136,7 +147,8 @@ class ApplyPlategaPaymentService:
                             charge_id=charge_id,
                             provider=PaymentProviderEnum.PLATEGA,
                             product_code=intent.product_code,
-                        )
+                        ),
+                        notify_on_error=False,
                     )
                 elif intent.purchase_kind == PaymentKindEnum.GIFT_CERTIFICATE:
                     self.create_gift_certificate_service(
@@ -144,7 +156,8 @@ class ApplyPlategaPaymentService:
                             username=intent.initiator.username,
                             charge_id=charge_id,
                             provider=PaymentProviderEnum.PLATEGA,
-                        )
+                        ),
+                        notify_on_error=False,
                     )
                 else:
                     raise PlategaPaymentRetryable(

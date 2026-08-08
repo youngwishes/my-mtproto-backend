@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import nullcontext
 from datetime import UTC, datetime, timedelta
 from unittest import mock
 from uuid import UUID, uuid4
@@ -275,6 +276,84 @@ class TestApplyPlategaPaymentService(ApplyPlategaPaymentServiceMixin, TestCase):
         self.assertEqual(intent.last_error_code, "fulfillment_retryable")
         self.assertFalse(Payment.objects.exists())
         self.enqueue_notification.assert_not_called()
+
+    @mock.patch("apps.core.decorators._log_service_error")
+    def test_callback_fulfillment_errors_never_log_telegram_payload(
+        self,
+        error_logger: mock.Mock,
+    ) -> None:
+        cases = (
+            (
+                PaymentKindEnum.SUBSCRIPTION,
+                ProductCodeEnum.MTPROTO_30D,
+                mock.patch(
+                    "apps.payments.services.create_payment_service.get_user_by_username",
+                    return_value=None,
+                ),
+            ),
+            (
+                PaymentKindEnum.VPN_SUBSCRIPTION,
+                "invalid_product",
+                nullcontext(),
+            ),
+            (
+                PaymentKindEnum.GIFT_CERTIFICATE,
+                ProductCodeEnum.MTPROTO_30D,
+                mock.patch(
+                    "apps.payments.services.gift_certificates.get_user_by_username",
+                    return_value=None,
+                ),
+            ),
+        )
+
+        for offset, (kind, product_code, failure) in enumerate(cases, start=1):
+            with self.subTest(kind=kind), failure:
+                transaction_id = uuid4()
+                intent = PlategaPaymentIntentFactory(
+                    initiator=SystemUserFactory(
+                        username=str(900_000_300 + offset),
+                    ),
+                    purchase_kind=kind,
+                    product_code=product_code,
+                    status=PlategaPaymentIntentStatusEnum.ACTIVE,
+                    provider_transaction_id=transaction_id,
+                )
+
+                with self.assertRaises(PlategaPaymentRetryable):
+                    self.service(
+                        payment=self.validated(
+                            intent_id=intent.pk,
+                            transaction_id=transaction_id,
+                        )
+                    )
+
+                error_logger.assert_not_called()
+                intent.refresh_from_db()
+                self.assertEqual(
+                    intent.status,
+                    PlategaPaymentIntentStatusEnum.RETRYABLE,
+                )
+
+    def test_initial_storage_failure_is_safely_normalized(self) -> None:
+        storage_error = "sensitive initial lookup detail"
+
+        with mock.patch(
+            "apps.payments.services.apply_platega_payment.get_platega_intent_by_id",
+            side_effect=OperationalError(storage_error),
+        ), self.assertRaises(PlategaPaymentRetryable) as raised:
+            self.service(
+                payment=self.validated(
+                    intent_id=999,
+                    transaction_id=uuid4(),
+                )
+            )
+
+        self.assertEqual(
+            raised.exception.context,
+            {"reason_code": "fulfillment_retryable"},
+        )
+        self.assertIsNone(raised.exception.__cause__)
+        self.assertNotIn(storage_error, repr(raised.exception.to_dict()))
 
     @mock.patch("apps.vds.services.issue_key_service.push_key_to_servers_task.delay")
     def test_failure_after_each_domain_write_rolls_back_and_becomes_retryable(
