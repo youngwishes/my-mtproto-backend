@@ -12,7 +12,7 @@ developer_instructions = """
 `scope_revision`, назначенные BR/AC, non-goals и границы компонентов. Прочитай
 AGENTS.md, релевантные разделы docs/ARCHITECTURE.md, docs/CONTRACTS.md,
 docs/MODELS.md, docs/apps/ и существующий код вокруг точки изменения. Не изучай
-apps/music без прямого запроса.
+src/apps/music/ без прямого запроса.
 
 Сначала ищи решение через существующие модели, сервисы, selectors, DTO,
 исключения, задачи и фабрики. Не добавляй абстракцию без второго текущего

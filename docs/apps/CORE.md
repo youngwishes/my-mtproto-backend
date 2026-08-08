@@ -6,7 +6,8 @@
 
 ## Ключевые модули
 
-- **models.py** — `BaseDjangoModel` (is_active, created_at, updated_at) и `BaseServiceDTO` для передачи данных между слоями
+- **models.py** — `BaseDjangoModel` (is_active, created_at, updated_at)
+- **dtos.py** — `BaseServiceDTO` для передачи данных между слоями
 - **exceptions.py** — `BaseError`, `BaseServiceError`, `BaseInfraError` — базовые классы исключений для всех приложений
 - **decorators.py** — `@log_service_error`, `@log_infra_error` — обёртки для `__call__` сервисов, логирующие ошибки в Telegram
 - **protocols.py** — `IService` — протокол, описывающий контракт сервиса

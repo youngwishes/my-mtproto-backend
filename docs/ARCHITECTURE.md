@@ -41,58 +41,29 @@ telemt (MTProto-прокси)
 | Пакетный менеджер | uv |
 | Деплой | Docker Compose |
 
-## Структура проекта
+## Компоненты репозитория
 
-```
-src/
-├── config/
-│   ├── settings/
-│   │   ├── base.py              # Основные настройки Django
-│   │   ├── bot.py               # BOT_TOKEN, BOT_AUTH_TOKEN, BOT_LINK
-│   │   ├── celery.py            # Broker, Beat Schedule
-│   │   ├── vds.py               # VDS_REQUEST_TIMEOUT, TLS_DOMAIN, GLOBAL_KEYS_LIMIT
-│   │   ├── referrals.py         # INVITE_MUST_COUNT, REFERRAL_LINKS_LIMIT
-│   │   ├── rest_framework_settings.py
-│   │   └── logging_conf.py
-│   ├── celery.py                # Инициализация Celery app
-│   ├── urls.py
-│   ├── middlewares.py           # RequestLoggingMiddleware
-│   └── wsgi.py
-├── apps/
-│   ├── core/                    # BaseDjangoModel, исключения, декораторы, Telegram-транспорт
-│   ├── notifications/           # Шаблоны уведомлений, рассылки
-│   ├── users/                   # SystemUser, бесплатные ссылки, рефералы
-│   ├── vds/                     # VDSInstance, MTPRotoKey, инфра-сервисы, Celery-задачи
-│   ├── payments/                # Product, Payment, Stars/Crypto Pay и выдача
-│   ├── vpn/                     # VPNSubscription, VPNInstance, API и lifecycle
-│   └── music/                   # Заглушка для FakeTLS-маскировки (не трогать, бизнес-логики нет)
-└── manage.py
+- `src/config/` — настройки Django, маршрутизация, Celery и WSGI entrypoint.
+- `src/apps/` — доменные и инфраструктурные Django-приложения. Их зоны
+  ответственности перечислены в [docs/apps/](apps/).
+- `bot/` — отдельное Aiogram-приложение со своим dependency graph и тестами;
+  актуальная структура и команды находятся в [bot/README.md](../bot/README.md).
+- `integration_tests/` — end-to-end сценарии bot → backend → VDS; требования к
+  окружению описаны в
+  [integration_tests/README.md](../integration_tests/README.md).
+- `ansible/`, Compose- и Nginx-конфигурация — инфраструктура локального запуска и
+  production release. Канонический процесс выпуска описан в
+  [DEPLOY.md](DEPLOY.md).
 
-bot/
-├── src/
-│   ├── bot.py                   # Инициализация Aiogram
-│   ├── handlers.py              # /start, оплата, рефералы, кнопки
-│   ├── config.py                # Переменные окружения
-│   ├── services/                # HTTP-клиенты к Django API
-│   └── keyboards/               # Inline-клавиатуры
-├── pyproject.toml
-├── uv.lock
-└── Dockerfile
-```
+Документ фиксирует границы и взаимодействия компонентов, но намеренно не
+дублирует дерево файлов: актуальный состав модулей определяется репозиторием и
+профильной документацией приложений.
 
 ## apps/core — Инфраструктурное ядро
 
-```
-apps/core/
-├── exceptions.py       # BaseError, BaseServiceError, BaseInfraError
-├── decorators.py       # @log_service_error, @log_infra_error
-├── protocols.py        # IService — протокол для всех сервисов
-├── models.py           # BaseDjangoModel, BaseServiceDTO
-├── handle_error.py     # DRF exception handler
-└── telegram/
-    ├── transport.py    # send_telegram_message(), is_channel_member()
-    └── error_logger.py # Отправка ошибок админу в Telegram
-```
+`apps.core` содержит базовые модели, доменные и инфраструктурные исключения,
+декораторы обработки ошибок и Telegram-транспорт. Публичные обязанности и
+зависимости приложения перечислены в [apps/CORE.md](apps/CORE.md).
 
 ## Service Layer
 
@@ -168,17 +139,9 @@ Celery Beat в 12:00 UTC вызывает тонкую задачу
 
 ## apps/notifications — Уведомления и рассылки
 
-```
-apps/notifications/
-├── models.py           # NotificationTemplate, Mailing, RenderedMessage
-├── enums.py            # MailingStatus, FilterType, ContextResolverType
-├── selectors.py        # get_template, get_mailing_by_id, get_users_by_filter
-├── resolvers.py        # resolve_context — персональный контекст для шаблонов
-├── services/
-│   ├── send_notification_service.py  # Отправка одного уведомления по slug
-│   └── send_mailing_service.py       # Массовая рассылка с фильтрами и счётчиками
-└── tasks.py            # Celery-задача send_mailing_task
-```
+`apps.notifications` хранит шаблоны сообщений и рассылок, выбирает получателей,
+разрешает контекст и ставит отправку в Celery. Обзор моделей, сервисов и
+зависимостей находится в [apps/NOTIFICATIONS.md](apps/NOTIFICATIONS.md).
 
 `NotificationTemplate` хранит HTML-текст с `{переменными}`, опциональную кнопку и флаг `include_payment_buttons` (добавляет кнопку «⚡Продлить» с `callback_data="boost_paid"`). Кнопка может быть URL (`button_url`) или callback (`button_callback_data`) — URL имеет приоритет.
 
@@ -204,7 +167,7 @@ VPN callbacks и invoice payload отделены от MTProto: `vpn`,
 
 ## Деплой
 
-Docker Compose с 7 сервисами:
+Docker Compose с 8 сервисами:
 
 | Сервис | Назначение | Порт |
 |--------|------------|------|
@@ -214,6 +177,7 @@ Docker Compose с 7 сервисами:
 | celery-worker | Обработка задач | — |
 | celery-beat | Расписание задач | — |
 | flower | Мониторинг Celery | 5555 |
+| litestream | Репликация SQLite в S3 | — |
 | bot | Telegram-бот | — |
 
 Все сервисы в общей bridge-сети `backend`.

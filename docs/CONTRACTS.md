@@ -1,14 +1,14 @@
 # Контракты API
 
-Базовый путь: `/api/v1`
+Все пути ниже абсолютные и включают базовый префикс `/api/v1`.
 
-Все эндпоинты защищены заголовком `Bot-Auth-Token`.
+Если явно не указано иное, эндпоинты защищены заголовком `Bot-Auth-Token`.
 
 ---
 
 ## Users
 
-### POST /users/consent/status/
+### POST /api/v1/users/consent/status/
 
 Read-only проверяет единое юридическое согласие. Отсутствующий пользователь
 возвращает `false` и не создаётся.
@@ -23,7 +23,7 @@ Read-only проверяет единое юридическое согласи�
 
 ---
 
-### POST /users/consent/accept/
+### POST /api/v1/users/consent/accept/
 
 Создаёт пользователя только после явного принятия или идемпотентно подтверждает
 согласие существующего пользователя. Повторный вызов не меняет сохранённого
@@ -45,7 +45,7 @@ referrer.
 
 ---
 
-### POST /users/first-free-link/
+### POST /api/v1/users/first-free-link/
 
 Выдаёт бесплатный ключ новому пользователю.
 
@@ -75,7 +75,7 @@ referrer.
 
 ---
 
-### POST /users/check-first-free-link/
+### POST /api/v1/users/check-first-free-link/
 
 Проверяет доступность бесплатного периода и определяет его длительность.
 
@@ -107,7 +107,7 @@ referrer.
 
 ---
 
-### POST /users/referral/cabinet/
+### POST /api/v1/users/referral/cabinet/
 
 Статистика реферальной программы пользователя.
 
@@ -132,7 +132,7 @@ referrer.
 
 ---
 
-### POST /users/referral/link/
+### POST /api/v1/users/referral/link/
 
 Забирает бесплатную реферальную ссылку (требуется минимум 5 активных рефералов).
 
@@ -156,7 +156,7 @@ referrer.
 
 ---
 
-### POST /users/update-link/
+### POST /api/v1/users/update-link/
 
 Перевыпуск ключа: генерируется новый секрет, старый перестаёт работать. Запись обновляется в БД, новый секрет асинхронно доставляется на все здоровые VDS. Кулдаун — 5 минут.
 
@@ -182,7 +182,7 @@ referrer.
 
 ---
 
-### POST /users/my-servers/
+### POST /api/v1/users/my-servers/
 
 Возвращает информацию о текущем ключе пользователя и списке серверов.
 
@@ -223,8 +223,8 @@ referrer.
 
 ## Payments
 
-`GET /payments/products/vpn_30d/` возвращает активный VPN-товар в том же
-формате, что и legacy `GET /payments/`; legacy route остаётся MTProto alias.
+`GET /api/v1/payments/products/vpn_30d/` возвращает активный VPN-товар в том же
+формате, что и legacy `GET /api/v1/payments/`; legacy route остаётся MTProto alias.
 Оба защищённых `Bot-Auth-Token` маршрута на каждом запросе добавляют один и тот
 же глобальный список активных способов оплаты `payment_methods`.
 
@@ -268,7 +268,7 @@ signature или секреты.
 
 ## VPN
 
-### GET /vpn/menu/?username=<telegram_id>
+### GET /api/v1/vpn/menu/?username=<telegram_id>
 
 Защищён `Bot-Auth-Token`; выполняет только read-only поиск и возвращает ровно:
 
@@ -289,7 +289,7 @@ signature или секреты.
 `profile-title: mtprotokeys.ru`; новый заголовок не изменяет существующие
 subscription URL или Base64 payload.
 
-### POST /vpn/payments/buy/
+### POST /api/v1/vpn/payments/buy/
 
 Защищён `Bot-Auth-Token`. Фиксирует только VPN-платёж и принимает:
 
@@ -313,10 +313,10 @@ subscription URL или Base64 payload.
 
 ---
 
-### GET /payments/
+### GET /api/v1/payments/
 
 Защищён `Bot-Auth-Token`. Возвращает данные MTProto-товара для формирования
-Telegram-инвойса. `GET /payments/products/<code>/` возвращает тот же контракт
+Telegram-инвойса. `GET /api/v1/payments/products/<code>/` возвращает тот же контракт
 для выбранного активного товара, включая `vpn_30d`.
 
 **Ответ:** `200 OK`
@@ -329,11 +329,15 @@ Telegram-инвойса. `GET /payments/products/<code>/` возвращает �
   "provider_data": "{\"receipt\": ...}",
   "send_email_to_provider": true,
   "need_email": true,
-  "price": 99.00,
+  "price": 9900.0,
   "stars_price": 99,
   "payment_methods": ["stars", "crypto_pay"]
 }
 ```
+
+`price` хранится и возвращается в копейках: `9900.0` соответствует 99 RUB.
+Преобразование в рубли выполняется только при обращении к платёжному провайдеру;
+`stars_price` хранит отдельную цену в Telegram Stars.
 
 `payment_methods` всегда присутствует и содержит только активные способы,
 поддержанные кодом. Текущие допустимые значения: `["stars", "crypto_pay"]`,
@@ -345,7 +349,7 @@ Telegram-инвойса. `GET /payments/products/<code>/` возвращает �
 
 ---
 
-### POST /payments/buy/
+### POST /api/v1/payments/buy/
 
 Фиксирует успешный платёж. Продлевает существующий ключ или выдаёт новый.
 
@@ -367,7 +371,7 @@ Telegram-инвойса. `GET /payments/products/<code>/` возвращает �
 
 **Ответ:** `200 OK` (без тела)
 
-### POST /payments/gift-certificates/buy/
+### POST /api/v1/payments/gift-certificates/buy/
 
 Фиксирует успешную оплату подарочного сертификата. Создаёт одноразовый код на
 30 дней подписки и не продлевает подписку покупателя. Повторная обработка того
@@ -397,7 +401,7 @@ Telegram-инвойса. `GET /payments/products/<code>/` возвращает �
 }
 ```
 
-### POST /payments/gift-certificates/activate/
+### POST /api/v1/payments/gift-certificates/activate/
 
 Активирует подарочный сертификат. Если у пользователя есть активный ключ —
 продлевает его на 30 дней; если нет — выдаёт новый ключ на 30 дней. Активация

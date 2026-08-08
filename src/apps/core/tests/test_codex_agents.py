@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import subprocess
 import tomllib
 from pathlib import Path
@@ -186,3 +187,87 @@ class TestCodexAgents(SimpleTestCase):
         self.assertIn("pull_request:", workflow)
         self.assertIn("branches: [main]", workflow)
         self.assertIn("uv run make test", workflow)
+
+    def test_repository_instructions_reference_current_telegram_and_music_paths(
+        self,
+    ) -> None:
+        instructions = (self.repo_root / "AGENTS.md").read_text(encoding="utf-8")
+        core_docs = (self.repo_root / "docs" / "apps" / "CORE.md").read_text(
+            encoding="utf-8"
+        )
+        role_instructions = "\n".join(
+            tomllib.loads(path.read_text(encoding="utf-8"))["developer_instructions"]
+            for path in self.agents_dir.glob("*.toml")
+        )
+
+        self.assertNotIn("apps.core.bot.TelegramBot", instructions)
+        self.assertIn("apps.core.telegram.transport", instructions)
+        self.assertIn("`src/apps/music/`", instructions)
+        self.assertTrue((self.repo_root / "src" / "apps" / "music").is_dir())
+        self.assertNotIn("не изменяй apps/music", role_instructions)
+        self.assertNotIn("Не изучай\napps/music", role_instructions)
+        self.assertIn("src/apps/music/", role_instructions)
+        self.assertIn("**dtos.py**", core_docs)
+
+    def test_api_contract_endpoint_headings_use_absolute_v1_paths(self) -> None:
+        contracts = (self.repo_root / "docs" / "CONTRACTS.md").read_text(
+            encoding="utf-8"
+        )
+        endpoint_paths = re.findall(
+            r"^### (?:GET|POST|PATCH|DELETE) (\S+)", contracts, re.MULTILINE
+        )
+
+        self.assertTrue(endpoint_paths)
+        self.assertTrue(
+            all(path.startswith("/api/v1/") for path in endpoint_paths),
+            endpoint_paths,
+        )
+
+    def test_product_price_unit_is_consistent_in_canonical_docs(self) -> None:
+        models = (self.repo_root / "docs" / "MODELS.md").read_text(encoding="utf-8")
+        contracts = (self.repo_root / "docs" / "CONTRACTS.md").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("Цена в копейках", models)
+        self.assertIn("`price` хранится и возвращается в копейках", contracts)
+
+    def test_deploy_guide_requires_fresh_permission_before_deploy_playbook(self) -> None:
+        deploy = (self.repo_root / "docs" / "DEPLOY.md").read_text(encoding="utf-8")
+        release_section = deploy.split("## Новый релиз", maxsplit=1)[1].split(
+            "## Crypto Pay rollout", maxsplit=1
+        )[0]
+
+        permission_text = (
+            "новое явное разрешение пользователя непосредственно\n   перед deploy"
+        )
+        self.assertIn(permission_text, release_section)
+        permission_gate = release_section.index(permission_text)
+        deploy_playbook = release_section.index(
+            'ansible-playbook -i ansible/inventory/production.ini ansible/deploy.yml \\\n     -e deploy_revision="$RELEASE_SHA"'
+        )
+        self.assertLess(permission_gate, deploy_playbook)
+
+    def test_architecture_lists_every_production_compose_service(self) -> None:
+        compose = (self.repo_root / "docker-compose.yml").read_text(encoding="utf-8")
+        architecture = (self.repo_root / "docs" / "ARCHITECTURE.md").read_text(
+            encoding="utf-8"
+        )
+        services_block = compose.split("services:\n", maxsplit=1)[1].split(
+            "\nvolumes:", maxsplit=1
+        )[0]
+        compose_services = {
+            line.strip().removesuffix(":")
+            for line in services_block.splitlines()
+            if line.startswith("  ")
+            and not line.startswith("    ")
+            and line.endswith(":")
+        }
+        documented_services = {
+            match.group(1)
+            for match in re.finditer(
+                r"^\| ([a-z][a-z0-9-]+) \|", architecture, re.MULTILINE
+            )
+        }
+
+        self.assertSetEqual(documented_services, compose_services)

@@ -50,7 +50,12 @@ ansible -i ansible/inventory/production.ini mtproto_keys -m ansible.builtin.ping
      --private-key ~/.ssh/id_ed25519_deploy
    ```
 
-4. Разверни этот SHA:
+4. Остановись и запроси новое явное разрешение пользователя непосредственно
+   перед deploy. Назови `RELEASE_SHA`, результаты тестов и существенные риски.
+   Разрешение на merge или предыдущий deploy не считается разрешением на этот
+   запуск playbook.
+
+5. Только после такого разрешения разверни этот SHA:
 
    ```bash
    ansible-playbook -i ansible/inventory/production.ini ansible/deploy.yml \
@@ -58,7 +63,7 @@ ansible -i ansible/inventory/production.ini mtproto_keys -m ansible.builtin.ping
      --private-key ~/.ssh/id_ed25519_deploy
    ```
 
-5. Успешный запуск должен завершиться с `failed=0`. Дополнительно проверь сайт и
+6. Успешный запуск должен завершиться с `failed=0`. Дополнительно проверь сайт и
    запущенный SHA через хост из Ansible inventory:
 
    ```bash

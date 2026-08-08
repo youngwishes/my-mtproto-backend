@@ -106,7 +106,7 @@
 | `provider_data` | TextField | JSON для YuKassa (чек, режим оплаты) |
 | `send_email_to_provider` | bool | Отправлять email провайдеру |
 | `need_email` | bool | Запрашивать email у пользователя |
-| `price` | Decimal(10,2) | Цена в рублях |
+| `price` | Decimal(10,2) | Цена в копейках (`9900` = 99 RUB) |
 | `stars_price` | PositiveInt | Цена в Telegram Stars (default: 80) |
 
 ---

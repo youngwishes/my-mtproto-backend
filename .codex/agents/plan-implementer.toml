@@ -25,7 +25,7 @@ packet. До работы назови полученные `scope_revision`, ID
 
 Следуй service layer, DI, selectors, DTO, exceptions, type hints и __init__.py
 правилам из AGENTS.md. Не создавай обобщение без текущей необходимости, не
-рефактори unrelated-код и не изменяй apps/music. Обновляй только документацию,
+рефактори unrelated-код и не изменяй src/apps/music/. Обновляй только документацию,
 непосредственно требуемую назначенной партией.
 Не реализуй reviewer recommendation напрямую. Исправляй только
 `blocking_in_scope`, который главный агент проверил и явно вернул в твою партию;
