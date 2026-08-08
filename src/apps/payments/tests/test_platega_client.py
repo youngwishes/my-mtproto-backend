@@ -92,26 +92,24 @@ class TestPlategaClient(SimpleTestCase):
         self.assertEqual(json.loads(body)["metadata"], {"userId": "123456789", "userName": "123456789"})
 
     @responses.activate
-    def test_ignores_optional_payment_details_provider_echo(self) -> None:
-        for payment_details in (
-            {"amount": "99.00", "currency": "RUB"},
-            "99 RUB",
-            {"unexpected": "provider-controlled"},
-        ):
-            with self.subTest(payment_details=payment_details):
-                payload = deepcopy(VALID_TRANSACTION_JSON)
-                payload.update(
-                    {
-                        "paymentMethod": "SBPQR",
-                        "paymentDetails": payment_details,
-                        "return": BOT_LINK,
-                        "merchantId": "merchant-id",
-                    }
-                )
-                responses.reset()
-                responses.post(ENDPOINT, json=payload, status=200)
+    def test_ignores_provider_echoes_and_uses_fixed_local_expiry(self) -> None:
+        payload = deepcopy(VALID_TRANSACTION_JSON)
+        payload.update(
+            {
+                "expiresIn": None,
+                "paymentMethod": "provider-controlled",
+                "paymentDetails": "99 RUB",
+                "return": "https://provider.example/normalized-return",
+                "merchantId": "provider-controlled",
+                "extra": {"provider": "controlled"},
+            }
+        )
+        responses.post(ENDPOINT, json=payload, status=200)
 
-                self.assertEqual(self._create_transaction().transaction_id, UUID(TRANSACTION_ID))
+        result = self._create_transaction()
+
+        self.assertEqual(result.transaction_id, UUID(TRANSACTION_ID))
+        self.assertEqual(result.expires_in.total_seconds(), 900)
 
     @responses.activate
     def test_rejects_mismatch_or_unusable_creation_response_with_safe_code(self) -> None:
@@ -119,10 +117,6 @@ class TestPlategaClient(SimpleTestCase):
             ("status", "CONFIRMED", "create_mismatch"),
             ("transactionId", "not-a-uuid", "malformed"),
             ("redirect", "http://pay.platega.example/redirect", "malformed"),
-            ("expiresIn", "00:14:59", "malformed"),
-            ("paymentMethod", "CARD", "create_mismatch"),
-            ("merchantId", "other-merchant", "create_mismatch"),
-            ("return", "https://example.test", "create_mismatch"),
         )
         for field, value, code in cases:
             with self.subTest(field=field, value=value):

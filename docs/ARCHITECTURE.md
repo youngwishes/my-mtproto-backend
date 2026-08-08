@@ -113,10 +113,10 @@ method `2`, `RUB` decimal amount с двумя знаками без float, об
 `BOT_LINK`, случайный local UUID payload и antifraud metadata с Telegram ID и
 username (либо Telegram ID как fallback).
 
-Успешным считается только HTTP `200` с UUID transaction ID, `PENDING`, usable
-HTTPS redirect и `expiresIn=00:15:00`. Необязательные provider echoes при
-наличии сверяются с `SBPQR`, `BOT_LINK` и merchant ID; provider-controlled
-`paymentDetails` в ответе не используется для валидации. Ошибки
+Успешным считается только HTTP `200` с UUID transaction ID, `PENDING` и usable
+HTTPS redirect. Provider-controlled echoes, включая `expiresIn`, `return`,
+`paymentMethod`, `merchantId` и `paymentDetails`, не используются для
+валидации; локальный intent получает фиксированный TTL 15 минут. Ошибки
 наружу несут только reason code `timeout`, `unavailable`, `malformed` или
 `create_mismatch`; request/response body, URL, metadata и credentials не
 логируются. HTTP GET, polling и bot credentials для Platega отсутствуют.
