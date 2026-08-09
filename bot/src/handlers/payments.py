@@ -98,7 +98,6 @@ async def show_platega_invoice(
     await callback.message.edit_text(
         text=PLATEGA_INVOICE_TEXT.format(
             rub_amount=invoice.rub_amount,
-            expires_at=invoice.expires_at,
         ),
         reply_markup=markup,
     )
