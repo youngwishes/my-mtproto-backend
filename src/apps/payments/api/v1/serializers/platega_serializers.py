@@ -55,7 +55,8 @@ class PlategaCallbackSerializer(serializers.Serializer):
     paymentMethod = serializers.IntegerField(source="payment_method")
 
     def to_internal_value(self, data: object) -> dict[str, object]:
-        expected_keys = {"id", "amount", "currency", "status", "paymentMethod"}
-        if not isinstance(data, Mapping) or set(data) != expected_keys:
+        required_keys = {"id", "amount", "currency", "status", "paymentMethod"}
+        allowed_key_sets = (required_keys, required_keys | {"payload"})
+        if not isinstance(data, Mapping) or set(data) not in allowed_key_sets:
             raise serializers.ValidationError("Expected exact callback fields.")
         return super().to_internal_value(data)
