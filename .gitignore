@@ -221,3 +221,4 @@ ansible/inventory/production.ini
 ansible/group_vars/mtproto_keys.yml
 tmp/
 output/
+platega-api-docs/
