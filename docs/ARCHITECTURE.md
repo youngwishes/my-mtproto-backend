@@ -149,9 +149,13 @@ VPN или gift границы. После commit отдельная bound Celer
 `crypto_gift_certificate_purchased`; новой notifications migration нет.
 Unknown/mismatch/unsupported callback логирует только allowlist
 `reason_code`, nullable internal intent ID и nullable provider transaction ID.
-Credentials, headers/body, Telegram identity, metadata, payload, provider
-content и payment URL не передаются logger-у. `CHARGEBACKED` остаётся только
-unsupported safe acknowledgement без доменного перехода.
+В штатном режиме credentials, headers/body, Telegram identity, metadata,
+payload, provider content и payment URL не передаются logger-у. Временный
+`PLATEGA_CALLBACK_DEBUG_LOGGING=true` после успешной аутентификации добавляет
+один диагностический INFO с raw body, method/path, Content-Type/User-Agent и
+названиями заголовков; значения merchant/secret, Authorization и Cookie в него
+не входят. `CHARGEBACKED` остаётся только unsupported safe acknowledgement без
+доменного перехода.
 
 ## Доступность способов оплаты
 

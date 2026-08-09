@@ -121,9 +121,17 @@ component-level rollback. Не удалять и не откатывать ре�
 До отдельно одобренного release задать только в Django/Celery backend `.env`
 четыре значения: `PLATEGA_MERCHANT_ID`, `PLATEGA_SECRET`, HTTPS
 `PLATEGA_BASE_URL` и положительный `PLATEGA_REQUEST_TIMEOUT`. Bot `.env` не
-получает ни одно из них. Production credentials, callback/request/response
-body/headers, Telegram metadata, payload и payment URL нельзя помещать в Git,
-логи или командную историю.
+получает ни одно из них. `PLATEGA_CALLBACK_DEBUG_LOGGING` по умолчанию должен
+оставаться `false`. Production credentials, значения security headers,
+Telegram metadata и payment URL нельзя помещать в Git, логи или командную
+историю.
+
+Для контролируемой диагностики фактического provider payload допускается
+временно установить `PLATEGA_CALLBACK_DEBUG_LOGGING=true`. После одного
+тестового callback забрать событие `platega_callback_request`, считать его body
+чувствительным диагностическим материалом и немедленно вернуть флаг в `false`.
+Событие создаётся только после успешной проверки Platega credentials и не
+содержит значения `X-MerchantId`, `X-Secret`, Authorization или Cookie.
 
 В кабинете Platega настроить HTTPS callback ровно на
 `https://<public-host>/api/v1/payments/platega/callback/` с теми же

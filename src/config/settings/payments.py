@@ -15,3 +15,7 @@ PLATEGA_MERCHANT_ID = os.environ.get("PLATEGA_MERCHANT_ID", "")
 PLATEGA_SECRET = os.environ.get("PLATEGA_SECRET", "")
 PLATEGA_BASE_URL = os.environ.get("PLATEGA_BASE_URL", "https://pay.platega.io")
 PLATEGA_REQUEST_TIMEOUT = float(os.environ.get("PLATEGA_REQUEST_TIMEOUT", "5"))
+PLATEGA_CALLBACK_DEBUG_LOGGING = os.environ.get(
+    "PLATEGA_CALLBACK_DEBUG_LOGGING",
+    "false",
+).lower() == "true"
