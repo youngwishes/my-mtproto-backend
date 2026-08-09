@@ -152,6 +152,7 @@ def info() -> InlineKeyboardMarkup:
 
 def payment_methods(
     *,
+    stars_price: int,
     rub_amount: str,
     payment_methods: tuple[str, ...],
     priority_payment_methods: tuple[str, ...],
@@ -173,7 +174,7 @@ def payment_methods(
         keyboard.append(
             [
                 InlineKeyboardButton(
-                    text="⭐ Telegram Stars — 99 ★",
+                    text=f"⭐ Telegram Stars — {stars_price} ★",
                     callback_data="pay_stars",
                     style="primary" if "stars" in priority else None,
                 )
@@ -239,6 +240,7 @@ def vpn_payment_methods(
 
 def gift_certificate_payment_methods(
     *,
+    stars_price: int,
     rub_amount: str,
     payment_methods: tuple[str, ...],
     priority_payment_methods: tuple[str, ...],
@@ -260,7 +262,7 @@ def gift_certificate_payment_methods(
         keyboard.append(
             [
                 InlineKeyboardButton(
-                    text="⭐ Telegram Stars — 99 ★",
+                    text=f"⭐ Telegram Stars — {stars_price} ★",
                     callback_data="gift_stars",
                     style="primary" if "stars" in priority else None,
                 )

@@ -40,15 +40,12 @@ from src.handlers.start import (
 )
 from src.messages import (
     CRYPTO_INVOICE_ERROR_TEXT,
-    GIFT_CERTIFICATE_TEXT,
     KEY_GENERATED_TEXT,
-    PAYMENT_METHODS_TEXT,
     PRIVACY_URL,
     PRODUCT_MENU_TEXT,
     SITE_URL,
     SUPPORT_URL,
     TERMS_URL,
-    VPN_MENU_TEXT,
     VPN_PRODUCT_MENU_TEXT,
     WELCOME_TEXT_MONTH,
     WELCOME_TEXT_NOT_FREE,
@@ -64,6 +61,40 @@ from src.domains.payments import (
 from src.domains.referrals import ReferralCabinet, ReferralRewardKey
 from src.domains.vpn import VPNMenu, VPNPurchase
 from tests.fakes import FakeBot, FakeCallback, FakeMessage, make_deps
+
+
+APPROVED_MTPROXY_PAYMENT_TEXT = """💳 <b>Оплата подписки</b>
+
+⚡ <b>Продукт:</b> MTProxy
+📅 <b>Период:</b> 30 дней
+
+После оплаты новый ключ будет выдан автоматически. Если у вас уже есть активный ключ, подписка продлится на 30 дней.
+
+👇 <b>Выберите способ оплаты:</b>
+
+<i>Оплачивая подписку, вы принимаете <a href="https://mtprotokeys.ru/terms">Условия использования</a> и <a href="https://mtprotokeys.ru/privacy">Политику конфиденциальности</a>.</i>"""
+
+APPROVED_VPN_PAYMENT_TEXT = """💳 <b>Оплата подписки</b>
+
+🔐 <b>Продукт:</b> VPN
+📅 <b>Период:</b> 30 дней
+
+После оплаты VPN-подписка будет активирована автоматически. При продлении ваша постоянная subscription-ссылка не изменится.
+
+👇 <b>Выберите способ оплаты:</b>
+
+<i>Оплачивая подписку, вы принимаете <a href="https://mtprotokeys.ru/terms">Условия использования</a> и <a href="https://mtprotokeys.ru/privacy">Политику конфиденциальности</a>.</i>"""
+
+APPROVED_GIFT_PAYMENT_TEXT = """💳 <b>Оплата подарка</b>
+
+🎁 <b>Продукт:</b> сертификат MTProxy
+📅 <b>Период:</b> 30 дней
+
+После оплаты вы получите одноразовый код, который можно переслать другому человеку. Код создаст новый ключ или продлит действующий на 30 дней.
+
+👇 <b>Выберите способ оплаты:</b>
+
+<i>Оплачивая сертификат, вы принимаете <a href="https://mtprotokeys.ru/terms">Условия использования</a> и <a href="https://mtprotokeys.ru/privacy">Политику конфиденциальности</a>.</i>"""
 
 
 # --- domain fakes -----------------------------------------------------------
@@ -460,7 +491,7 @@ async def test_payment_screen_includes_legal_links():
         stars=StarsInvoice(
             title="Месяц",
             description="прокси",
-            prices=[LabeledPrice(label="Месяц", amount=99)],
+            prices=[LabeledPrice(label="Месяц", amount=237)],
             rub_amount="99.00",
             payment_methods=("stars", "crypto_pay"),
             priority_payment_methods=(),
@@ -470,14 +501,14 @@ async def test_payment_screen_includes_legal_links():
     await process_boost_paid(callback, make_deps(payments=payments))
 
     text, markup = callback.message.edits[0]
+    assert text == APPROVED_MTPROXY_PAYMENT_TEXT
     assert TERMS_URL in text
     assert PRIVACY_URL in text
-    assert "99 ★/месяц" in text
     assert [
         [(button.text, button.callback_data) for button in row]
         for row in markup.inline_keyboard
     ] == [
-        [("⭐ Telegram Stars — 99 ★", "pay_stars")],
+        [("⭐ Telegram Stars — 237 ★", "pay_stars")],
         [("💎 Crypto Pay", "pay_crypto")],
         [("🔙 Назад", "show_mtproxy_menu")],
     ]
@@ -489,6 +520,7 @@ async def test_payment_screen_includes_legal_links():
         (
             keyboards.payment_methods,
             {
+                "stars_price": 237,
                 "rub_amount": "99.00",
                 "payment_methods": ("platega_sbp", "stars", "crypto_pay"),
                 "priority_payment_methods": ("platega_sbp",),
@@ -518,6 +550,7 @@ async def test_payment_screen_includes_legal_links():
         (
             keyboards.gift_certificate_payment_methods,
             {
+                "stars_price": 237,
                 "rub_amount": "99.00",
                 "payment_methods": ("platega_sbp", "stars", "crypto_pay"),
                 "priority_payment_methods": ("platega_sbp",),
@@ -549,6 +582,7 @@ def test_sbp_first_stars_second_crypto_third(
         (
             keyboards.payment_methods,
             {
+                "stars_price": 237,
                 "rub_amount": "99.00",
                 "payment_methods": ("unknown",),
                 "priority_payment_methods": (),
@@ -568,6 +602,7 @@ def test_sbp_first_stars_second_crypto_third(
         (
             keyboards.gift_certificate_payment_methods,
             {
+                "stars_price": 237,
                 "rub_amount": "99.00",
                 "payment_methods": ("unknown",),
                 "priority_payment_methods": (),
@@ -612,11 +647,13 @@ def test_mtproxy_internal_back_buttons_return_to_mtproxy_menu(
         "my_servers": keyboards.my_servers(servers.servers),
         "info": keyboards.info(),
         "payment_methods": keyboards.payment_methods(
+            stars_price=237,
             rub_amount="99.00",
             payment_methods=("stars", "crypto_pay"),
             priority_payment_methods=(),
         ),
         "gift_certificate": keyboards.gift_certificate_payment_methods(
+            stars_price=237,
             rub_amount="99.00",
             payment_methods=("stars", "crypto_pay"),
             priority_payment_methods=(),
@@ -734,30 +771,30 @@ async def test_referral_link_claims_reward():
 SCREEN_CASES = {
     "mtproxy": (
         process_boost_paid,
-        PAYMENT_METHODS_TEXT,
+        APPROVED_MTPROXY_PAYMENT_TEXT,
         {
             "platega_sbp": ("⚡ СБП — 99 ₽", "pay_platega_sbp"),
-            "stars": ("⭐ Telegram Stars — 99 ★", "pay_stars"),
+            "stars": ("⭐ Telegram Stars — 237 ★", "pay_stars"),
             "crypto_pay": ("💎 Crypto Pay", "pay_crypto"),
         },
         ("🔙 Назад", "show_mtproxy_menu"),
     ),
     "vpn": (
         process_vpn,
-        VPN_MENU_TEXT,
+        APPROVED_VPN_PAYMENT_TEXT,
         {
             "platega_sbp": ("⚡ СБП — 99 ₽", "vpn_pay_platega_sbp"),
-            "stars": ("⭐ Telegram Stars — 149 ★", "vpn_pay_stars"),
+            "stars": ("⭐ Telegram Stars — 237 ★", "vpn_pay_stars"),
             "crypto_pay": ("💎 Crypto Pay", "vpn_pay_crypto"),
         },
         ("🔙 Назад", "show_vpn_menu"),
     ),
     "gift": (
         process_gift_certificate,
-        GIFT_CERTIFICATE_TEXT,
+        APPROVED_GIFT_PAYMENT_TEXT,
         {
             "platega_sbp": ("⚡ СБП — 99 ₽", "gift_platega_sbp"),
-            "stars": ("⭐ Telegram Stars — 99 ★", "gift_stars"),
+            "stars": ("⭐ Telegram Stars — 237 ★", "gift_stars"),
             "crypto_pay": ("💎 Crypto Pay", "gift_crypto"),
         },
         ("🔙 Назад", "show_mtproxy_menu"),
@@ -824,7 +861,7 @@ async def test_payment_method_screen_matrix(
     invoice = StarsInvoice(
         title="Товар",
         description="Описание",
-        prices=[LabeledPrice(label="Товар", amount=149)],
+        prices=[LabeledPrice(label="Товар", amount=237)],
         rub_amount="99.00",
         payment_methods=methods,
         priority_payment_methods=priority_methods,
@@ -871,6 +908,7 @@ async def test_payment_method_screen_matrix(
         (
             keyboards.payment_methods,
             {
+                "stars_price": 237,
                 "rub_amount": "99.50",
                 "payment_methods": ("platega_sbp",),
                 "priority_payment_methods": ("platega_sbp",),
@@ -888,6 +926,7 @@ async def test_payment_method_screen_matrix(
         (
             keyboards.gift_certificate_payment_methods,
             {
+                "stars_price": 237,
                 "rub_amount": "99.50",
                 "payment_methods": ("platega_sbp",),
                 "priority_payment_methods": ("platega_sbp",),
@@ -993,7 +1032,7 @@ async def test_vpn_purchase_fetches_stars_invoice_and_shows_stars_only_screen():
     assert vpn.menu_calls == []
     assert deps.payments.vpn_stars_invoice_calls == 1
     text, markup = callback.message.edits[0]
-    assert text == VPN_MENU_TEXT
+    assert text == APPROVED_VPN_PAYMENT_TEXT
     assert "https://vpn.example/subscriptions/token/" not in text
     assert [
         [button.callback_data for button in row]
@@ -1131,7 +1170,7 @@ async def test_gift_certificate_screen_shows_payment_options():
         stars=StarsInvoice(
             title="Месяц",
             description="прокси",
-            prices=[LabeledPrice(label="Месяц", amount=99)],
+            prices=[LabeledPrice(label="Месяц", amount=237)],
             rub_amount="99.00",
             payment_methods=("stars", "crypto_pay"),
             priority_payment_methods=(),
@@ -1141,12 +1180,12 @@ async def test_gift_certificate_screen_shows_payment_options():
     await process_gift_certificate(callback, make_deps(payments=payments))
 
     text, markup = callback.message.edits[0]
-    assert "сертификат" in text.lower()
+    assert text == APPROVED_GIFT_PAYMENT_TEXT
     assert [
         [(button.text, button.callback_data) for button in row]
         for row in markup.inline_keyboard
     ] == [
-        [("⭐ Telegram Stars — 99 ★", "gift_stars")],
+        [("⭐ Telegram Stars — 237 ★", "gift_stars")],
         [("💎 Crypto Pay", "gift_crypto")],
         [("🔙 Назад", "show_mtproxy_menu")],
     ]
