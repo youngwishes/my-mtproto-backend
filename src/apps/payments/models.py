@@ -89,6 +89,8 @@ class PaymentMethod(BaseDjangoModel):
     )
 
     class Meta:
+        verbose_name = "Способ оплаты"
+        verbose_name_plural = "Способы оплаты"
         constraints = [
             models.CheckConstraint(
                 condition=models.Q(
@@ -158,38 +160,63 @@ class Payment(BaseDjangoModel):
 class CryptoPaymentIntent(BaseDjangoModel):
     """Локальная покупка через Crypto Pay до и после выдачи результата."""
 
-    public_id = models.UUIDField(default=uuid4, unique=True, editable=False)
+    public_id = models.UUIDField(
+        "публичный UUID", default=uuid4, unique=True, editable=False
+    )
     initiator = models.ForeignKey(
         "users.SystemUser",
         on_delete=models.PROTECT,
         related_name="crypto_payment_intents",
+        verbose_name="инициатор",
     )
-    purchase_kind = models.CharField(max_length=32, choices=PaymentKindEnum.choices())
-    product_code = models.CharField(max_length=32)
-    rub_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    purchase_kind = models.CharField(
+        "тип покупки", max_length=32, choices=PaymentKindEnum.choices()
+    )
+    product_code = models.CharField("код продукта", max_length=32)
+    rub_amount = models.DecimalField(
+        "сумма в рублях", max_digits=10, decimal_places=2
+    )
     status = models.CharField(
+        "статус",
         max_length=32,
         choices=CryptoPaymentIntentStatusEnum.choices(),
         default=CryptoPaymentIntentStatusEnum.CREATING,
     )
-    provider_invoice_id = models.PositiveBigIntegerField(null=True, blank=True, unique=True)
-    provider_invoice_url = models.URLField(max_length=512, blank=True)
-    provider_created_at = models.DateTimeField(null=True, blank=True)
-    provider_expires_at = models.DateTimeField(null=True, blank=True)
-    paid_at = models.DateTimeField(null=True, blank=True)
-    fulfillment_attempted_at = models.DateTimeField(null=True, blank=True)
-    fulfilled_at = models.DateTimeField(null=True, blank=True)
-    notification_sent_at = models.DateTimeField(null=True, blank=True)
+    provider_invoice_id = models.PositiveBigIntegerField(
+        "ID счёта Crypto Pay", null=True, blank=True, unique=True
+    )
+    provider_invoice_url = models.URLField(
+        "URL счёта Crypto Pay", max_length=512, blank=True
+    )
+    provider_created_at = models.DateTimeField(
+        "создан у провайдера", null=True, blank=True
+    )
+    provider_expires_at = models.DateTimeField(
+        "истекает у провайдера", null=True, blank=True
+    )
+    paid_at = models.DateTimeField("оплачен", null=True, blank=True)
+    fulfillment_attempted_at = models.DateTimeField(
+        "попытка выдачи результата", null=True, blank=True
+    )
+    fulfilled_at = models.DateTimeField("результат выдан", null=True, blank=True)
+    notification_sent_at = models.DateTimeField(
+        "уведомление отправлено", null=True, blank=True
+    )
     payment = models.OneToOneField(
         "payments.Payment",
         on_delete=models.PROTECT,
         null=True,
         blank=True,
         related_name="crypto_intent",
+        verbose_name="платёж",
     )
-    last_error_code = models.CharField(max_length=64, blank=True)
+    last_error_code = models.CharField(
+        "код последней ошибки", max_length=64, blank=True
+    )
 
     class Meta:
+        verbose_name = "Платёж Crypto Pay"
+        verbose_name_plural = "Платежи Crypto Pay"
         constraints = [
             models.UniqueConstraint(
                 fields=("initiator", "purchase_kind"),
@@ -207,39 +234,64 @@ class CryptoPaymentIntent(BaseDjangoModel):
 class PlategaPaymentIntent(BaseDjangoModel):
     """Локальная покупка через Platega SBP до и после выдачи результата."""
 
-    public_id = models.UUIDField(default=uuid4, unique=True, editable=False)
+    public_id = models.UUIDField(
+        "публичный UUID", default=uuid4, unique=True, editable=False
+    )
     initiator = models.ForeignKey(
         "users.SystemUser",
         on_delete=models.PROTECT,
         related_name="platega_payment_intents",
+        verbose_name="инициатор",
     )
-    purchase_kind = models.CharField(max_length=32, choices=PaymentKindEnum.choices())
-    product_code = models.CharField(max_length=32)
-    rub_amount = models.DecimalField(max_digits=10, decimal_places=2)
-    currency = models.CharField(max_length=3, default="RUB")
-    payment_method = models.PositiveSmallIntegerField(default=2)
+    purchase_kind = models.CharField(
+        "тип покупки", max_length=32, choices=PaymentKindEnum.choices()
+    )
+    product_code = models.CharField("код продукта", max_length=32)
+    rub_amount = models.DecimalField(
+        "сумма в рублях", max_digits=10, decimal_places=2
+    )
+    currency = models.CharField("валюта", max_length=3, default="RUB")
+    payment_method = models.PositiveSmallIntegerField("способ оплаты", default=2)
     status = models.CharField(
+        "статус",
         max_length=32,
         choices=PlategaPaymentIntentStatusEnum.choices(),
         default=PlategaPaymentIntentStatusEnum.CREATING,
     )
-    provider_transaction_id = models.UUIDField(null=True, blank=True, unique=True)
-    provider_payment_url = models.URLField(max_length=512, blank=True)
-    provider_expires_at = models.DateTimeField(null=True, blank=True)
-    fulfillment_attempted_at = models.DateTimeField(null=True, blank=True)
-    fulfilled_at = models.DateTimeField(null=True, blank=True)
-    notification_queued_at = models.DateTimeField(null=True, blank=True)
-    notification_sent_at = models.DateTimeField(null=True, blank=True)
+    provider_transaction_id = models.UUIDField(
+        "ID транзакции Platega", null=True, blank=True, unique=True
+    )
+    provider_payment_url = models.URLField(
+        "URL оплаты Platega", max_length=512, blank=True
+    )
+    provider_expires_at = models.DateTimeField(
+        "истекает у провайдера", null=True, blank=True
+    )
+    fulfillment_attempted_at = models.DateTimeField(
+        "попытка выдачи результата", null=True, blank=True
+    )
+    fulfilled_at = models.DateTimeField("результат выдан", null=True, blank=True)
+    notification_queued_at = models.DateTimeField(
+        "уведомление поставлено в очередь", null=True, blank=True
+    )
+    notification_sent_at = models.DateTimeField(
+        "уведомление отправлено", null=True, blank=True
+    )
     payment = models.OneToOneField(
         "payments.Payment",
         on_delete=models.PROTECT,
         null=True,
         blank=True,
         related_name="platega_intent",
+        verbose_name="платёж",
     )
-    last_error_code = models.CharField(max_length=64, blank=True)
+    last_error_code = models.CharField(
+        "код последней ошибки", max_length=64, blank=True
+    )
 
     class Meta:
+        verbose_name = "Платёж Platega"
+        verbose_name_plural = "Платежи Platega"
         constraints = [
             models.UniqueConstraint(
                 fields=("initiator", "purchase_kind"),
