@@ -37,7 +37,7 @@ class TestPlategaClient(SimpleTestCase):
 
     def _create_transaction(self):
         return self.client.create_transaction(
-            amount=Decimal("99.00"),
+            amount=Decimal("91.67"),
             description='MTProto "30" days',
             return_url=BOT_LINK,
             public_id=PUBLIC_ID,
@@ -56,12 +56,15 @@ class TestPlategaClient(SimpleTestCase):
         self.assertEqual(request.headers["X-MerchantId"], "merchant-id")
         self.assertEqual(request.headers["X-Secret"], "test-secret")
         self.assertEqual(request.headers["Content-Type"], "application/json")
-        self.assertIn('"amount":99.00', body)
+        self.assertIn(
+            '"paymentDetails":{"amount":91.67,"currency":"RUB"}',
+            body,
+        )
         self.assertEqual(
             json.loads(body),
             {
                 "paymentMethod": 2,
-                "paymentDetails": {"amount": 99.0, "currency": "RUB"},
+                "paymentDetails": {"amount": 91.67, "currency": "RUB"},
                 "description": 'MTProto "30" days',
                 "return": BOT_LINK,
                 "failedUrl": BOT_LINK,

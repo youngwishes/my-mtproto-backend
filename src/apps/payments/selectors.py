@@ -51,6 +51,14 @@ def get_active_payment_method_codes() -> tuple[str, ...]:
     )
 
 
+def get_payment_method_commission_percent(*, code: str) -> Decimal | None:
+    return (
+        PaymentMethod.objects.filter(code=code)
+        .values_list("commission_percent", flat=True)
+        .first()
+    )
+
+
 def get_active_product_by_code(*, code: str) -> Product | None:
     return Product.objects.active().filter(code=code).first()
 

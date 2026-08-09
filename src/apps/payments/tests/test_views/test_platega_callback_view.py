@@ -12,6 +12,7 @@ from rest_framework import status
 from rest_framework.request import Request
 from rest_framework.test import APITestCase
 
+from apps.payments.api.v1.serializers import PlategaCallbackSerializer
 from apps.payments.enums import PlategaPaymentIntentStatusEnum
 from apps.payments.exceptions import PlategaPaymentRetryable
 from apps.payments.services.dtos import (
@@ -60,7 +61,7 @@ class TestPlategaCallbackView(APITestCase):
     def payload(**updates: object) -> dict[str, object]:
         data: dict[str, object] = {
             "id": str(_TRANSACTION_ID),
-            "amount": "99.00",
+            "amount": 99,
             "currency": "RUB",
             "status": "CONFIRMED",
             "paymentMethod": 2,
@@ -81,6 +82,33 @@ class TestPlategaCallbackView(APITestCase):
         if secret is not None:
             headers["HTTP_X_SECRET"] = secret
         return self.client.post(_URL, payload, format="json", **headers)
+
+    def post_raw_json(
+        self,
+        body: str,
+        *,
+        merchant_id: str | None = _MERCHANT_ID,
+        secret: str | None = _SECRET,
+    ):
+        headers: dict[str, str] = {}
+        if merchant_id is not None:
+            headers["HTTP_X_MERCHANTID"] = merchant_id
+        if secret is not None:
+            headers["HTTP_X_SECRET"] = secret
+        return self.client.generic(
+            "POST",
+            _URL,
+            body.encode(),
+            content_type="application/json",
+            **headers,
+        )
+
+    @staticmethod
+    def raw_callback(amount: str) -> str:
+        return (
+            f'{{"id":"{_TRANSACTION_ID}","amount":{amount},'
+            '"currency":"RUB","status":"CONFIRMED","paymentMethod":2}'
+        )
 
     def assert_no_domain_processing(self) -> None:
         self.get_apply.assert_not_called()
@@ -186,17 +214,21 @@ class TestPlategaCallbackView(APITestCase):
                 self.assert_no_domain_processing()
 
     def test_authenticated_invalid_json_is_empty_safe_200(self) -> None:
-        response = self.client.generic(
-            "POST",
-            _URL,
-            b'{"id":',
-            content_type="application/json",
-            HTTP_X_MERCHANTID=_MERCHANT_ID,
-            HTTP_X_SECRET=_SECRET,
-        )
+        with mock.patch(
+            f"{_VIEW}.get_validate_platega_callback_service"
+        ) as get_validator:
+            response = self.client.generic(
+                "POST",
+                _URL,
+                b'{"id":',
+                content_type="application/json",
+                HTTP_X_MERCHANTID=_MERCHANT_ID,
+                HTTP_X_SECRET=_SECRET,
+            )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.content, b"")
+        get_validator.assert_not_called()
         self.assert_no_domain_processing()
 
     def test_authenticated_extra_or_malformed_payload_is_empty_safe_200(self) -> None:
@@ -217,6 +249,146 @@ class TestPlategaCallbackView(APITestCase):
             factory.assert_not_called()
 
         self.assert_no_domain_processing()
+
+    def test_raw_finite_json_numbers_reach_validator_as_exact_decimals(self) -> None:
+        huge_integer = "1" * 5000
+        cases = (
+            ("99", Decimal("99")),
+            ("99.0036", Decimal("99.0036")),
+            (
+                "99.0000000000000000000000000000000000000001",
+                Decimal("99.0000000000000000000000000000000000000001"),
+            ),
+            ("9.90036e1", Decimal("99.0036")),
+            (huge_integer, Decimal(huge_integer)),
+        )
+        validator = mock.Mock(
+            return_value=ValidatePlategaCallbackOut(
+                payment=None,
+                reason_code="canceled",
+                warning=None,
+            )
+        )
+        with mock.patch(
+            f"{_VIEW}.get_validate_platega_callback_service",
+            return_value=validator,
+        ):
+            for amount_token, expected in cases:
+                with self.subTest(amount_token=amount_token[:40]):
+                    validator.reset_mock()
+                    response = self.post_raw_json(
+                        self.raw_callback(amount_token),
+                    )
+
+                    self.assertEqual(response.status_code, status.HTTP_200_OK)
+                    self.assertEqual(response.content, b"")
+                    validator.assert_called_once()
+                    self.assertEqual(
+                        validator.call_args.kwargs["callback"].amount,
+                        expected,
+                    )
+
+        self.assert_no_domain_processing()
+
+    def test_raw_precise_overpayment_is_fulfilled_without_rounding(self) -> None:
+        response = self.post_raw_json(self.raw_callback("99.0036"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.content, b"")
+        self.assertEqual(self.apply.call_count, 1)
+        self.logger.warning.assert_not_called()
+
+    def test_raw_precise_underpayment_is_safe_mismatch_without_fulfilment(
+        self,
+    ) -> None:
+        response = self.post_raw_json(
+            self.raw_callback("98.999999999999999999"),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.content, b"")
+        self.apply.assert_not_called()
+        self.logger.warning.assert_called_once_with(
+            {
+                "reason_code": "callback_mismatch",
+                "intent_id": self.intent.pk,
+                "provider_transaction_id": _TRANSACTION_ID,
+            }
+        )
+
+    def test_raw_non_numeric_and_non_finite_amounts_are_empty_safe_200(
+        self,
+    ) -> None:
+        amount_tokens = (
+            '"99.00"',
+            "true",
+            "null",
+            "[]",
+            "{}",
+            "NaN",
+            "Infinity",
+            "-Infinity",
+        )
+        validator = mock.Mock(
+            return_value=ValidatePlategaCallbackOut(
+                payment=None,
+                reason_code="invalid_payload",
+                warning=None,
+            )
+        )
+        with mock.patch(
+            f"{_VIEW}.get_validate_platega_callback_service",
+            return_value=validator,
+        ) as get_validator:
+            for amount_token in amount_tokens:
+                with self.subTest(amount_token=amount_token):
+                    response = self.post_raw_json(
+                        self.raw_callback(amount_token),
+                    )
+
+                    self.assertEqual(response.status_code, status.HTTP_200_OK)
+                    self.assertEqual(response.content, b"")
+
+            get_validator.assert_not_called()
+
+        self.assert_no_domain_processing()
+
+    def test_serializer_converts_direct_int_and_float_through_text(self) -> None:
+        cases = (
+            (99, Decimal("99")),
+            (99.0036, Decimal("99.0036")),
+        )
+        for amount, expected in cases:
+            with self.subTest(amount=amount):
+                incoming = PlategaCallbackSerializer(
+                    data=self.payload(amount=amount),
+                )
+
+                self.assertTrue(incoming.is_valid(), incoming.errors)
+                self.assertEqual(incoming.validated_data["amount"], expected)
+
+    def test_serializer_rejects_direct_non_numeric_and_non_finite_amounts(
+        self,
+    ) -> None:
+        invalid_amounts = (
+            "99.00",
+            True,
+            None,
+            [],
+            {},
+            Decimal("NaN"),
+            Decimal("Infinity"),
+            float("nan"),
+            float("inf"),
+        )
+        for amount in invalid_amounts:
+            with self.subTest(amount=amount):
+                incoming = PlategaCallbackSerializer(
+                    data=self.payload(amount=amount),
+                )
+
+                self.assertFalse(incoming.is_valid())
+                self.assertIn("amount", incoming.errors)
 
     def test_serializer_maps_exact_provider_keys_to_callback_dto(self) -> None:
         validator = mock.Mock(
@@ -255,7 +427,7 @@ class TestPlategaCallbackView(APITestCase):
                 ),
             ),
             (
-                self.payload(amount="98.99"),
+                self.payload(amount=98.99),
                 PlategaCallbackWarningDTO(
                     reason_code="callback_mismatch",
                     intent_id=self.intent.pk,

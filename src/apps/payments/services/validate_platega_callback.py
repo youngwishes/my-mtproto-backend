@@ -77,7 +77,7 @@ class ValidatePlategaCallbackService:
 
         if (
             callback.transaction_id != intent.provider_transaction_id
-            or callback.amount != intent.rub_amount
+            or callback.amount < intent.rub_amount
             or callback.currency != intent.currency
             or callback.payment_method != intent.payment_method
         ):

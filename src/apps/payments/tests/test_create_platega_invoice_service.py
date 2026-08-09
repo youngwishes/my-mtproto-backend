@@ -10,7 +10,12 @@ from django.db import OperationalError, connection
 from django.test import TestCase, override_settings
 
 from apps.payments.clients import PlategaClient
-from apps.payments.enums import PaymentKindEnum, PlategaPaymentIntentStatusEnum, ProductCodeEnum
+from apps.payments.enums import (
+    PaymentKindEnum,
+    PaymentMethodCodeEnum,
+    PlategaPaymentIntentStatusEnum,
+    ProductCodeEnum,
+)
 from apps.payments.exceptions import (
     BadPaymentData,
     PlategaClientError,
@@ -18,7 +23,10 @@ from apps.payments.exceptions import (
     PlategaInvoiceUnavailable,
 )
 from apps.payments.models import PlategaPaymentIntent, Product
-from apps.payments.services.create_platega_invoice import CreateOrReusePlategaInvoiceService
+from apps.payments.services.create_platega_invoice import (
+    CreateOrReusePlategaInvoiceService,
+    get_create_or_reuse_platega_invoice_service,
+)
 from apps.payments.services.dtos import (
     CreatePlategaInvoiceIn,
     CreatePlategaInvoiceOut,
@@ -34,9 +42,11 @@ class TestCreateOrReusePlategaInvoiceService(TestCase):
         self.now = datetime(2026, 8, 2, 12, 0, tzinfo=UTC)
         self.user = SystemUserFactory(username="1487189460", telegram_username="saved_name")
         self.client = Mock(spec=PlategaClient)
+        self.commission_selector = Mock(return_value=Decimal("0.00"))
         self.service = CreateOrReusePlategaInvoiceService(
             platega_client=self.client,
             clock=lambda: self.now,
+            commission_percent_selector=self.commission_selector,
         )
 
     def _request(self, kind: str = PaymentKindEnum.SUBSCRIPTION) -> CreatePlategaInvoiceIn:
@@ -76,6 +86,65 @@ class TestCreateOrReusePlategaInvoiceService(TestCase):
                     call["public_id"], PlategaPaymentIntent.objects.get().public_id
                 )
 
+    def test_applies_current_commission_only_to_provider_amount(self) -> None:
+        ProductFactory(code=ProductCodeEnum.MTPROTO_30D, price=Decimal("9900"))
+        self.commission_selector.return_value = Decimal("8.00")
+        self.client.create_transaction.return_value = self._transaction()
+
+        result = self.service(request=self._request())
+
+        intent = PlategaPaymentIntent.objects.get()
+        self.assertEqual(
+            self.client.create_transaction.call_args.kwargs["amount"],
+            Decimal("91.67"),
+        )
+        self.assertEqual(intent.rub_amount, Decimal("99.00"))
+        self.assertEqual(result.rub_amount, Decimal("99.00"))
+        self.commission_selector.assert_called_once_with(
+            code=PaymentMethodCodeEnum.PLATEGA_SBP
+        )
+
+    def test_rounds_half_cent_provider_amount_up(self) -> None:
+        ProductFactory(code=ProductCodeEnum.MTPROTO_30D, price=Decimal("201"))
+        self.commission_selector.return_value = Decimal("100.00")
+        self.client.create_transaction.return_value = self._transaction()
+
+        result = self.service(request=self._request())
+
+        self.assertEqual(
+            self.client.create_transaction.call_args.kwargs["amount"],
+            Decimal("1.01"),
+        )
+        self.assertEqual(result.rub_amount, Decimal("2.01"))
+
+    def test_missing_commission_setting_returns_safe_unavailable(self) -> None:
+        ProductFactory(code=ProductCodeEnum.MTPROTO_30D, price=Decimal("9900"))
+        self.commission_selector.return_value = None
+        self.client.create_transaction.return_value = self._transaction()
+
+        with self.assertRaises(PlategaInvoiceUnavailable) as raised:
+            self.service(request=self._request())
+
+        self.assertEqual(
+            raised.exception.context,
+            {"reason_code": "payment_method_unavailable"},
+        )
+        self.assertFalse(PlategaPaymentIntent.objects.exists())
+        self.client.create_transaction.assert_not_called()
+
+    def test_factory_injects_commission_selector(self) -> None:
+        selector = Mock(return_value=Decimal("8.00"))
+        with patch(
+            "apps.payments.services.create_platega_invoice.get_payment_method_commission_percent",
+            selector,
+        ), patch(
+            "apps.payments.services.create_platega_invoice.get_platega_client",
+            return_value=self.client,
+        ):
+            service = get_create_or_reuse_platega_invoice_service()
+
+        self.assertIs(service.commission_percent_selector, selector)
+
     def test_falls_back_to_telegram_id_when_saved_username_is_empty(self) -> None:
         self.user.telegram_username = ""
         self.user.save(update_fields=["telegram_username"])
@@ -105,6 +174,7 @@ class TestCreateOrReusePlategaInvoiceService(TestCase):
             ),
         )
         self.client.create_transaction.assert_not_called()
+        self.commission_selector.assert_not_called()
 
     def test_expired_canceled_and_failed_intents_allow_new_price_snapshot(self) -> None:
         cases = (
