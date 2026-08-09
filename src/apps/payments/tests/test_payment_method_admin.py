@@ -8,17 +8,23 @@ from apps.payments.models import PaymentMethod
 
 
 class TestPaymentMethodAdmin(TestCase):
-    def test_payment_method_admin_exposes_commission_and_active_toggle(self) -> None:
+    def test_payment_method_admin_exposes_priority_with_existing_restrictions(self) -> None:
         model_admin = PaymentMethodAdmin(PaymentMethod, admin.site)
         request = RequestFactory().get("/admin/payments/paymentmethod/")
 
         self.assertEqual(
             model_admin.list_display,
-            ("code", "commission_percent", "is_active", "updated_at"),
+            (
+                "code",
+                "commission_percent",
+                "is_active",
+                "is_priority",
+                "updated_at",
+            ),
         )
         self.assertEqual(
             model_admin.list_editable,
-            ("commission_percent", "is_active"),
+            ("commission_percent", "is_active", "is_priority"),
         )
         self.assertEqual(
             model_admin.readonly_fields,

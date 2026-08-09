@@ -27,6 +27,7 @@ class TestPaymentModelMetadata(SimpleTestCase):
             {
                 "code": "код",
                 "commission_percent": "комиссия, %",
+                "is_priority": "приоритетный",
             },
         ),
         (

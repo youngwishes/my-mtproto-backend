@@ -151,9 +151,13 @@ def info() -> InlineKeyboardMarkup:
 
 
 def payment_methods(
-    *, rub_amount: str, payment_methods: tuple[str, ...]
+    *,
+    rub_amount: str,
+    payment_methods: tuple[str, ...],
+    priority_payment_methods: tuple[str, ...],
 ) -> InlineKeyboardMarkup:
     active = set(payment_methods)
+    priority = set(priority_payment_methods)
     keyboard: list[list[InlineKeyboardButton]] = []
     if "platega_sbp" in active:
         keyboard.append(
@@ -161,7 +165,7 @@ def payment_methods(
                 InlineKeyboardButton(
                     text=f"⚡ СБП — {_format_rub_amount(rub_amount)} ₽",
                     callback_data="pay_platega_sbp",
-                    style="primary",
+                    style="primary" if "platega_sbp" in priority else None,
                 )
             ]
         )
@@ -171,22 +175,33 @@ def payment_methods(
                 InlineKeyboardButton(
                     text="⭐ Telegram Stars — 99 ★",
                     callback_data="pay_stars",
-                    style="primary",
+                    style="primary" if "stars" in priority else None,
                 )
             ]
         )
     if "crypto_pay" in active:
         keyboard.append(
-            [InlineKeyboardButton(text=CRYPTO_PAY_BUTTON, callback_data="pay_crypto")]
+            [
+                InlineKeyboardButton(
+                    text=CRYPTO_PAY_BUTTON,
+                    callback_data="pay_crypto",
+                    style="primary" if "crypto_pay" in priority else None,
+                )
+            ]
         )
     keyboard.append([_MTPROXY_BACK])
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
 def vpn_payment_methods(
-    *, stars_price: int, rub_amount: str, payment_methods: tuple[str, ...]
+    *,
+    stars_price: int,
+    rub_amount: str,
+    payment_methods: tuple[str, ...],
+    priority_payment_methods: tuple[str, ...],
 ) -> InlineKeyboardMarkup:
     active = set(payment_methods)
+    priority = set(priority_payment_methods)
     keyboard: list[list[InlineKeyboardButton]] = []
     if "platega_sbp" in active:
         keyboard.append(
@@ -194,7 +209,7 @@ def vpn_payment_methods(
                 InlineKeyboardButton(
                     text=f"⚡ СБП — {_format_rub_amount(rub_amount)} ₽",
                     callback_data="vpn_pay_platega_sbp",
-                    style="primary",
+                    style="primary" if "platega_sbp" in priority else None,
                 )
             ]
         )
@@ -204,7 +219,7 @@ def vpn_payment_methods(
                 InlineKeyboardButton(
                     text=f"⭐ Telegram Stars — {stars_price} ★",
                     callback_data="vpn_pay_stars",
-                    style="primary",
+                    style="primary" if "stars" in priority else None,
                 )
             ]
         )
@@ -214,6 +229,7 @@ def vpn_payment_methods(
                 InlineKeyboardButton(
                     text=CRYPTO_PAY_BUTTON,
                     callback_data="vpn_pay_crypto",
+                    style="primary" if "crypto_pay" in priority else None,
                 )
             ]
         )
@@ -222,9 +238,13 @@ def vpn_payment_methods(
 
 
 def gift_certificate_payment_methods(
-    *, rub_amount: str, payment_methods: tuple[str, ...]
+    *,
+    rub_amount: str,
+    payment_methods: tuple[str, ...],
+    priority_payment_methods: tuple[str, ...],
 ) -> InlineKeyboardMarkup:
     active = set(payment_methods)
+    priority = set(priority_payment_methods)
     keyboard: list[list[InlineKeyboardButton]] = []
     if "platega_sbp" in active:
         keyboard.append(
@@ -232,7 +252,7 @@ def gift_certificate_payment_methods(
                 InlineKeyboardButton(
                     text=f"⚡ СБП — {_format_rub_amount(rub_amount)} ₽",
                     callback_data="gift_platega_sbp",
-                    style="primary",
+                    style="primary" if "platega_sbp" in priority else None,
                 )
             ]
         )
@@ -242,13 +262,19 @@ def gift_certificate_payment_methods(
                 InlineKeyboardButton(
                     text="⭐ Telegram Stars — 99 ★",
                     callback_data="gift_stars",
-                    style="primary",
+                    style="primary" if "stars" in priority else None,
                 )
             ]
         )
     if "crypto_pay" in active:
         keyboard.append(
-            [InlineKeyboardButton(text=CRYPTO_PAY_BUTTON, callback_data="gift_crypto")]
+            [
+                InlineKeyboardButton(
+                    text=CRYPTO_PAY_BUTTON,
+                    callback_data="gift_crypto",
+                    style="primary" if "crypto_pay" in priority else None,
+                )
+            ]
         )
     keyboard.append([_MTPROXY_BACK])
     return InlineKeyboardMarkup(inline_keyboard=keyboard)

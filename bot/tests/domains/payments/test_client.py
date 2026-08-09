@@ -37,6 +37,7 @@ PRODUCT_JSON = {
     "stars_price": 99,
     "rub_amount": "99.00",
     "payment_methods": ["stars", "crypto_pay"],
+    "priority_payment_methods": ["crypto_pay"],
 }
 
 @pytest.fixture
@@ -58,12 +59,15 @@ async def test_get_stars_invoice_maps_fields(client: PaymentsClient):
         prices=[LabeledPrice(label="MTPRoto на месяц", amount=99)],
         rub_amount="99.00",
         payment_methods=("stars", "crypto_pay"),
+        priority_payment_methods=("crypto_pay",),
     )
     assert invoice.currency == "XTR"
     assert invoice.provider_token == ""
     assert invoice.payment_methods == ("stars", "crypto_pay")
+    assert invoice.priority_payment_methods == ("crypto_pay",)
     assert invoice.rub_amount == "99.00"
     assert isinstance(invoice.payment_methods, tuple)
+    assert isinstance(invoice.priority_payment_methods, tuple)
 
 
 @respx.mock
@@ -73,16 +77,26 @@ async def test_get_vpn_stars_invoice_uses_vpn_product(client: PaymentsClient):
         "title": "VPN на месяц",
         "stars_price": 149,
         "payment_methods": ["crypto_pay"],
+        "priority_payment_methods": [],
     }
     respx.get(VPN_PRODUCT_URL).mock(return_value=httpx.Response(200, json=vpn_product))
 
     invoice = await client.get_vpn_stars_invoice()
 
-    assert invoice.title == "VPN на месяц"
-    assert invoice.prices == [LabeledPrice(label="VPN на месяц", amount=149)]
-    assert invoice.rub_amount == "99.00"
+    assert invoice == StarsInvoice(
+        title="VPN на месяц",
+        description="Безлимитный прокси",
+        prices=[LabeledPrice(label="VPN на месяц", amount=149)],
+        rub_amount="99.00",
+        payment_methods=("crypto_pay",),
+        priority_payment_methods=(),
+    )
+    assert invoice.currency == "XTR"
+    assert invoice.provider_token == ""
     assert invoice.payment_methods == ("crypto_pay",)
+    assert invoice.priority_payment_methods == ()
     assert isinstance(invoice.payment_methods, tuple)
+    assert isinstance(invoice.priority_payment_methods, tuple)
 
 
 @respx.mock

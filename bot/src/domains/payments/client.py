@@ -25,6 +25,7 @@ class StarsInvoice:
     prices: list[LabeledPrice]
     rub_amount: str
     payment_methods: tuple[str, ...]
+    priority_payment_methods: tuple[str, ...]
     currency: str = "XTR"
     provider_token: str = ""
 
@@ -78,6 +79,9 @@ class PaymentsClient:
             prices=[LabeledPrice(label=data["title"], amount=data["stars_price"])],
             rub_amount=str(data["rub_amount"]),
             payment_methods=tuple(str(code) for code in data["payment_methods"]),
+            priority_payment_methods=tuple(
+                str(code) for code in data["priority_payment_methods"]
+            ),
         )
 
     async def confirm_purchase(

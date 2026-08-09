@@ -80,6 +80,7 @@ class TestPaymentMethodModel(TestCase):
                 "updated_at",
                 "code",
                 "commission_percent",
+                "is_priority",
             },
         )
         self.assertFalse(
@@ -88,6 +89,47 @@ class TestPaymentMethodModel(TestCase):
                 for field in PaymentMethod._meta.get_fields()
             )
         )
+
+    def test_priority_defaults_to_false(self) -> None:
+        self.assertIn(
+            "is_priority",
+            {field.name for field in PaymentMethod._meta.fields},
+        )
+        PaymentMethod.objects.all().delete()
+
+        payment_method = PaymentMethod.objects.create(
+            code=PaymentMethodCodeEnum.STARS
+        )
+        field = PaymentMethod._meta.get_field("is_priority")
+
+        self.assertFalse(field.null)
+        self.assertIs(field.default, False)
+        self.assertFalse(payment_method.is_priority)
+
+    def test_priority_values_are_saved_independently(self) -> None:
+        self.assertIn(
+            "is_priority",
+            {field.name for field in PaymentMethod._meta.fields},
+        )
+        PaymentMethod.objects.all().delete()
+        stars = PaymentMethod.objects.create(
+            code=PaymentMethodCodeEnum.STARS,
+            is_priority=True,
+        )
+        crypto_pay = PaymentMethod.objects.create(
+            code=PaymentMethodCodeEnum.CRYPTO_PAY,
+            is_priority=True,
+        )
+
+        self.assertTrue(stars.is_priority)
+        self.assertTrue(crypto_pay.is_priority)
+        stars.is_priority = False
+        stars.save(update_fields=("is_priority",))
+        stars.refresh_from_db()
+        crypto_pay.refresh_from_db()
+
+        self.assertFalse(stars.is_priority)
+        self.assertTrue(crypto_pay.is_priority)
 
     def test_commission_percent_defaults_to_zero_and_accepts_inclusive_range(self) -> None:
         PaymentMethod.objects.all().delete()

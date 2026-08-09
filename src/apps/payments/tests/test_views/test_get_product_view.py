@@ -67,6 +67,7 @@ class TestGetProductView(APITestCase):
                 "need_email": self.mtproto_product.need_email,
                 "send_email_to_provider": self.mtproto_product.send_email_to_provider,
                 "payment_methods": ["platega_sbp", "stars", "crypto_pay"],
+                "priority_payment_methods": [],
             },
         )
 
@@ -108,6 +109,65 @@ class TestGetProductView(APITestCase):
                     response = self.get_product(path=route)
                     self.assertEqual(response.status_code, status.HTTP_200_OK)
                     self.assertEqual(response.json()["payment_methods"], expected)
+
+    def test_returns_priority_payment_methods_for_both_product_routes(self) -> None:
+        routes = (
+            self.url,
+            reverse("product-by-code", kwargs={"code": ProductCodeEnum.VPN_30D}),
+        )
+        states = (
+            (
+                ("platega_sbp", "stars", "crypto_pay"),
+                ("crypto_pay", "platega_sbp"),
+                ["platega_sbp", "stars", "crypto_pay"],
+                ["platega_sbp", "crypto_pay"],
+            ),
+            (
+                ("platega_sbp", "stars", "crypto_pay"),
+                ("stars",),
+                ["platega_sbp", "stars", "crypto_pay"],
+                ["stars"],
+            ),
+            (
+                ("platega_sbp", "stars", "crypto_pay"),
+                (),
+                ["platega_sbp", "stars", "crypto_pay"],
+                [],
+            ),
+            (
+                ("platega_sbp", "crypto_pay"),
+                ("stars", "crypto_pay"),
+                ["platega_sbp", "crypto_pay"],
+                ["crypto_pay"],
+            ),
+        )
+
+        for (
+            active_codes,
+            priority_codes,
+            expected_methods,
+            expected_priority,
+        ) in states:
+            PaymentMethod.objects.all().update(is_active=False, is_priority=False)
+            PaymentMethod.objects.filter(code__in=active_codes).update(is_active=True)
+            PaymentMethod.objects.filter(code__in=priority_codes).update(
+                is_priority=True
+            )
+            for route in routes:
+                with self.subTest(
+                    route=route,
+                    active_codes=active_codes,
+                    priority_codes=priority_codes,
+                ):
+                    response = self.get_product(path=route)
+                    self.assertEqual(response.status_code, status.HTTP_200_OK)
+                    self.assertEqual(
+                        response.json()["payment_methods"], expected_methods
+                    )
+                    self.assertEqual(
+                        response.json()["priority_payment_methods"],
+                        expected_priority,
+                    )
 
     def test_returns_current_payment_methods_on_sequential_gets(self) -> None:
         first_response = self.get_product(path=self.url)

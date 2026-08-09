@@ -245,6 +245,7 @@ def _deps_with_vpn(*, vpn: FakeVPN, payments: FakePayments | None = None):
                 prices=[LabeledPrice(label="VPN на месяц", amount=149)],
                 rub_amount="149.00",
                 payment_methods=("stars", "crypto_pay"),
+                priority_payment_methods=(),
             ),
         )
     return Dependencies(
@@ -462,6 +463,7 @@ async def test_payment_screen_includes_legal_links():
             prices=[LabeledPrice(label="Месяц", amount=99)],
             rub_amount="99.00",
             payment_methods=("stars", "crypto_pay"),
+            priority_payment_methods=(),
         )
     )
 
@@ -489,6 +491,7 @@ async def test_payment_screen_includes_legal_links():
             {
                 "rub_amount": "99.00",
                 "payment_methods": ("platega_sbp", "stars", "crypto_pay"),
+                "priority_payment_methods": ("platega_sbp",),
             },
             [
                 "pay_platega_sbp",
@@ -503,6 +506,7 @@ async def test_payment_screen_includes_legal_links():
                 "stars_price": 149,
                 "rub_amount": "149.00",
                 "payment_methods": ("platega_sbp", "stars", "crypto_pay"),
+                "priority_payment_methods": ("platega_sbp",),
             },
             [
                 "vpn_pay_platega_sbp",
@@ -516,6 +520,7 @@ async def test_payment_screen_includes_legal_links():
             {
                 "rub_amount": "99.00",
                 "payment_methods": ("platega_sbp", "stars", "crypto_pay"),
+                "priority_payment_methods": ("platega_sbp",),
             },
             [
                 "gift_platega_sbp",
@@ -543,7 +548,11 @@ def test_sbp_first_stars_second_crypto_third(
     [
         (
             keyboards.payment_methods,
-            {"rub_amount": "99.00", "payment_methods": ("unknown",)},
+            {
+                "rub_amount": "99.00",
+                "payment_methods": ("unknown",),
+                "priority_payment_methods": (),
+            },
             "show_mtproxy_menu",
         ),
         (
@@ -552,12 +561,17 @@ def test_sbp_first_stars_second_crypto_third(
                 "stars_price": 149,
                 "rub_amount": "149.00",
                 "payment_methods": ("unknown",),
+                "priority_payment_methods": (),
             },
             "show_vpn_menu",
         ),
         (
             keyboards.gift_certificate_payment_methods,
-            {"rub_amount": "99.00", "payment_methods": ("unknown",)},
+            {
+                "rub_amount": "99.00",
+                "payment_methods": ("unknown",),
+                "priority_payment_methods": (),
+            },
             "show_mtproxy_menu",
         ),
     ],
@@ -600,10 +614,12 @@ def test_mtproxy_internal_back_buttons_return_to_mtproxy_menu(
         "payment_methods": keyboards.payment_methods(
             rub_amount="99.00",
             payment_methods=("stars", "crypto_pay"),
+            priority_payment_methods=(),
         ),
         "gift_certificate": keyboards.gift_certificate_payment_methods(
             rub_amount="99.00",
             payment_methods=("stars", "crypto_pay"),
+            priority_payment_methods=(),
         ),
         "referral_cabinet": keyboards.referral_cabinet(
             active_referrals_count=4,
@@ -720,57 +736,98 @@ SCREEN_CASES = {
         process_boost_paid,
         PAYMENT_METHODS_TEXT,
         {
-            "platega_sbp": "pay_platega_sbp",
-            "stars": "pay_stars",
-            "crypto_pay": "pay_crypto",
+            "platega_sbp": ("⚡ СБП — 99 ₽", "pay_platega_sbp"),
+            "stars": ("⭐ Telegram Stars — 99 ★", "pay_stars"),
+            "crypto_pay": ("💎 Crypto Pay", "pay_crypto"),
         },
-        "show_mtproxy_menu",
+        ("🔙 Назад", "show_mtproxy_menu"),
     ),
     "vpn": (
         process_vpn,
         VPN_MENU_TEXT,
         {
-            "platega_sbp": "vpn_pay_platega_sbp",
-            "stars": "vpn_pay_stars",
-            "crypto_pay": "vpn_pay_crypto",
+            "platega_sbp": ("⚡ СБП — 99 ₽", "vpn_pay_platega_sbp"),
+            "stars": ("⭐ Telegram Stars — 149 ★", "vpn_pay_stars"),
+            "crypto_pay": ("💎 Crypto Pay", "vpn_pay_crypto"),
         },
-        "show_vpn_menu",
+        ("🔙 Назад", "show_vpn_menu"),
     ),
     "gift": (
         process_gift_certificate,
         GIFT_CERTIFICATE_TEXT,
         {
-            "platega_sbp": "gift_platega_sbp",
-            "stars": "gift_stars",
-            "crypto_pay": "gift_crypto",
+            "platega_sbp": ("⚡ СБП — 99 ₽", "gift_platega_sbp"),
+            "stars": ("⭐ Telegram Stars — 99 ★", "gift_stars"),
+            "crypto_pay": ("💎 Crypto Pay", "gift_crypto"),
         },
-        "show_mtproxy_menu",
+        ("🔙 Назад", "show_mtproxy_menu"),
     ),
 }
 
 
 @pytest.mark.parametrize("screen", tuple(SCREEN_CASES))
 @pytest.mark.parametrize(
-    "methods",
+    ("methods", "priority_methods", "expected_method_styles"),
     (
-        ("platega_sbp", "stars", "crypto_pay"),
-        ("platega_sbp", "stars"),
-        ("platega_sbp", "crypto_pay"),
-        ("platega_sbp",),
-        ("stars", "crypto_pay"),
-        ("stars",),
-        ("crypto_pay",),
-        (),
+        (
+            ("platega_sbp", "stars", "crypto_pay"),
+            ("stars",),
+            (
+                ("platega_sbp", None),
+                ("stars", "primary"),
+                ("crypto_pay", None),
+            ),
+        ),
+        (
+            ("platega_sbp", "stars", "crypto_pay"),
+            ("platega_sbp", "crypto_pay"),
+            (
+                ("platega_sbp", "primary"),
+                ("stars", None),
+                ("crypto_pay", "primary"),
+            ),
+        ),
+        (
+            ("platega_sbp", "stars", "crypto_pay"),
+            (),
+            (
+                ("platega_sbp", None),
+                ("stars", None),
+                ("crypto_pay", None),
+            ),
+        ),
+        (
+            ("platega_sbp", "stars"),
+            (),
+            (("platega_sbp", None), ("stars", None)),
+        ),
+        (
+            ("platega_sbp", "crypto_pay"),
+            (),
+            (("platega_sbp", None), ("crypto_pay", None)),
+        ),
+        (("platega_sbp",), (), (("platega_sbp", None),)),
+        (
+            ("stars", "crypto_pay"),
+            (),
+            (("stars", None), ("crypto_pay", None)),
+        ),
+        (("stars",), (), (("stars", None),)),
+        (("crypto_pay",), (), (("crypto_pay", None),)),
+        ((), (), ()),
     ),
 )
-async def test_payment_method_screen_matrix(screen, methods) -> None:
-    handler, normal_text, callback_by_method, back_callback = SCREEN_CASES[screen]
+async def test_payment_method_screen_matrix(
+    screen, methods, priority_methods, expected_method_styles
+) -> None:
+    handler, normal_text, button_by_method, back_button = SCREEN_CASES[screen]
     invoice = StarsInvoice(
         title="Товар",
         description="Описание",
         prices=[LabeledPrice(label="Товар", amount=149)],
         rub_amount="99.00",
         payment_methods=methods,
+        priority_payment_methods=priority_methods,
     )
     payments = FakePayments(stars=invoice)
     callback = FakeCallback(chat_id=42, user_id=42)
@@ -791,24 +848,21 @@ async def test_payment_method_screen_matrix(screen, methods) -> None:
     await handler(callback, deps)
 
     text, markup = callback.message.edits[0]
-    expected_payment_callbacks = [
-        callback_by_method[code]
-        for code in ("platega_sbp", "stars", "crypto_pay")
-        if code in methods
+    expected_rows = [
+        [(*button_by_method[code], style)]
+        for code, style in expected_method_styles
     ]
-    actual_callbacks = [
-        row[0].callback_data for row in markup.inline_keyboard
+    expected_rows.append([(*back_button, None)])
+    actual_rows = [
+        [(button.text, button.callback_data, button.style) for button in row]
+        for row in markup.inline_keyboard
     ]
-    assert actual_callbacks == [*expected_payment_callbacks, back_callback]
+    assert actual_rows == expected_rows
     assert text == (
         normal_text if methods else "Оплата временно недоступна"
     )
     assert payments.stars_invoice_calls == (0 if screen == "vpn" else 1)
     assert payments.vpn_stars_invoice_calls == (1 if screen == "vpn" else 0)
-    if "platega_sbp" in methods:
-        sbp_button = markup.inline_keyboard[0][0]
-        assert sbp_button.text == "⚡ СБП — 99 ₽"
-        assert sbp_button.style == "primary"
 
 
 @pytest.mark.parametrize(
@@ -816,7 +870,11 @@ async def test_payment_method_screen_matrix(screen, methods) -> None:
     [
         (
             keyboards.payment_methods,
-            {"rub_amount": "99.50", "payment_methods": ("platega_sbp",)},
+            {
+                "rub_amount": "99.50",
+                "payment_methods": ("platega_sbp",),
+                "priority_payment_methods": ("platega_sbp",),
+            },
         ),
         (
             keyboards.vpn_payment_methods,
@@ -824,11 +882,16 @@ async def test_payment_method_screen_matrix(screen, methods) -> None:
                 "stars_price": 149,
                 "rub_amount": "99.50",
                 "payment_methods": ("platega_sbp",),
+                "priority_payment_methods": ("platega_sbp",),
             },
         ),
         (
             keyboards.gift_certificate_payment_methods,
-            {"rub_amount": "99.50", "payment_methods": ("platega_sbp",)},
+            {
+                "rub_amount": "99.50",
+                "payment_methods": ("platega_sbp",),
+                "priority_payment_methods": ("platega_sbp",),
+            },
         ),
     ],
 )
@@ -917,6 +980,7 @@ async def test_vpn_purchase_fetches_stars_invoice_and_shows_stars_only_screen():
         prices=[LabeledPrice(label="VPN на месяц", amount=237)],
         rub_amount="149.00",
         payment_methods=("stars", "crypto_pay"),
+        priority_payment_methods=(),
     )
     deps = _deps_with_vpn(
         vpn=vpn,
@@ -1024,6 +1088,7 @@ async def test_vpn_stars_invoice_uses_distinct_payload_and_vpn_product(monkeypat
         prices=[LabeledPrice(label="VPN на месяц", amount=149)],
         rub_amount="149.00",
         payment_methods=("stars", "crypto_pay"),
+        priority_payment_methods=(),
     )
 
     await process_vpn_pay_stars(
@@ -1049,6 +1114,7 @@ async def test_pay_stars_sends_xtr_invoice(monkeypatch):
         prices=[LabeledPrice(label="Месяц", amount=99)],
         rub_amount="99.00",
         payment_methods=("stars", "crypto_pay"),
+        priority_payment_methods=(),
     )
     callback = FakeCallback(chat_id=42)
 
@@ -1068,6 +1134,7 @@ async def test_gift_certificate_screen_shows_payment_options():
             prices=[LabeledPrice(label="Месяц", amount=99)],
             rub_amount="99.00",
             payment_methods=("stars", "crypto_pay"),
+            priority_payment_methods=(),
         )
     )
 
@@ -1094,6 +1161,7 @@ async def test_gift_stars_invoice_uses_gift_payload(monkeypatch):
         prices=[LabeledPrice(label="Месяц", amount=99)],
         rub_amount="99.00",
         payment_methods=("stars", "crypto_pay"),
+        priority_payment_methods=(),
     )
     callback = FakeCallback(chat_id=42)
 
