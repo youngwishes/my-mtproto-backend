@@ -121,6 +121,9 @@ class PlategaCallbackView(APIView):
         ):
             return Response(status=status.HTTP_401_UNAUTHORIZED)
 
+        if getattr(settings, "PLATEGA_CALLBACK_DEBUG_LOGGING", False):
+            _log_platega_callback_request(request)
+
         try:
             callback_data = request.data
         except (ParseError, UnsupportedMediaType):
@@ -146,6 +149,20 @@ class PlategaCallbackView(APIView):
         except (PlategaPaymentRetryable, DatabaseError):
             return Response(status=status.HTTP_503_SERVICE_UNAVAILABLE)
         return Response(status=status.HTTP_200_OK)
+
+
+def _log_platega_callback_request(request: Request) -> None:
+    logger.info(
+        {
+            "event": "platega_callback_request",
+            "method": request.method,
+            "path": request.path,
+            "content_type": request.content_type,
+            "user_agent": request.headers.get("User-Agent", ""),
+            "header_names": sorted(request.headers.keys()),
+            "body": request.body.decode("utf-8", errors="replace"),
+        }
+    )
 
 
 def _safe_error_response(

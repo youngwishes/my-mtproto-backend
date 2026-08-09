@@ -342,9 +342,16 @@ processing возвращает пустой `503`, чтобы тот же callb
 
 Для authenticated unknown/mismatch/unsupported backend делает один warning с
 ровно тремя полями: `reason_code`, nullable internal `intent_id` и nullable
-`provider_transaction_id`. Callback body/headers, settings/credentials,
-Telegram ID/username, metadata, payload, provider content и payment URL не
-логируются. Endpoint не вызывает provider GET и не имеет polling schedule.
+`provider_transaction_id`. По умолчанию callback body/headers,
+settings/credentials, Telegram ID/username, metadata, payload, provider content
+и payment URL не логируются. При временном
+`PLATEGA_CALLBACK_DEBUG_LOGGING=true` успешно аутентифицированный запрос до
+парсинга создаёт INFO-событие `platega_callback_request`: raw body,
+method/path, Content-Type/User-Agent и только названия заголовков. Значения
+`X-MerchantId`, `X-Secret`, Authorization и Cookie не попадают в событие;
+неавторизованный запрос также не логируется. Флаг не меняет callback response
+или доменную обработку. Endpoint не вызывает provider GET и не имеет polling
+schedule.
 
 ### POST /api/v1/payments/crypto/webhooks/<secret>/
 

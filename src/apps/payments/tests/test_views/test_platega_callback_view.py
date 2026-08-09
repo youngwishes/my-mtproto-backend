@@ -34,6 +34,77 @@ _TRANSACTION_ID = UUID("6765c89d-4800-4e07-b45d-d886e696e87c")
     PLATEGA_MERCHANT_ID=_MERCHANT_ID,
     PLATEGA_SECRET=_SECRET,
 )
+class TestPlategaCallbackDiagnostics(APITestCase):
+    body = '{"amount":"99.0036"}'
+
+    def post_callback(
+        self,
+        *,
+        merchant_id: str = _MERCHANT_ID,
+        secret: str = _SECRET,
+    ):
+        return self.client.generic(
+            "POST",
+            _URL,
+            self.body.encode(),
+            content_type="application/json",
+            HTTP_AUTHORIZATION="Bearer private-authorization",
+            HTTP_COOKIE="sessionid=private-cookie",
+            HTTP_USER_AGENT="Platega Payment",
+            HTTP_X_MERCHANTID=merchant_id,
+            HTTP_X_SECRET=secret,
+        )
+
+    @override_settings(PLATEGA_CALLBACK_DEBUG_LOGGING=True)
+    def test_authenticated_callback_logs_raw_shape_without_header_values(
+        self,
+    ) -> None:
+        with self.assertLogs(_VIEW, level="INFO") as captured:
+            response = self.post_callback()
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        rendered = "\n".join(captured.output)
+        for expected in (
+            "platega_callback_request",
+            "'method': 'POST'",
+            f"'path': '{_URL}'",
+            "'content_type': 'application/json'",
+            "'user_agent': 'Platega Payment'",
+            "'header_names'",
+            "Authorization",
+            "Cookie",
+            "X-Merchantid",
+            "X-Secret",
+            f"'body': '{self.body}'",
+        ):
+            self.assertIn(expected, rendered)
+        for forbidden in (
+            _MERCHANT_ID,
+            _SECRET,
+            "private-authorization",
+            "private-cookie",
+        ):
+            self.assertNotIn(forbidden, rendered)
+
+    @override_settings(PLATEGA_CALLBACK_DEBUG_LOGGING=False)
+    def test_diagnostic_flag_disabled_emits_no_callback_log(self) -> None:
+        with self.assertNoLogs(_VIEW, level="INFO"):
+            response = self.post_callback()
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    @override_settings(PLATEGA_CALLBACK_DEBUG_LOGGING=True)
+    def test_invalid_credentials_emit_no_callback_log(self) -> None:
+        with self.assertNoLogs(_VIEW, level="INFO"):
+            response = self.post_callback(secret="wrong-secret")
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+@override_settings(
+    PLATEGA_MERCHANT_ID=_MERCHANT_ID,
+    PLATEGA_SECRET=_SECRET,
+)
 class TestPlategaCallbackView(APITestCase):
     def setUp(self) -> None:
         self.intent = PlategaPaymentIntentFactory(
