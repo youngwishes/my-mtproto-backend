@@ -55,8 +55,14 @@ class ProductAdmin(admin.ModelAdmin):
 @admin.register(PaymentMethod)
 class PaymentMethodAdmin(admin.ModelAdmin):
     actions = None
-    list_display = ("code", "commission_percent", "is_active", "updated_at")
-    list_editable = ("commission_percent", "is_active")
+    list_display = (
+        "code",
+        "commission_percent",
+        "is_active",
+        "is_priority",
+        "updated_at",
+    )
+    list_editable = ("commission_percent", "is_active", "is_priority")
     readonly_fields = ("code", "created_at", "updated_at")
 
     def has_add_permission(self, request: HttpRequest) -> bool:

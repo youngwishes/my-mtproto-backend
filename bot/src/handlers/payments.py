@@ -117,6 +117,7 @@ async def process_boost_paid(callback: CallbackQuery, deps: Dependencies):
         reply_markup=keyboards.payment_methods(
             rub_amount=invoice.rub_amount,
             payment_methods=invoice.payment_methods,
+            priority_payment_methods=invoice.priority_payment_methods,
         ),
     )
 
@@ -178,6 +179,7 @@ async def process_gift_certificate(callback: CallbackQuery, deps: Dependencies):
         reply_markup=keyboards.gift_certificate_payment_methods(
             rub_amount=invoice.rub_amount,
             payment_methods=invoice.payment_methods,
+            priority_payment_methods=invoice.priority_payment_methods,
         ),
     )
 

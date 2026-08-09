@@ -87,6 +87,7 @@ class PaymentMethod(BaseDjangoModel):
             MaxValueValidator(Decimal("999.99")),
         ),
     )
+    is_priority = models.BooleanField("приоритетный", default=False)
 
     class Meta:
         verbose_name = "Способ оплаты"

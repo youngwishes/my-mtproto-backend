@@ -12,6 +12,7 @@ from apps.payments.enums import (
 from apps.payments.models import PaymentMethod, Product
 from apps.payments.selectors import (
     get_active_payment_method_codes,
+    get_active_priority_payment_method_codes,
     get_active_product_by_code,
     get_payment_method_commission_percent,
 )
@@ -68,6 +69,52 @@ class TestActivePaymentMethodCodes(TestCase):
 
         self.assertEqual(
             get_active_payment_method_codes(), ("stars", "crypto_pay")
+        )
+
+
+class TestActivePriorityPaymentMethodCodes(TestCase):
+    def setUp(self) -> None:
+        PaymentMethod.objects.all().delete()
+        self.crypto = PaymentMethod.objects.create(code="crypto_pay")
+        self.stars = PaymentMethod.objects.create(code="stars")
+        self.platega = PaymentMethod.objects.create(code="platega_sbp")
+
+    def test_returns_priority_codes_in_fixed_order(self) -> None:
+        self.platega.is_priority = True
+        self.platega.save(update_fields=["is_priority"])
+        self.crypto.is_priority = True
+        self.crypto.save(update_fields=["is_priority"])
+
+        self.assertEqual(
+            get_active_priority_payment_method_codes(),
+            ("platega_sbp", "crypto_pay"),
+        )
+
+    def test_returns_one_or_no_priority_codes(self) -> None:
+        for priority_codes, expected in (
+            (("stars",), ("stars",)),
+            ((), ()),
+        ):
+            with self.subTest(priority_codes=priority_codes):
+                PaymentMethod.objects.all().update(is_priority=False)
+                PaymentMethod.objects.filter(code__in=priority_codes).update(
+                    is_priority=True
+                )
+
+                self.assertEqual(
+                    get_active_priority_payment_method_codes(), expected
+                )
+
+    def test_excludes_inactive_and_unknown_priority_codes(self) -> None:
+        self.platega.is_priority = True
+        self.platega.save(update_fields=["is_priority"])
+        self.stars.is_active = False
+        self.stars.is_priority = True
+        self.stars.save(update_fields=["is_active", "is_priority"])
+        PaymentMethod.objects.create(code="unknown", is_priority=True)
+
+        self.assertEqual(
+            get_active_priority_payment_method_codes(), ("platega_sbp",)
         )
 
 

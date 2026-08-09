@@ -45,6 +45,7 @@ async def process_vpn(callback: CallbackQuery, deps: Dependencies) -> None:
             stars_price=stars_invoice.prices[0].amount,
             rub_amount=stars_invoice.rub_amount,
             payment_methods=stars_invoice.payment_methods,
+            priority_payment_methods=stars_invoice.priority_payment_methods,
         ),
     )
 

@@ -51,6 +51,21 @@ def get_active_payment_method_codes() -> tuple[str, ...]:
     )
 
 
+def get_active_priority_payment_method_codes() -> tuple[str, ...]:
+    order = Case(
+        When(code=PaymentMethodCodeEnum.PLATEGA_SBP, then=0),
+        When(code=PaymentMethodCodeEnum.STARS, then=1),
+        When(code=PaymentMethodCodeEnum.CRYPTO_PAY, then=2),
+        output_field=IntegerField(),
+    )
+    return tuple(
+        PaymentMethod.objects.active()
+        .filter(is_priority=True, code__in=_SUPPORTED_PAYMENT_METHOD_CODES)
+        .order_by(order)
+        .values_list("code", flat=True)
+    )
+
+
 def get_payment_method_commission_percent(*, code: str) -> Decimal | None:
     return (
         PaymentMethod.objects.filter(code=code)

@@ -226,8 +226,9 @@ referrer.
 `GET /api/v1/payments/products/vpn_30d/` возвращает активный VPN-товар в том же
 формате, что и legacy `GET /api/v1/payments/`; legacy route остаётся MTProto alias.
 Оба защищённых `Bot-Auth-Token` маршрута на каждом запросе добавляют один и тот
-же глобальный список активных способов оплаты `payment_methods` и точную
-decimal-строку `rub_amount`.
+же глобальный список активных способов оплаты `payment_methods`, его
+упорядоченную подпоследовательность активных приоритетных способов
+`priority_payment_methods` и точную decimal-строку `rub_amount`.
 
 ### POST /api/v1/payments/crypto/invoices/
 
@@ -441,7 +442,8 @@ Telegram-инвойса. `GET /api/v1/payments/products/<code>/` возвращ�
   "price": 9900.0,
   "rub_amount": "99.00",
   "stars_price": 99,
-  "payment_methods": ["platega_sbp", "stars", "crypto_pay"]
+  "payment_methods": ["platega_sbp", "stars", "crypto_pay"],
+  "priority_payment_methods": ["platega_sbp", "crypto_pay"]
 }
 ```
 
@@ -457,6 +459,12 @@ Stars. Все прежние product-поля сохраняют свой JSON-�
 Изменение в Django admin видно на следующем GET без перезапуска или кеша. Пустой
 список является штатным состоянием, а отсутствие активного товара сохраняет
 прежнюю ошибку `400`.
+
+`priority_payment_methods` также всегда присутствует. Он содержит только
+активные, поддержанные кодом и отмеченные как приоритетные способы в том же
+фиксированном порядке и всегда является подпоследовательностью
+`payment_methods`. Допустимы несколько значений, одно значение или `[]`;
+настройка приоритета не меняет состав и порядок прежнего `payment_methods`.
 
 ---
 
