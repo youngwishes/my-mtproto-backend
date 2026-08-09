@@ -1310,7 +1310,11 @@ async def test_platega_callback_uses_kind_and_shows_url_with_correct_back_target
     assert "99.50" in text
     assert "Срок действия счета: 15 минут" in text
     assert "2026-08-08T12:15:00Z" not in text
-    assert "не подтверждает оплату" in text
+    assert "Возврат в бот не подтверждает оплату" not in text
+    assert (
+        "Результат будет выдан автоматически после подтверждения платежа."
+        in text
+    )
     assert markup.inline_keyboard[0][0].text == "Оплатить через СБП"
     assert markup.inline_keyboard[0][0].url == (
         "https://pay.example/invoice/opaque"
