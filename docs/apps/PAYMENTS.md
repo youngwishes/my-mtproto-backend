@@ -124,8 +124,9 @@ invoice, successful-payment routing и fulfilment действующих Stars/C
 authentication/permission lists. До request data/body parsing он выполняет обе
 отдельные constant-time проверки raw `X-MerchantId` и `X-Secret`; пустые
 configured credentials и missing/invalid headers дают `401`. Только
-authenticated exact-key payload преобразуется в `PlategaCallbackDTO` и
-передаётся validator/apply factories. Callback-only JSON parser разбирает
+authenticated payload с пятью обязательными provider-полями и необязательным
+игнорируемым echo `payload` преобразуется в `PlategaCallbackDTO` и передаётся
+validator/apply factories. Callback-only JSON parser разбирает
 integer, fraction и finite exponent tokens напрямую в Decimal. Amount принимает
 только конечное JSON-число произвольной точности; numeric strings, boolean,
 `null`, containers, `NaN` и бесконечности отклоняются без domain processing.

@@ -484,6 +484,18 @@ class TestPlategaCallbackView(APITestCase):
         self.assertEqual(callback.payment_method, 2)
         self.assert_no_domain_processing()
 
+    def test_provider_payload_is_ignored_before_fulfilment(self) -> None:
+        response = self.post_payload(
+            self.payload(payload="492a37cf-49cf-43ac-a693-dbc942ac98e2"),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(self.apply.call_count, 1)
+        payment = self.apply.call_args.kwargs["payment"]
+        self.assertEqual(payment.intent_id, self.intent.pk)
+        self.assertEqual(payment.transaction_id, _TRANSACTION_ID)
+        self.logger.warning.assert_not_called()
+
     def test_unknown_mismatch_and_unsupported_callbacks_log_only_allowlist(
         self,
     ) -> None:

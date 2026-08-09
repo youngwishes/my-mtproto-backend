@@ -310,7 +310,8 @@ permissions. До чтения JSON backend извлекает raw headers `X-Me
 затем объединяет результаты. Пустые configured credentials fail-closed.
 Missing/invalid header возвращает пустой `401` без body parsing.
 
-После успешной аутентификации принимается JSON-объект с ровно пятью ключами:
+После успешной аутентификации принимается JSON-объект с пятью обязательными
+ключами и необязательным provider echo `payload`:
 
 ```json
 {
@@ -318,9 +319,14 @@ Missing/invalid header возвращает пустой `401` без body parsi
   "amount": 99.0036,
   "currency": "RUB",
   "status": "CONFIRMED",
-  "paymentMethod": 2
+  "paymentMethod": 2,
+  "payload": "492a37cf-49cf-43ac-a693-dbc942ac98e2"
 }
 ```
+
+`payload` не участвует в выборе intent или валидации и не передаётся в доменный
+DTO; callback без него остаётся валидным. Другие дополнительные ключи
+отклоняются до domain processing.
 
 `amount` должен быть конечным JSON-числом. Integer, fraction и finite exponent
 принимаются без продуктового ограничения на число целых или дробных знаков и
@@ -331,7 +337,7 @@ boolean, `null`, container, `NaN` и бесконечность недопуст
 `98.999999999999999999` остаётся mismatch. Проверки transaction ID, точных
 `RUB`, method `2`, статуса и состояния intent сохраняются.
 
-Authenticated malformed JSON, missing/extra/malformed fields, unknown
+Authenticated malformed JSON, missing/unrecognized extra/malformed fields, unknown
 transaction, mismatch, unsupported status, normal/repeated `CANCELED` и
 duplicate fulfillment возвращают пустой `200` без небезопасной выдачи.
 `CHARGEBACKED` относится только к unsupported safe acknowledgement и не

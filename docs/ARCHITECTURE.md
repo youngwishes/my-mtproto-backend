@@ -132,8 +132,9 @@ client наружу несут только reason code `timeout`, `unavailable`
 До чтения body/request data Django извлекает raw `X-MerchantId` и `X-Secret` и
 всегда вычисляет две отдельные constant-time проверки; пустая backend
 конфигурация fail-closed. Только после этого exact-key serializer принимает
-`id`, `amount`, `currency`, `status`, `paymentMethod`, а validation service
-сопоставляет normalized DTO с сохранённым intent. Callback-only JSON parser
+обязательные `id`, `amount`, `currency`, `status`, `paymentMethod` и игнорирует
+необязательный provider echo `payload`, а validation service сопоставляет
+normalized DTO с сохранённым intent. Callback-only JSON parser
 разбирает integer, fraction и exponent tokens сразу в Decimal без binary float;
 serializer принимает только конечное JSON-число произвольной точности и
 отклоняет строки, boolean, `NaN` и бесконечности. Validator без округления
