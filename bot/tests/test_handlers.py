@@ -1308,7 +1308,8 @@ async def test_platega_callback_uses_kind_and_shows_url_with_correct_back_target
     assert payments.platega_calls == [(42, purchase_kind)]
     text, markup = callback.message.edits[0]
     assert "99.50" in text
-    assert "2026-08-08T12:15:00Z" in text
+    assert "Срок действия счета: 15 минут" in text
+    assert "2026-08-08T12:15:00Z" not in text
     assert "не подтверждает оплату" in text
     assert markup.inline_keyboard[0][0].text == "Оплатить через СБП"
     assert markup.inline_keyboard[0][0].url == (
