@@ -32,7 +32,13 @@ class TestBuildSubscriptionService(TestCase):
             hysteria_obfs="fixture value/?",
         )
 
-        content = BuildSubscriptionService()(instances=[second, first], subscription=subscription)
+        def sort_nodes_by_number(instances: list[object]) -> None:
+            instances.sort(key=lambda instance: (instance.number, instance.pk))
+
+        content = BuildSubscriptionService(shuffle_nodes=sort_nodes_by_number)(
+            instances=[second, first],
+            subscription=subscription,
+        )
 
         decoded = b64decode(content).decode("utf-8")
         self.assertEqual(
@@ -59,3 +65,42 @@ class TestBuildSubscriptionService(TestCase):
             ),
         )
         self.assertEqual(len(decoded.splitlines()), 4)
+
+    def test_allows_deterministic_node_block_reordering_via_injected_shuffler(self) -> None:
+        subscription = VPNSubscriptionFactory(
+            vless_uuid="11111111-2222-3333-4444-555555555555",
+            hysteria_secret="hysteria-secret",
+        )
+        first = VPNInstanceFactory(number=10, name="First node", public_host="first.example.com")
+        second = VPNInstanceFactory(number=20, name="Second node", public_host="second.example.com")
+
+        def reverse_nodes(instances: list[object]) -> None:
+            instances.reverse()
+
+        self.assertIn("shuffle_nodes", BuildSubscriptionService.__dataclass_fields__)
+
+        content = BuildSubscriptionService(shuffle_nodes=reverse_nodes)(
+            instances=[first, second],
+            subscription=subscription,
+        )
+
+        decoded = b64decode(content).decode("utf-8").splitlines()
+        self.assertEqual(
+            decoded,
+            [
+                "vless://11111111-2222-3333-4444-555555555555@second.example.com:443?"
+                "encryption=none&flow=xtls-rprx-vision&security=reality&"
+                "sni=www.example.com&fp=chrome&pbk=public-key&sid=short-id&"
+                "type=tcp#Second%20node%20VLESS",
+                "hysteria2://hysteria-secret@second.example.com:443/?"
+                "sni=www.example.com&obfs=salamander&obfs-password=obfs-password#"
+                "Second%20node%20Hysteria2",
+                "vless://11111111-2222-3333-4444-555555555555@first.example.com:443?"
+                "encryption=none&flow=xtls-rprx-vision&security=reality&"
+                "sni=www.example.com&fp=chrome&pbk=public-key&sid=short-id&"
+                "type=tcp#First%20node%20VLESS",
+                "hysteria2://hysteria-secret@first.example.com:443/?"
+                "sni=www.example.com&obfs=salamander&obfs-password=obfs-password#"
+                "First%20node%20Hysteria2",
+            ],
+        )

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from random import shuffle
 from typing import final
 
 from django.utils import timezone
@@ -34,4 +35,6 @@ class GetSubscriptionService:
 
 
 def get_subscription_service() -> GetSubscriptionService:
-    return GetSubscriptionService(build_subscription=BuildSubscriptionService())
+    return GetSubscriptionService(
+        build_subscription=BuildSubscriptionService(shuffle_nodes=shuffle),
+    )
