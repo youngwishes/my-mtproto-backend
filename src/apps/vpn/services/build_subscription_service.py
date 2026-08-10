@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from base64 import b64encode
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Iterable, final
+from typing import TYPE_CHECKING, Callable, Iterable, final
 from urllib.parse import quote
 
 from apps.vpn.services.dtos import SubscriptionProfileDTO
@@ -16,15 +16,19 @@ if TYPE_CHECKING:
 class BuildSubscriptionService:
     """Строит HAPP subscription из уже полученных VPN-ноды и подписки."""
 
+    shuffle_nodes: Callable[[list[VPNInstance]], None]
+
     def __call__(
         self,
         *,
         subscription: VPNSubscription,
         instances: Iterable[VPNInstance],
     ) -> str:
+        ordered_instances = list(instances)
+        self.shuffle_nodes(ordered_instances)
         profiles = [
             self._build_profile(subscription=subscription, instance=instance)
-            for instance in sorted(instances, key=lambda instance: (instance.number, instance.pk))
+            for instance in ordered_instances
         ]
         uris = [
             uri
