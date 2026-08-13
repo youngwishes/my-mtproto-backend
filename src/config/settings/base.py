@@ -33,10 +33,9 @@ DEBUG = os.getenv("DEBUG") == "1"
 ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
-    "beatvault.ru",
-    "www.beatvault.ru",
     "django",
-    "79.174.81.80",
+    "beatvault.ru",
+    "dash.mtprotokeys.com",
 ]
 
 # Application definition

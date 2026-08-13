@@ -199,6 +199,17 @@ ansible-playbook -i ansible/inventory/production.ini ansible/deploy.yml \
 указав `RELEASE_SHA`, результаты тестов и существенные риски. Без нового ответа
 пользователя, явно разрешающего этот deploy, playbook не запускается.
 
+Repository checks (tests, Compose validation, `git diff --check` и playbook
+syntax-check) не заменяют операционные pre-deploy gates. Для текущей публичной
+domain topology до разрешения отдельно read-only проверить DNS, валидную TLS
+chain и точный SAN-набор `beatvault.ru`, `dash.mtprotokeys.com`,
+`flower.mtprotokeys.com` в существующем lineage
+`/etc/nginx/ssl/live/beatvault.ru/`; проверить защищённые production settings
+`TLS_DOMAIN=mtprotokeys.com` и
+`VPN_SUBSCRIPTION_BASE_URL=https://dash.mtprotokeys.com`; и подтвердить
+provider callbacks на `dash.mtprotokeys.com`. Эти действия не создают второй
+certificate path и не разрешают deploy без отдельного явного согласия.
+
 ## 7. Deploy и post-deploy
 
 Только после явного разрешения пользователя выполнить:
@@ -213,16 +224,23 @@ ansible-playbook -i ansible/inventory/production.ini ansible/deploy.yml \
 через inventory, без жёстко заданного IP:
 
 ```bash
+curl --fail --silent --show-error https://dash.mtprotokeys.com/ >/dev/null
 curl --fail --silent --show-error https://beatvault.ru/ >/dev/null
 ansible -i ansible/inventory/production.ini mtproto_keys \
   --private-key ~/.ssh/id_ed25519_deploy \
   -m ansible.builtin.shell \
-  -a 'git -C /root/my-mtproto-backend rev-parse HEAD && cd /root/my-mtproto-backend && docker compose ps'
+  -a 'git -C /root/my-mtproto-backend rev-parse HEAD && cd /root/my-mtproto-backend && docker compose ps && docker exec nginx nginx -t'
 ```
 
-Сверить production SHA с `RELEASE_SHA`, состояние всех сервисов и smoke-check
-изменённого пользовательского сценария. В итоговом отчёте указать commit,
-результаты проверок и deploy.
+Сверить production SHA с `RELEASE_SHA`, состояние всех сервисов, HTTPS и
+HTTP-to-HTTPS redirect для dash и transition alias, Flower `401` без credentials
+и успешный ответ с credentials из защищённого окружения. По каждому имени
+проверить валидную TLS chain и точный SAN-набор; после этого подтвердить
+callback settings у провайдеров. При rollback playbook автоматически возвращает
+предыдущий SHA/Compose stack; полный операционный rollback возвращает VPN base
+и provider callbacks на `beatvault.ru`, но не `TLS_DOMAIN=mtprotokeys.com` и не
+legacy `flower.beatvault.ru`/`www.beatvault.ru`. В итоговом отчёте указать
+commit, результаты проверок и deploy.
 
 При ошибке не выполнять импровизированные ручные исправления. Сохранить вывод,
 проверить автоматический rollback playbook и согласовать дальнейшие действия.
