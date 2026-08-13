@@ -35,7 +35,7 @@ class TestVPNSubscriptionView(APITestCase):
         self.assertEqual(response["Content-Type"], "text/plain")
         self.assertEqual(response["Cache-Control"], "private, no-store")
         self.assertEqual(response["X-Content-Type-Options"], "nosniff")
-        self.assertEqual(response["profile-title"], "mtprotokeys.ru")
+        self.assertEqual(response["profile-title"], "mtprotokeys.com")
         self.assertEqual(
             b64decode(response.content).decode("utf-8").splitlines(),
             [
@@ -67,7 +67,7 @@ class TestVPNSubscriptionView(APITestCase):
         self.assertEqual(response["Content-Type"], "text/plain")
         self.assertEqual(response["Cache-Control"], "private, no-store")
         self.assertEqual(response["X-Content-Type-Options"], "nosniff")
-        self.assertEqual(response["profile-title"], "mtprotokeys.ru")
+        self.assertEqual(response["profile-title"], "mtprotokeys.com")
         self.assertEqual(
             b64decode(response.content).decode("utf-8").splitlines(),
             [
