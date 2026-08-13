@@ -47,6 +47,7 @@ class TestAnsibleDeployArtifacts(SimpleTestCase):
         self.assertNotIn(".backup", self.content)
 
     def test_healthcheck_requires_successful_root_response(self) -> None:
+        self.assertIn("deploy_healthcheck_host: dash.mtprotokeys.com", self.group_vars_content)
         self.assertIn("deploy_healthcheck_status_codes:\n  - 200", self.group_vars_content)
         self.assertNotIn("  - 404", self.group_vars_content)
 

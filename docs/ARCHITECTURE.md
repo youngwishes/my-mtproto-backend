@@ -46,6 +46,29 @@ logging до чтения body.
 | Пакетный менеджер | uv |
 | Деплой | Docker Compose |
 
+## Публичные домены и release gate
+
+Nginx принимает HTTP для ровно `dash.mtprotokeys.com`,
+`flower.mtprotokeys.com` и переходного alias `beatvault.ru`: ACME challenge
+сохраняется, остальные запросы перенаправляются на HTTPS того же host. На HTTPS
+один vhost Django обслуживает `dash.mtprotokeys.com` и `beatvault.ru`, а
+отдельный vhost Flower обслуживает только `flower.mtprotokeys.com` с прежней
+Compose Basic Auth. Django разрешает только эти два публичных Django-host вместе
+с local/container hosts; Flower не направляется в Django.
+
+Переходный сертификат использует существующий lineage
+`/etc/nginx/ssl/live/beatvault.ru/` и перед deploy обязан иметь точный SAN-набор:
+`beatvault.ru`, `dash.mtprotokeys.com`, `flower.mtprotokeys.com`. Новые
+MTProto-секреты используют `TLS_DOMAIN=mtprotokeys.com`, а новые VPN
+subscription URL используют `VPN_SUBSCRIPTION_BASE_URL=https://dash.mtprotokeys.com`.
+Внутренний Ansible healthcheck посылает `Host: dash.mtprotokeys.com`, но не
+заменяет внешнюю проверку валидной TLS chain и SAN.
+
+При неуспешном deploy playbook сохраняет автоматический возврат предыдущего
+SHA/Compose stack. Для полного операционного rollback вернуть VPN base и
+provider callbacks на `beatvault.ru`, не откатывать `TLS_DOMAIN=mtprotokeys.com`
+и не восстанавливать `flower.beatvault.ru` либо `www.beatvault.ru`.
+
 ## Компоненты репозитория
 
 - `src/config/` — настройки Django, маршрутизация, Celery и WSGI entrypoint.

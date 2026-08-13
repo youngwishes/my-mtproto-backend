@@ -9,8 +9,8 @@ deploy_repository: https://github.com/youngwishes/my-mtproto-backend.git
 deploy_revision: ""
 deploy_db_path: "{{ deploy_root }}/data/db.sqlite3"
 
-# Проверка после деплоя. Если домен другой — поменяй host/url.
-deploy_healthcheck_host: beatvault.ru
+# Проверка после деплоя через публичный Django-host.
+deploy_healthcheck_host: dash.mtprotokeys.com
 deploy_healthcheck_url: https://127.0.0.1/
 deploy_healthcheck_status_codes:
   - 200

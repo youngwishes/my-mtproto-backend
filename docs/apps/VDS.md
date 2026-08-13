@@ -12,7 +12,7 @@
 
 - **Hosting** — справочник хостинг-провайдеров. Хранит название и ссылку на сайт/панель хостинга; один `Hosting` связан со многими `VDSInstance`.
 - **VDSInstance** — прокси-сервер. Хранит ссылку на `Hosting`, IP-адреса, порт, `is_keys_available`, `is_healthy`, `location`, а также `expired_at` — дату, до которой оплачен конкретный инстанс. `name` — DNS-субдомен сервера в хосте proxy-URL (`{name}.mtprotokeys.com`). Менеджер — `ActiveQuerySet` (`.active()`); выбора «наименее нагруженного» сервера больше нет.
-- **MTPRotoKey** — прокси-ключ пользователя: token, дата истечения, связь с пользователем (без `vds`/`node_number`/`tls_domain`). `get_proxy_link(*, server_name)` формирует `tg://proxy` ссылку; домен маскировки — из `settings.TLS_DOMAIN`.
+- **MTPRotoKey** — прокси-ключ пользователя: token, дата истечения, связь с пользователем (без `vds`/`node_number`/`tls_domain`). `get_proxy_link(*, server_name)` формирует `tg://proxy` ссылку; домен маскировки — из `settings.TLS_DOMAIN`, чей default равен `mtprotokeys.com`.
 
 ## Сервисы
 

@@ -25,6 +25,9 @@ successful-payment routing и fulfilment не меняются. Payload `vpn_sta
 их с короткой инструкцией HAPP для Android, iOS, Windows и macOS, не ожидая
 результата фоновой выдачи профилей.
 
+Default `VPN_SUBSCRIPTION_BASE_URL` равен `https://dash.mtprotokeys.com`;
+существующий builder сохраняет subscription path и token без изменений.
+
 При каждом успешном refresh по действующей subscription URL backend заново
 перемешивает блоки активных VPN-нод для более равномерного распределения первого
 подключения. Для каждой ноды в ответе по-прежнему идут ровно два соседних

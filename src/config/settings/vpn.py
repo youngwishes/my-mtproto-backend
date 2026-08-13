@@ -5,6 +5,6 @@ import os
 
 VPN_SUBSCRIPTION_BASE_URL = os.getenv(
     "VPN_SUBSCRIPTION_BASE_URL",
-    "https://beatvault.ru",
+    "https://dash.mtprotokeys.com",
 )
 VPN_AGENT_TOKEN = os.getenv("VPN_AGENT_TOKEN")
