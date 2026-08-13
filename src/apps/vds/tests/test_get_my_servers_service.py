@@ -41,7 +41,7 @@ class TestGetMyServersService(TestCase):
         self.assertIn("🇩🇪 Германия", locations)
         for server in result.servers:
             self.assertIn("tg://proxy?server=", server.proxy_link)
-            self.assertIn(".beatvault.ru", server.proxy_link)
+            self.assertIn(".mtprotokeys.com", server.proxy_link)
             domain_hex = settings.TLS_DOMAIN.encode("utf-8").hex()
             self.assertIn(f"eetesttoken{domain_hex}", server.proxy_link)
 

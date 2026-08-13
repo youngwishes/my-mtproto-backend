@@ -43,7 +43,7 @@
 |------|-----|----------|
 | `hosting` | FK → Hosting? | Хостинг-провайдер сервера. Nullable для постепенного заполнения существующих записей. |
 | `expired_at` | DateField? | Дата, до которой оплачен конкретный VDS-инстанс |
-| `name` | str (unique) | DNS-субдомен сервера в хосте proxy-URL (`{name}.beatvault.ru`), напр. `kz`, `nl` |
+| `name` | str (unique) | DNS-субдомен сервера в хосте proxy-URL (`{name}.mtprotokeys.com`), напр. `kz`, `nl` |
 | `number` | SmallInt (unique) | Порядковый номер. Задаёт порядок отображения серверов (`Meta.ordering = ["number"]`), в т.ч. порядок кнопок в «Мои серверы». Управляется через админку. |
 | `ip_address` | str (unique) | Внешний IP |
 | `internal_ip_address` | str | IP в Docker-сети |
@@ -89,7 +89,7 @@
 **Менеджер:** `expired_today()` — ключи, которые истекли на сегодня.
 
 **Методы:**
-- `get_proxy_link(*, server_name)` — единственный генератор ссылки: `tg://proxy?server={server_name}.beatvault.ru&port=443&secret={secret}`. Хост зависит от имени конкретного сервера, секрет одинаков на всём флоте.
+- `get_proxy_link(*, server_name)` — единственный генератор ссылки: `tg://proxy?server={server_name}.mtprotokeys.com&port=443&secret={secret}`. Хост зависит от имени конкретного сервера, секрет одинаков на всём флоте.
 - `get_secret_token()` — `ee{token}{hex(settings.TLS_DOMAIN)}`. Домен маскировки FakeTLS берётся из `settings.TLS_DOMAIN` (одинаков на всех VDS), а не из поля модели.
 
 ---
