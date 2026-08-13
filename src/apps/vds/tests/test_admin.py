@@ -36,7 +36,7 @@ class MTPRotoKeyAdminProxyLinkTest(TestCase):
 
         html = self.admin.active_proxy_link(key)
 
-        self.assertIn("nl1.beatvault.ru", html)
+        self.assertIn("nl1.mtprotokeys.com", html)
         self.assertIn(key.get_secret_token(), html)
 
     def test_dash_when_key_is_not_valid(self) -> None:

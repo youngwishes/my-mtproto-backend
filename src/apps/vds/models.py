@@ -95,9 +95,9 @@ class MTPRotoKey(BaseDjangoModel):
 
     def get_proxy_link(self, *, server_name: str) -> str:
         """Единственный генератор proxy-ссылки: секрет валиден на всём флоте,
-        хост определяется именем конкретного сервера ({server_name}.beatvault.ru)."""
+        хост определяется именем конкретного сервера ({server_name}.mtprotokeys.com)."""
         secret = self.get_secret_token()
-        return f"tg://proxy?server={server_name}.beatvault.ru&port=443&secret={secret}"
+        return f"tg://proxy?server={server_name}.mtprotokeys.com&port=443&secret={secret}"
 
     class Meta:
         verbose_name = "MTPRoto ключ"

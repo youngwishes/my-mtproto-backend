@@ -25,7 +25,7 @@ class TestMTPRotoKeyMethods(TestCase):
         expected_secret = f"eeabc123{domain_hex}"
         self.assertEqual(
             link,
-            f"tg://proxy?server=de1.beatvault.ru&port=443&secret={expected_secret}",
+            f"tg://proxy?server=de1.mtprotokeys.com&port=443&secret={expected_secret}",
         )
 
     def test_get_secret_token_uses_settings_tls_domain(self) -> None:

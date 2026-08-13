@@ -211,7 +211,7 @@ referrer.
   "servers": [
     {
       "location": "🇳🇱 Нидерланды",
-      "proxy_link": "tg://proxy?server=space.beatvault.ru&port=443&secret=ee..."
+      "proxy_link": "tg://proxy?server=space.mtprotokeys.com&port=443&secret=ee..."
     }
   ]
 }

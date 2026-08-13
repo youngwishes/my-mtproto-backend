@@ -19,8 +19,8 @@ async def test_my_servers_lists_active_vds_with_proxy_links(username):
     active_count = await db.aw(db.count_active_vds)()
     assert len(result.servers) == active_count >= 1
     for server in result.servers:
-        # хост — субдомен сервера {name}.beatvault.ru, секрет из get_secret_token (TLS_DOMAIN)
-        assert ".beatvault.ru" in server.proxy_link
+        # хост — субдомен сервера {name}.mtprotokeys.com, секрет из get_secret_token (TLS_DOMAIN)
+        assert ".mtprotokeys.com" in server.proxy_link
         assert expected_secret in server.proxy_link
         assert server.location
 
@@ -76,5 +76,5 @@ async def test_my_servers_auto_activates_free_period_for_new_user(username):
     await helpers.assert_present_on_all_vds(username, present=True)
     expected_secret = await db.aw(db.key_secret_token)(username)
     for server in result.servers:
-        assert ".beatvault.ru" in server.proxy_link
+        assert ".mtprotokeys.com" in server.proxy_link
         assert expected_secret in server.proxy_link
