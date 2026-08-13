@@ -1,10 +1,10 @@
 from src.enums import FreeAvailable
 
-SITE_URL = "https://mtprotokeys.ru"
+SITE_URL = "https://mtprotokeys.com"
 SUPPORT_URL = "https://t.me/mtprotokeys_support"
-VPN_SETUP_URL = "https://mtprotokeys.ru/vpn/"
-TERMS_URL = "https://mtprotokeys.ru/terms"
-PRIVACY_URL = "https://mtprotokeys.ru/privacy"
+VPN_SETUP_URL = "https://mtprotokeys.com/vpn/"
+TERMS_URL = "https://mtprotokeys.com/terms"
+PRIVACY_URL = "https://mtprotokeys.com/privacy"
 
 PRODUCT_MENU_TEXT = "Выберите продукт"
 

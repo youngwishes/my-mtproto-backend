@@ -396,7 +396,7 @@ signature или секреты.
 ### GET /api/v1/vpn/subscriptions/<token>/
 
 Публичный endpoint. Успешный ответ имеет `200 OK`, `Content-Type: text/plain` и
-`profile-title: mtprotokeys.ru`; новый заголовок не изменяет существующие
+`profile-title: mtprotokeys.com`; новый заголовок не изменяет существующие
 subscription URL или Base64 payload.
 
 ### POST /api/v1/vpn/payments/buy/

@@ -70,7 +70,7 @@ APPROVED_MTPROXY_PAYMENT_TEXT = """💳 <b>Оплата подписки</b>
 
 После оплаты новый ключ будет выдан автоматически. Если у вас уже есть активный ключ, подписка продлится на 30 дней.
 
-<i>Оплачивая подписку, вы принимаете <a href="https://mtprotokeys.ru/terms">Условия использования</a> и <a href="https://mtprotokeys.ru/privacy">Политику конфиденциальности</a>.</i>
+<i>Оплачивая подписку, вы принимаете <a href="https://mtprotokeys.com/terms">Условия использования</a> и <a href="https://mtprotokeys.com/privacy">Политику конфиденциальности</a>.</i>
 
 👇 <b>Выберите способ оплаты:</b>"""
 
@@ -81,7 +81,7 @@ APPROVED_VPN_PAYMENT_TEXT = """💳 <b>Оплата подписки</b>
 
 После оплаты VPN-подписка будет активирована автоматически. При продлении ваша постоянная subscription-ссылка не изменится.
 
-<i>Оплачивая подписку, вы принимаете <a href="https://mtprotokeys.ru/terms">Условия использования</a> и <a href="https://mtprotokeys.ru/privacy">Политику конфиденциальности</a>.</i>
+<i>Оплачивая подписку, вы принимаете <a href="https://mtprotokeys.com/terms">Условия использования</a> и <a href="https://mtprotokeys.com/privacy">Политику конфиденциальности</a>.</i>
 
 👇 <b>Выберите способ оплаты:</b>"""
 
@@ -92,7 +92,7 @@ APPROVED_GIFT_PAYMENT_TEXT = """💳 <b>Оплата подарка</b>
 
 После оплаты вы получите одноразовый код, который можно переслать другому человеку. Код создаст новый ключ или продлит действующий на 30 дней.
 
-<i>Оплачивая сертификат, вы принимаете <a href="https://mtprotokeys.ru/terms">Условия использования</a> и <a href="https://mtprotokeys.ru/privacy">Политику конфиденциальности</a>.</i>
+<i>Оплачивая сертификат, вы принимаете <a href="https://mtprotokeys.com/terms">Условия использования</a> и <a href="https://mtprotokeys.com/privacy">Политику конфиденциальности</a>.</i>
 
 👇 <b>Выберите способ оплаты:</b>"""
 
@@ -627,6 +627,7 @@ def test_mtproxy_menu_links_to_site_and_support():
     urls = [btn.url for row in markup.inline_keyboard for btn in row if btn.url]
     assert SUPPORT_URL == "https://t.me/mtprotokeys_support"
     assert "https://t.me/mtprotokeys_support" in urls
+    assert "https://mtprotokeys.com" in urls
     assert set(urls) >= {SITE_URL, SUPPORT_URL}
 
 
@@ -634,6 +635,10 @@ def test_info_keyboard_links_to_legal_docs_and_drops_offer():
     markup = keyboards.info()
 
     urls = [btn.url for row in markup.inline_keyboard for btn in row if btn.url]
+    assert set(urls) >= {
+        "https://mtprotokeys.com/terms",
+        "https://mtprotokeys.com/privacy",
+    }
     assert TERMS_URL in urls
     assert PRIVACY_URL in urls
     assert not any("drive.google.com" in url for url in urls)
@@ -998,7 +1003,7 @@ async def test_vpn_product_menu_uses_approved_copy_and_actions():
     ] == [
         [("💳 Купить VPN", "vpn", None, "success")],
         [("🔑 Моя подписка", "vpn_subscription", None, "primary")],
-        [("📖 Как настроить", None, "https://mtprotokeys.ru/vpn/", None)],
+        [("📖 Как настроить", None, "https://mtprotokeys.com/vpn/", None)],
         [("💬 Поддержка", None, "https://t.me/mtprotokeys_support", None)],
         [("🔙 Назад", "show_start_screen", None, None)],
     ]
