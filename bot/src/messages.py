@@ -6,7 +6,7 @@ VPN_SETUP_URL = "https://mtprotokeys.com/vpn/"
 TERMS_URL = "https://mtprotokeys.com/terms"
 PRIVACY_URL = "https://mtprotokeys.com/privacy"
 
-PRODUCT_MENU_TEXT = "Выберите продукт"
+PRODUCT_MENU_TEXT = "Выберите раздел"
 
 _WELCOME_BODY = """
 <b>⚡️ MTProto Keys Bot</b>
@@ -117,7 +117,7 @@ FAQ_TEXT = """
 """
 
 REFERRAL_CABINET = """
-<b>⚡️Твой реферальный кабинет </b>
+<b>Реферальная программа</b>
 
 • Общее количество инвайтов: <b>{total_referrals_count}</b>
 • Активированные инвайты: <b>{active_referrals_count}</b>
@@ -125,6 +125,12 @@ REFERRAL_CABINET = """
 🔗 Как только количество активированных инвайтов станет равно <b>5</b>, ты сможешь получить бесплатную ссылку <b>сроком действия 2 недели!</b>
 
 👇 <b>Поделиться ссылкой</b>
+"""
+
+REFERRAL_REWARD_TEXT = """
+🎁 <b>Ты получил 14 дней MTProxy!</b>
+
+⏳ Действительно до: <b>{expired_date}</b>
 """
 
 PAYMENT_METHODS_TEXT = f"""💳 <b>Оплата подписки</b>

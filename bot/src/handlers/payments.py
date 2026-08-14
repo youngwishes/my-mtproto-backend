@@ -258,7 +258,8 @@ async def process_successful_payment(message: Message, deps: Dependencies):
                 VPN_PURCHASED_TEXT.format(
                     expired_at=purchase.expired_at,
                     subscription_url=purchase.subscription_url,
-                )
+                ),
+                reply_markup=keyboards.vpn_purchased(),
             )
             return
         if payload.startswith("gift_certificate"):

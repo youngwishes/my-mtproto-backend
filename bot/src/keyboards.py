@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from src.domains.links import ServerItem
 
 _ROOT_BACK = InlineKeyboardButton(
-    text="🔙 Назад", callback_data="show_start_screen"
+    text="🔙 Главное меню", callback_data="show_start_screen"
 )
 _MTPROXY_BACK = InlineKeyboardButton(
     text="🔙 Назад", callback_data="show_mtproxy_menu"
@@ -58,7 +58,7 @@ def product_menu() -> InlineKeyboardMarkup:
                 InlineKeyboardButton(
                     text="⚡ MTProxy",
                     callback_data="show_mtproxy_menu",
-                    style="primary",
+                    style="success",
                 )
             ],
             [
@@ -67,6 +67,21 @@ def product_menu() -> InlineKeyboardMarkup:
                     callback_data="show_vpn_menu",
                     style="primary",
                 )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🤝 Реферальная программа",
+                    callback_data="referral",
+                )
+            ],
+            [InlineKeyboardButton(text="💬 Написать в поддержку", url=SUPPORT_URL)],
+            [InlineKeyboardButton(text="🌐 Наш сайт", url=SITE_URL)],
+            [
+                InlineKeyboardButton(text="📜 Условия пользования", url=TERMS_URL),
+                InlineKeyboardButton(
+                    text="🔒 Политика конфиденциальности",
+                    url=PRIVACY_URL,
+                ),
             ],
         ]
     )
@@ -77,7 +92,7 @@ def vpn_menu() -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="💳 Купить VPN",
+                    text="💳 Купить или продлить VPN",
                     callback_data="vpn",
                     style="success",
                 )
@@ -89,29 +104,80 @@ def vpn_menu() -> InlineKeyboardMarkup:
                     style="primary",
                 )
             ],
-            [InlineKeyboardButton(text="📖 Как настроить", url=VPN_SETUP_URL)],
-            [InlineKeyboardButton(text="💬 Поддержка", url=SUPPORT_URL)],
+            [
+                InlineKeyboardButton(
+                    text="📖 Как подключить VPN",
+                    url=VPN_SETUP_URL,
+                )
+            ],
             [_ROOT_BACK],
         ]
     )
 
 
-def vpn_subscription() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[[_VPN_BACK]])
+def vpn_subscription(*, is_expired: bool) -> InlineKeyboardMarkup:
+    keyboard: list[list[InlineKeyboardButton]] = []
+    if is_expired:
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    text="💳 Продлить VPN",
+                    callback_data="vpn",
+                    style="success",
+                )
+            ]
+        )
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    text="🔙 Назад в VPN",
+                    callback_data="show_vpn_menu",
+                )
+            ]
+        )
+    else:
+        keyboard.append([_VPN_BACK])
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+
+def vpn_purchased() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🔑 Моя подписка",
+                    callback_data="vpn_subscription",
+                    style="primary",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🔙 Назад в VPN",
+                    callback_data="show_vpn_menu",
+                )
+            ],
+        ]
+    )
 
 
 def mtproxy_menu(boost_callback_data: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="⚡️ Ускорить Telegram", callback_data=boost_callback_data, style="success")],
-            [_MY_SERVERS],
-            [InlineKeyboardButton(text="🎁 Подарить подписку", callback_data="gift_certificate", style="primary")],
-            [InlineKeyboardButton(text="🤝 Реферальный кабинет", callback_data="referral")],
-            [InlineKeyboardButton(text="📋 Информация", callback_data="info")],
             [
-                InlineKeyboardButton(text="💬 Поддержка", url=SUPPORT_URL),
-                InlineKeyboardButton(text="🌐 Наш сайт", url=SITE_URL),
+                InlineKeyboardButton(
+                    text="⚡ Ускорить Telegram",
+                    callback_data=boost_callback_data,
+                    style="success",
+                )
             ],
+            [_MY_SERVERS],
+            [
+                InlineKeyboardButton(
+                    text="🎁 Подарить MTProxy",
+                    callback_data="gift_certificate",
+                )
+            ],
+            [InlineKeyboardButton(text="❓ Вопросы о MTProxy", callback_data="info")],
             [_ROOT_BACK],
         ]
     )
@@ -141,13 +207,7 @@ def confirm_reissue() -> InlineKeyboardMarkup:
 
 
 def info() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="📜 Условия использования", url=TERMS_URL)],
-            [InlineKeyboardButton(text="🔒 Политика конфиденциальности", url=PRIVACY_URL)],
-            [_MTPROXY_BACK],
-        ]
-    )
+    return InlineKeyboardMarkup(inline_keyboard=[[_MTPROXY_BACK]])
 
 
 def payment_methods(
@@ -282,24 +342,56 @@ def gift_certificate_payment_methods(
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
-def referral_cabinet(*, active_referrals_count: int, referral_link: str) -> InlineKeyboardMarkup:
+def referral_cabinet(
+    *,
+    active_referrals_count: int,
+    referral_link: str,
+) -> InlineKeyboardMarkup:
     keyboard: list[list[InlineKeyboardButton]] = []
     if active_referrals_count >= 5:
         keyboard.append(
-            [InlineKeyboardButton(text="🎁 Получить бесплатную ссылку", callback_data="get-referral-link", style="success")]
+            [
+                InlineKeyboardButton(
+                    text="🎁 Получить 14 дней MTProxy",
+                    callback_data="get-referral-link",
+                    style="success",
+                )
+            ]
         )
     keyboard.append(
-        [InlineKeyboardButton(
-            text="🔗 Поделиться ссылкой",
-            switch_inline_query=f"Привет! Переходи по моей реферальной ссылке: {referral_link}",
-        )]
+        [
+            InlineKeyboardButton(
+                text="🔗 Поделиться ссылкой",
+                switch_inline_query=(
+                    "Привет! Переходи по моей реферальной ссылке: "
+                    f"{referral_link}"
+                ),
+                style="primary",
+            )
+        ]
     )
-    keyboard.append([_MTPROXY_BACK])
+    keyboard.append([_ROOT_BACK])
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
 def referral_reward() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[[_MY_SERVERS]])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="⚡ Перейти в MTProxy",
+                    callback_data="show_mtproxy_menu",
+                    style="success",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🔙 Реферальная программа",
+                    callback_data="referral",
+                )
+            ],
+        ]
+    )
 
 
 def _format_rub_amount(rub_amount: str) -> str:
