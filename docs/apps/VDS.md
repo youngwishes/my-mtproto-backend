@@ -40,8 +40,9 @@
 - **sync_keys_to_vds_task** — синхронизирует все активные ключи БД на конкретный сервер
 - **remove_dead_keys_from_vds_task** / **remove_key_from_another_vds_instances_task** — удаление ключей с серверов
 - **check_vds_health_task** — каждые 5 минут проверяет нездоровые (`is_healthy=False`)
-  серверы; после успешного probe сначала синхронно удаляет с VDS известные БД
-  истёкшие ключи, затем выставляет `is_healthy=True` и запускает
+  серверы; после успешного probe ожидает завершения ежедневной деактивации, если
+  в БД ещё есть активные истёкшие ключи. Затем синхронно удаляет с VDS известные
+  БД истёкшие ключи, выставляет `is_healthy=True` и запускает
   `sync_keys_to_vds_task`. При `VDSNotAvailable` во время удаления сервер остаётся
   нездоровым, его sync не запускается, а обработка остальных нездоровых VDS продолжается.
 - **broadcast_proxy_links_task** — массовая рассылка
@@ -62,6 +63,7 @@ _handle_replication_failure
       ▼
 check_vds_health_task (каждые 5 мин)
   → VDSHealthCheckInfraService: GET internal_url
+  → active expired keys ожидают DB-деактивацию → оставаться unhealthy
   → восстановлен → удалить известные БД истёкшие ключи
   → is_healthy = True → sync_keys_to_vds_task (бэкфилл)
 ```
