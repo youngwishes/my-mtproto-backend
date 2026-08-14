@@ -10,6 +10,7 @@ from apps.core.exceptions import BaseServiceError
 from apps.core.telegram.error_logger import log_service_error
 from apps.core.telegram.transport import send_telegram_message
 from apps.notifications.selectors import get_template
+from apps.vds.exceptions import VDSNotAvailable
 from apps.vds.selectors import get_all_active_vds_instances, get_keys_expired_up_to_date
 from apps.vds.services.remove_key_infra_service import get_remove_user_key_infra_service
 
@@ -25,7 +26,11 @@ class RemoveExpiredKeysDailyService:
 
         service = get_remove_user_key_infra_service()
         for server in get_all_active_vds_instances():
-            service(server=server, keys=queryset)
+            try:
+                service(server=server, keys=queryset)
+            except VDSNotAvailable:
+                server.is_healthy = False
+                server.save(update_fields=["is_healthy"])
 
         queryset.update(is_active=False, was_deleted=True)
 

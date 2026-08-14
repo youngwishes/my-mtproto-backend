@@ -3,9 +3,11 @@ from __future__ import annotations
 from unittest.mock import patch
 
 from django.test import TestCase
+from django.utils import timezone
 
+from apps.vds.exceptions import VDSNotAvailable
 from apps.vds.tasks import check_vds_health_task
-from apps.vds.tests.factories import VDSInstanceFactory
+from apps.vds.tests.factories import MTPRotoKeyFactory, VDSInstanceFactory
 
 
 class TestCheckVdsHealthTask(TestCase):
@@ -69,3 +71,135 @@ class TestCheckVdsHealthTask(TestCase):
         called_ids = {c.kwargs["instance_id"] for c in mock_sync.delay.call_args_list}
         self.assertIn(self.unhealthy_server.pk, called_ids)
         self.assertIn(second_unhealthy.pk, called_ids)
+
+    @patch("apps.vds.tasks.sync_keys_to_vds_task")
+    @patch("apps.vds.services.get_remove_dead_keys_from_vds_infra_service")
+    @patch(
+        "apps.vds.services.vds_health_check_infra_service."
+        "get_vds_health_check_infra_service"
+    )
+    def test_cleanup_precedes_recovery_and_unavailable_vds_isolated(
+        self,
+        mock_health_check_factory,
+        mock_cleanup_factory,
+        mock_sync,
+    ) -> None:
+        recovered_server = VDSInstanceFactory(is_healthy=False)
+        cleanup_failed_server = VDSInstanceFactory(is_healthy=False)
+        second_recovered_server = VDSInstanceFactory(is_healthy=False)
+        servers = {
+            self.unhealthy_server.pk: self.unhealthy_server,
+            recovered_server.pk: recovered_server,
+            cleanup_failed_server.pk: cleanup_failed_server,
+            second_recovered_server.pk: second_recovered_server,
+        }
+        recovery_events = []
+
+        mock_health_check_factory.return_value.side_effect = (
+            lambda *, instance_id: instance_id != self.unhealthy_server.pk
+        )
+
+        def remove_dead_keys(*, instance_id: int) -> None:
+            if instance_id == cleanup_failed_server.pk:
+                raise VDSNotAvailable(telegram_id=[])
+
+            server = servers[instance_id]
+            server.refresh_from_db()
+            self.assertFalse(server.is_healthy)
+            recovery_events.append(("cleanup", instance_id))
+
+        def queue_sync(*, instance_id: int) -> None:
+            server = servers[instance_id]
+            server.refresh_from_db()
+            self.assertTrue(server.is_healthy)
+            recovery_events.append(("sync", instance_id))
+
+        mock_cleanup_factory.return_value.side_effect = remove_dead_keys
+        mock_sync.delay.side_effect = queue_sync
+
+        check_vds_health_task()
+
+        self.unhealthy_server.refresh_from_db()
+        recovered_server.refresh_from_db()
+        cleanup_failed_server.refresh_from_db()
+        second_recovered_server.refresh_from_db()
+        self.assertFalse(self.unhealthy_server.is_healthy)
+        self.assertTrue(recovered_server.is_healthy)
+        self.assertFalse(cleanup_failed_server.is_healthy)
+        self.assertTrue(second_recovered_server.is_healthy)
+        self.assertEqual(
+            [call.kwargs["instance_id"] for call in mock_cleanup_factory.return_value.call_args_list],
+            [recovered_server.pk, cleanup_failed_server.pk, second_recovered_server.pk],
+        )
+        self.assertEqual(
+            [call.kwargs["instance_id"] for call in mock_sync.delay.call_args_list],
+            [recovered_server.pk, second_recovered_server.pk],
+        )
+        self.assertEqual(
+            recovery_events,
+            [
+                ("cleanup", recovered_server.pk),
+                ("sync", recovered_server.pk),
+                ("cleanup", second_recovered_server.pk),
+                ("sync", second_recovered_server.pk),
+            ],
+        )
+
+    @patch("apps.vds.tasks.sync_keys_to_vds_task")
+    @patch("apps.vds.services.get_remove_dead_keys_from_vds_infra_service")
+    @patch(
+        "apps.vds.services.vds_health_check_infra_service."
+        "get_vds_health_check_infra_service"
+    )
+    def test_waits_for_pending_daily_deactivation_before_recovery(
+        self,
+        mock_health_check_factory,
+        mock_cleanup_factory,
+        mock_sync,
+    ) -> None:
+        pending_key = MTPRotoKeyFactory(
+            expired_date=timezone.now(),
+            is_active=True,
+            was_deleted=False,
+        )
+        recovery_events = []
+        mock_health_check_factory.return_value.return_value = True
+
+        def remove_dead_keys(*, instance_id: int) -> None:
+            self.assertEqual(instance_id, self.unhealthy_server.pk)
+            self.unhealthy_server.refresh_from_db()
+            self.assertFalse(self.unhealthy_server.is_healthy)
+            recovery_events.append("cleanup")
+
+        def queue_sync(*, instance_id: int) -> None:
+            self.assertEqual(instance_id, self.unhealthy_server.pk)
+            self.unhealthy_server.refresh_from_db()
+            self.assertTrue(self.unhealthy_server.is_healthy)
+            recovery_events.append("sync")
+
+        mock_cleanup_factory.return_value.side_effect = remove_dead_keys
+        mock_sync.delay.side_effect = queue_sync
+
+        check_vds_health_task()
+
+        self.unhealthy_server.refresh_from_db()
+        pending_key.refresh_from_db()
+        self.assertFalse(self.unhealthy_server.is_healthy)
+        self.assertTrue(pending_key.is_active)
+        self.assertFalse(pending_key.was_deleted)
+        mock_cleanup_factory.return_value.assert_not_called()
+        mock_sync.delay.assert_not_called()
+
+        pending_key.is_active = False
+        pending_key.was_deleted = True
+        pending_key.save(update_fields=["is_active", "was_deleted"])
+
+        check_vds_health_task()
+
+        self.unhealthy_server.refresh_from_db()
+        self.assertTrue(self.unhealthy_server.is_healthy)
+        mock_cleanup_factory.return_value.assert_called_once_with(
+            instance_id=self.unhealthy_server.pk
+        )
+        mock_sync.delay.assert_called_once_with(instance_id=self.unhealthy_server.pk)
+        self.assertEqual(recovery_events, ["cleanup", "sync"])

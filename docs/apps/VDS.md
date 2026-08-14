@@ -24,7 +24,10 @@
 - **GetMyServersService** — генерирует `tg://proxy` ссылки на лету для каждого активного VDS. Если активного ключа нет, а бесплатный период не использован, активирует его через инъектированный `FirstFreeLinkService` и сразу возвращает серверы; если период израсходован — `KeyDoesNotExist`.
 - **VDSHealthCheckInfraService** — проверяет доступность сервера GET-запросом.
 - **RemoveUserKeyInfraService** / **RemoveKeysFromVdsInstanceInfraService** / **RemoveDeadKeysFromVdsInfraService** — удаление ключей с VDS.
-- **RemoveExpiredKeysDailyService** — дневное удаление истёкших ключей.
+- **RemoveExpiredKeysDailyService** — дневное удаление истёкших ключей. Недоступность
+  одного активного VDS (`VDSNotAvailable`) изолируется: этот сервер помечается
+  нездоровым, остальные активные VDS всё равно обрабатываются, после чего
+  сохраняется существующая деактивация ключей в БД и уведомление пользователя.
 
 ## Celery-задачи
 
@@ -36,7 +39,12 @@
 - **migrate_vds_keys_task** — досылка всех активных ключей на остальные серверы (админ-экшен)
 - **sync_keys_to_vds_task** — синхронизирует все активные ключи БД на конкретный сервер
 - **remove_dead_keys_from_vds_task** / **remove_key_from_another_vds_instances_task** — удаление ключей с серверов
-- **check_vds_health_task** — каждые 5 минут проверяет нездоровые (`is_healthy=False`) серверы; при восстановлении: выставляет `is_healthy=True`, запускает `sync_keys_to_vds_task`
+- **check_vds_health_task** — каждые 5 минут проверяет нездоровые (`is_healthy=False`)
+  серверы; после успешного probe ожидает завершения ежедневной деактивации, если
+  в БД ещё есть активные истёкшие ключи. Затем синхронно удаляет с VDS известные
+  БД истёкшие ключи, выставляет `is_healthy=True` и запускает
+  `sync_keys_to_vds_task`. При `VDSNotAvailable` во время удаления сервер остаётся
+  нездоровым, его sync не запускается, а обработка остальных нездоровых VDS продолжается.
 - **broadcast_proxy_links_task** — массовая рассылка
 
 ## Механизм отказоустойчивости доставки
@@ -55,7 +63,9 @@ _handle_replication_failure
       ▼
 check_vds_health_task (каждые 5 мин)
   → VDSHealthCheckInfraService: GET internal_url
-  → восстановлен → is_healthy = True, sync_keys_to_vds_task (бэкфилл)
+  → active expired keys ожидают DB-деактивацию → оставаться unhealthy
+  → восстановлен → удалить известные БД истёкшие ключи
+  → is_healthy = True → sync_keys_to_vds_task (бэкфилл)
 ```
 
 ## Зависимости
