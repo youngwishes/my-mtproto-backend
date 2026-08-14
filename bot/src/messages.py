@@ -6,7 +6,11 @@ VPN_SETUP_URL = "https://mtprotokeys.com/vpn/"
 TERMS_URL = "https://mtprotokeys.com/terms"
 PRIVACY_URL = "https://mtprotokeys.com/privacy"
 
-PRODUCT_MENU_TEXT = "Выберите раздел"
+PRODUCT_MENU_TEXT = (
+    "👋 Добро пожаловать в MTProto Keys!\n\n"
+    "MTProxy, VPN, бонусы и полезные ссылки — всё здесь.\n"
+    "Выберите, что вас интересует:"
+)
 
 _WELCOME_BODY = """
 <b>⚡️ MTProto Keys Bot</b>

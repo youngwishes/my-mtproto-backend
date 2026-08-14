@@ -308,7 +308,11 @@ async def test_root_navigation_matches_approved_hierarchy():
     assert fake.status_checked == ["42"]
     assert fake.checked == []
     text, markup = message.answers[0]
-    assert text == PRODUCT_MENU_TEXT == "Выберите раздел"
+    assert text == PRODUCT_MENU_TEXT == (
+        "👋 Добро пожаловать в MTProto Keys!\n\n"
+        "MTProxy, VPN, бонусы и полезные ссылки — всё здесь.\n"
+        "Выберите, что вас интересует:"
+    )
     expected_rows = [
         [("⚡ MTProxy", "show_mtproxy_menu", None, "success")],
         [("🔐 VPN", "show_vpn_menu", None, "primary")],
