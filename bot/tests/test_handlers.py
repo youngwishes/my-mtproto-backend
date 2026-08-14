@@ -299,7 +299,7 @@ def servers() -> MyServers:
 # --- start screen -----------------------------------------------------------
 
 
-async def test_cmd_start_shows_only_product_root_without_free_trial_check():
+async def test_root_navigation_matches_approved_hierarchy():
     fake = FakeFreeTrial(check="MONTH")
     message = FakeMessage(text="/start", user_id=42, username="bob")
 
@@ -308,15 +308,55 @@ async def test_cmd_start_shows_only_product_root_without_free_trial_check():
     assert fake.status_checked == ["42"]
     assert fake.checked == []
     text, markup = message.answers[0]
-    assert text == PRODUCT_MENU_TEXT
-    assert [[button.text for button in row] for row in markup.inline_keyboard] == [
-        ["⚡ MTProxy"],
-        ["🔐 VPN"],
+    assert text == PRODUCT_MENU_TEXT == "Выберите раздел"
+    expected_rows = [
+        [("⚡ MTProxy", "show_mtproxy_menu", None, "success")],
+        [("🔐 VPN", "show_vpn_menu", None, "primary")],
+        [("🤝 Реферальная программа", "referral", None, None)],
+        [("💬 Написать в поддержку", None, SUPPORT_URL, None)],
+        [("🌐 Наш сайт", None, SITE_URL, None)],
+        [
+            ("📜 Условия пользования", None, TERMS_URL, None),
+            ("🔒 Политика конфиденциальности", None, PRIVACY_URL, None),
+        ],
     ]
     assert [
-        [button.callback_data for button in row]
+        [
+            (button.text, button.callback_data, button.url, button.style)
+            for button in row
+        ]
         for row in markup.inline_keyboard
-    ] == [["show_mtproxy_menu"], ["show_vpn_menu"]]
+    ] == expected_rows
+
+    consent = FakeFreeTrial(consent=False)
+    consent_callback = FakeCallback(
+        user_id=42,
+        username="bob",
+        data="accept_legal_terms",
+    )
+    await process_legal_consent(
+        consent_callback,
+        make_deps(free_trial=consent),
+    )
+    _, consent_markup = consent_callback.message.edits[0]
+    assert [
+        [
+            (button.text, button.callback_data, button.url, button.style)
+            for button in row
+        ]
+        for row in consent_markup.inline_keyboard
+    ] == expected_rows
+
+    start_callback = FakeCallback(chat_id=99, user_id=42, username="bob")
+    await cmd_start_inline(start_callback)
+    _, start_markup = start_callback.message.edits[0]
+    assert [
+        [
+            (button.text, button.callback_data, button.url, button.style)
+            for button in row
+        ]
+        for row in start_markup.inline_keyboard
+    ] == expected_rows
 
 
 @pytest.mark.parametrize(
@@ -326,7 +366,7 @@ async def test_cmd_start_shows_only_product_root_without_free_trial_check():
         ("NOT_AVAILABLE", WELCOME_TEXT_NOT_FREE, "boost_paid"),
     ],
 )
-async def test_mtproxy_menu_checks_free_period_on_every_entry(
+async def test_mtproxy_navigation_matches_approved_hierarchy(
     period, expected_text, boost_callback
 ):
     fake = FakeFreeTrial(check=period)
@@ -343,14 +383,18 @@ async def test_mtproxy_menu_checks_free_period_on_every_entry(
     text, markup = callback.message.edits[-1]
     assert text == expected_text
     assert markup.inline_keyboard[0][0].callback_data == boost_callback
-    assert [[button.text for button in row] for row in markup.inline_keyboard] == [
-        ["⚡️ Ускорить Telegram"],
-        ["📡 Мои серверы"],
-        ["🎁 Подарить подписку"],
-        ["🤝 Реферальный кабинет"],
-        ["📋 Информация"],
-        ["💬 Поддержка", "🌐 Наш сайт"],
-        ["🔙 Назад"],
+    assert [
+        [
+            (button.text, button.callback_data, button.url, button.style)
+            for button in row
+        ]
+        for row in markup.inline_keyboard
+    ] == [
+        [("⚡ Ускорить Telegram", boost_callback, None, "success")],
+        [("📡 Мои серверы", "my_servers", None, "primary")],
+        [("🎁 Подарить MTProxy", "gift_certificate", None, None)],
+        [("❓ Вопросы о MTProxy", "info", None, None)],
+        [("🔙 Главное меню", "show_start_screen", None, None)],
     ]
 
 
@@ -416,6 +460,10 @@ async def test_accept_consent_registers_clicking_user_and_opens_start_screen():
     assert [[button.text for button in row] for row in markup.inline_keyboard] == [
         ["⚡ MTProxy"],
         ["🔐 VPN"],
+        ["🤝 Реферальная программа"],
+        ["💬 Написать в поддержку"],
+        ["🌐 Наш сайт"],
+        ["📜 Условия пользования", "🔒 Политика конфиденциальности"],
     ]
 
 
@@ -449,7 +497,14 @@ async def test_show_start_screen_shows_product_root():
     assert [
         [button.callback_data for button in row]
         for row in markup.inline_keyboard
-    ] == [["show_mtproxy_menu"], ["show_vpn_menu"]]
+    ] == [
+        ["show_mtproxy_menu"],
+        ["show_vpn_menu"],
+        ["referral"],
+        [None],
+        [None],
+        [None, None],
+    ]
 
 
 async def test_info_answers_callback():
@@ -621,30 +676,26 @@ def test_unknown_payment_method_keeps_only_back(
     ]
 
 
-def test_mtproxy_menu_links_to_site_and_support():
-    markup = keyboards.mtproxy_menu("boost_free")
+def test_root_menu_links_to_common_destinations():
+    markup = keyboards.product_menu()
 
     urls = [btn.url for row in markup.inline_keyboard for btn in row if btn.url]
     assert SUPPORT_URL == "https://t.me/mtprotokeys_support"
     assert "https://t.me/mtprotokeys_support" in urls
     assert "https://mtprotokeys.com" in urls
-    assert set(urls) >= {SITE_URL, SUPPORT_URL}
+    assert set(urls) == {SITE_URL, SUPPORT_URL, TERMS_URL, PRIVACY_URL}
 
 
-def test_info_keyboard_links_to_legal_docs_and_drops_offer():
+def test_info_keyboard_returns_only_to_mtproxy():
     markup = keyboards.info()
 
-    urls = [btn.url for row in markup.inline_keyboard for btn in row if btn.url]
-    assert set(urls) >= {
-        "https://mtprotokeys.com/terms",
-        "https://mtprotokeys.com/privacy",
-    }
-    assert TERMS_URL in urls
-    assert PRIVACY_URL in urls
-    assert not any("drive.google.com" in url for url in urls)
+    assert [
+        [(button.text, button.callback_data, button.url) for button in row]
+        for row in markup.inline_keyboard
+    ] == [[("🔙 Назад", "show_mtproxy_menu", None)]]
 
 
-def test_mtproxy_internal_back_buttons_return_to_mtproxy_menu(
+def test_mtproxy_child_navigation_matches_parent_contract(
     servers: MyServers,
 ):
     markups = {
@@ -663,10 +714,6 @@ def test_mtproxy_internal_back_buttons_return_to_mtproxy_menu(
             payment_methods=("stars", "crypto_pay"),
             priority_payment_methods=(),
         ),
-        "referral_cabinet": keyboards.referral_cabinet(
-            active_referrals_count=4,
-            referral_link="https://t.me/bot?start=42",
-        ),
     }
 
     assert {
@@ -677,6 +724,16 @@ def test_mtproxy_internal_back_buttons_return_to_mtproxy_menu(
         keyboards.confirm_reissue().inline_keyboard[-1][0].callback_data
         == "my_servers"
     )
+    assert [
+        button.callback_data
+        for row in keyboards.key_generated().inline_keyboard
+        for button in row
+    ] == ["my_servers", "show_mtproxy_menu"]
+    assert [
+        (button.text, button.callback_data, button.url)
+        for row in keyboards.info().inline_keyboard
+        for button in row
+    ] == [("🔙 Назад", "show_mtproxy_menu", None)]
 
 
 # --- links ------------------------------------------------------------------
@@ -734,29 +791,79 @@ def _cabinet(active: int) -> ReferralCabinet:
     )
 
 
-async def test_referral_shows_reward_button_at_threshold():
-    fake = FakeReferrals(cabinet=_cabinet(active=5))
+@pytest.mark.parametrize(
+    ("active_referrals_count", "expected_rows"),
+    [
+        (
+            5,
+            [
+                [
+                    (
+                        "🎁 Получить 14 дней MTProxy",
+                        "get-referral-link",
+                        None,
+                        None,
+                        "success",
+                    )
+                ],
+                [
+                    (
+                        "🔗 Поделиться ссылкой",
+                        None,
+                        None,
+                        "Привет! Переходи по моей реферальной ссылке: "
+                        "https://t.me/bot?start=42",
+                        "primary",
+                    )
+                ],
+                [("🔙 Главное меню", "show_start_screen", None, None, None)],
+            ],
+        ),
+        (
+            4,
+            [
+                [
+                    (
+                        "🔗 Поделиться ссылкой",
+                        None,
+                        None,
+                        "Привет! Переходи по моей реферальной ссылке: "
+                        "https://t.me/bot?start=42",
+                        "primary",
+                    )
+                ],
+                [("🔙 Главное меню", "show_start_screen", None, None, None)],
+            ],
+        ),
+    ],
+)
+async def test_referral_navigation_matches_reward_eligibility(
+    active_referrals_count,
+    expected_rows,
+):
+    fake = FakeReferrals(cabinet=_cabinet(active=active_referrals_count))
     callback = FakeCallback(chat_id=42)
 
     await process_referral(callback, make_deps(referrals=fake))
 
-    _, markup = callback.message.edits[0]
-    texts = [btn.text for row in markup.inline_keyboard for btn in row]
-    assert "🎁 Получить бесплатную ссылку" in texts
+    text, markup = callback.message.edits[0]
+    assert text.strip().splitlines()[0] == "<b>Реферальная программа</b>"
+    assert [
+        [
+            (
+                button.text,
+                button.callback_data,
+                button.url,
+                button.switch_inline_query,
+                button.style,
+            )
+            for button in row
+        ]
+        for row in markup.inline_keyboard
+    ] == expected_rows
 
 
-async def test_referral_hides_reward_button_below_threshold():
-    fake = FakeReferrals(cabinet=_cabinet(active=4))
-    callback = FakeCallback(chat_id=42)
-
-    await process_referral(callback, make_deps(referrals=fake))
-
-    _, markup = callback.message.edits[0]
-    texts = [btn.text for row in markup.inline_keyboard for btn in row]
-    assert "🎁 Получить бесплатную ссылку" not in texts
-
-
-async def test_referral_link_claims_reward():
+async def test_referral_reward_result_matches_domain_boundary():
     fake = FakeReferrals(
         cabinet=_cabinet(active=5),
         reward=ReferralRewardKey(expired_date="2026-06-30"),
@@ -766,8 +873,21 @@ async def test_referral_link_claims_reward():
     await process_referral_link(callback, make_deps(referrals=fake))
 
     assert fake.reward_calls == ["42"]
-    text, _ = callback.message.answers[0]
+    text, markup = callback.message.answers[0]
+    assert "14 дней MTProxy" in text
     assert "2026-06-30" in text
+    assert [
+        [(button.text, button.callback_data, button.style) for button in row]
+        for row in markup.inline_keyboard
+    ] == [
+        [("⚡ Перейти в MTProxy", "show_mtproxy_menu", "success")],
+        [("🔙 Реферальная программа", "referral", None)],
+    ]
+    assert not any(
+        button.callback_data == "my_servers"
+        for row in markup.inline_keyboard
+        for button in row
+    )
 
 
 # --- payments ---------------------------------------------------------------
@@ -974,7 +1094,7 @@ async def test_legacy_yukassa_callbacks_are_safe_noops(
     assert fake_bot.invoices == []
 
 
-async def test_vpn_product_menu_uses_approved_copy_and_actions():
+async def test_vpn_navigation_matches_approved_hierarchy():
     callback = FakeCallback(data="show_vpn_menu")
 
     await process_vpn_menu(callback)
@@ -1001,11 +1121,17 @@ async def test_vpn_product_menu_uses_approved_copy_and_actions():
         ]
         for row in markup.inline_keyboard
     ] == [
-        [("💳 Купить VPN", "vpn", None, "success")],
+        [("💳 Купить или продлить VPN", "vpn", None, "success")],
         [("🔑 Моя подписка", "vpn_subscription", None, "primary")],
-        [("📖 Как настроить", None, "https://mtprotokeys.com/vpn/", None)],
-        [("💬 Поддержка", None, "https://t.me/mtprotokeys_support", None)],
-        [("🔙 Назад", "show_start_screen", None, None)],
+        [
+            (
+                "📖 Как подключить VPN",
+                None,
+                "https://mtprotokeys.com/vpn/",
+                None,
+            )
+        ],
+        [("🔙 Главное меню", "show_start_screen", None, None)],
     ]
 
 
@@ -1051,7 +1177,7 @@ async def test_vpn_purchase_fetches_stars_invoice_and_shows_stars_only_screen():
 
 
 @pytest.mark.parametrize(
-    ("menu", "expected_text"),
+    ("menu", "expected_text", "expected_rows"),
     [
         (
             VPNMenu(
@@ -1065,6 +1191,7 @@ async def test_vpn_purchase_fetches_stars_invoice_and_shows_stars_only_screen():
 
 Subscription-ссылка:
 <code>https://vpn.example/subscriptions/active/</code>""",
+            [[("🔙 Назад", "show_vpn_menu", None)]],
         ),
         (
             VPNMenu(
@@ -1078,11 +1205,17 @@ Subscription-ссылка:
 
 Subscription-ссылка:
 <code>https://vpn.example/subscriptions/expired/</code>""",
+            [
+                [("💳 Продлить VPN", "vpn", "success")],
+                [("🔙 Назад в VPN", "show_vpn_menu", None)],
+            ],
         ),
     ],
 )
-async def test_vpn_subscription_shows_status_without_invoice_calls(
-    menu, expected_text
+async def test_vpn_subscription_navigation_matches_status(
+    menu,
+    expected_text,
+    expected_rows,
 ):
     callback = FakeCallback(chat_id=42, user_id=42, data="vpn_subscription")
     vpn = FakeVPN(menu=menu)
@@ -1096,9 +1229,9 @@ async def test_vpn_subscription_shows_status_without_invoice_calls(
     text, markup = callback.message.edits[0]
     assert text == expected_text
     assert [
-        [(button.text, button.callback_data) for button in row]
+        [(button.text, button.callback_data, button.style) for button in row]
         for row in markup.inline_keyboard
-    ] == [[("🔙 Назад", "show_vpn_menu")]]
+    ] == expected_rows
 
 
 async def test_vpn_subscription_without_subscription_keeps_menu_and_raises_error():
@@ -1421,7 +1554,7 @@ async def test_successful_regular_payment_ignores_gift_confirmation():
         ("RUB", "vpn_yukassa", "vpn_ch_card", "yukassa"),
     ],
 )
-async def test_successful_vpn_payment_routes_only_to_vpn_buy_and_shows_happ_import(
+async def test_successful_vpn_payment_shows_approved_parent_actions(
     currency, invoice_payload, expected_charge_id, expected_provider
 ):
     payments = FakePayments()
@@ -1444,13 +1577,21 @@ async def test_successful_vpn_payment_routes_only_to_vpn_buy_and_shows_happ_impo
 
     assert vpn.purchase_calls == [(42, expected_charge_id, expected_provider)]
     assert payments.confirmed == []
-    text, _ = message.answers[0]
+    text, markup = message.answers[0]
     assert "2026-08-31T12:00:00+00:00" in text
     assert "https://vpn.example/subscriptions/token/" in text
     assert "Android" in text
     assert "iOS" in text
     assert "Windows" in text
     assert "macOS" in text
+    assert markup is not None
+    assert [
+        [(button.text, button.callback_data, button.style) for button in row]
+        for row in markup.inline_keyboard
+    ] == [
+        [("🔑 Моя подписка", "vpn_subscription", "primary")],
+        [("🔙 Назад в VPN", "show_vpn_menu", None)],
+    ]
 
 
 async def test_gift_certificate_code_message_activates_certificate():

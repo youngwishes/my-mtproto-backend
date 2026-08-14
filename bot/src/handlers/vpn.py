@@ -76,7 +76,9 @@ async def process_vpn_subscription(
 
     await callback.message.edit_text(
         text=text,
-        reply_markup=keyboards.vpn_subscription(),
+        reply_markup=keyboards.vpn_subscription(
+            is_expired=menu.status == "expired",
+        ),
     )
 
 
