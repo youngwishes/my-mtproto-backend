@@ -102,12 +102,19 @@ def sync_keys_to_vds_task(instance_id: int) -> None:
 
 @shared_task
 def check_vds_health_task() -> None:
+    from apps.vds.exceptions import VDSNotAvailable
     from apps.vds.selectors import get_unhealthy_vds_instances
+    from apps.vds.services import get_remove_dead_keys_from_vds_infra_service
     from apps.vds.services.vds_health_check_infra_service import get_vds_health_check_infra_service
 
     service = get_vds_health_check_infra_service()
+    remove_dead_keys = get_remove_dead_keys_from_vds_infra_service()
     for server in get_unhealthy_vds_instances():
         if service(instance_id=server.pk):
+            try:
+                remove_dead_keys(instance_id=server.pk)
+            except VDSNotAvailable:
+                continue
             server.is_healthy = True
             server.save(update_fields=["is_healthy"])
             sync_keys_to_vds_task.delay(instance_id=server.pk)
