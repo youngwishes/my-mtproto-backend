@@ -93,6 +93,25 @@ provider callbacks на `beatvault.ru`, не откатывать `TLS_DOMAIN=mt
 декораторы обработки ошибок и Telegram-транспорт. Публичные обязанности и
 зависимости приложения перечислены в [apps/CORE.md](apps/CORE.md).
 
+## apps/infrastructure — Учёт проектных серверов
+
+`apps.infrastructure` изолированно владеет вручную поддерживаемым через Django
+Admin реестром `ProjectServer` и ежедневным напоминанием об оплате. Приложение
+зависит от `apps.core` только для базовой модели и Telegram-транспорта, а от
+`apps.vds` — только для справочника `Hosting`. VDS/VPN-приложения не зависят от
+него; синхронизации с `VDSInstance` или `VPNInstance` нет.
+
+В 11:00 UTC Celery Beat запускает read-only поток:
+
+`Beat → task → factory → selector → ProjectServer + Hosting → service → Telegram → MY_TELEGRAM_ID`.
+
+Selector детерминированно выбирает активные записи с датой платежа не позднее
+завтра. Сервис формирует одно HTML-safe сообщение либо ничего не отправляет при
+пустой выборке. Bound task повторяет весь read/format/send-вызов до трёх раз с
+задержкой 30 секунд; записи, включая просроченные даты и active-state, не
+изменяются. Подробности границы находятся в
+[apps/INFRASTRUCTURE.md](apps/INFRASTRUCTURE.md).
+
 ## Service Layer
 
 Сервисы — frozen dataclasses с `__call__`. Два декоратора (из `apps.core.decorators`):
