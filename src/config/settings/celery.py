@@ -8,6 +8,10 @@ CELERY_RESULT_BACKEND = os.environ.get(
 )
 
 CELERY_BEAT_SCHEDULE = {
+    "project-server-payment-reminder": {
+        "task": "apps.infrastructure.tasks.send_project_server_payment_reminder_task",
+        "schedule": crontab(hour=11, minute=0),
+    },
     "reconcile-crypto-payments": {
         "task": "apps.payments.tasks.reconcile_crypto_payments_task",
         "schedule": crontab(minute="*/10"),
