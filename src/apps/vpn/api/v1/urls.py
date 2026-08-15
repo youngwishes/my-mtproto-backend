@@ -5,6 +5,7 @@ from django.urls import path
 from apps.vpn.api.v1.views import (
     AgentBootstrapProfilesView,
     FulfillVPNPaymentView,
+    ReissueVPNSubscriptionView,
     VPNMenuView,
     VPNSubscriptionView,
 )
@@ -17,6 +18,7 @@ urlpatterns = [
     ),
     path("menu/", VPNMenuView.as_view(), name="vpn-menu"),
     path("payments/buy/", FulfillVPNPaymentView.as_view(), name="vpn-payment-buy"),
+    path("reissue/", ReissueVPNSubscriptionView.as_view(), name="vpn-reissue"),
     path(
         "subscriptions/<str:token>/",
         VPNSubscriptionView.as_view(),

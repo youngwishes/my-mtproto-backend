@@ -8,6 +8,7 @@ if TYPE_CHECKING:
 
 _MENU_PATH = "/api/v1/vpn/menu/?username={telegram_id}"
 _BUY_PATH = "/api/v1/vpn/payments/buy/"
+_REISSUE_PATH = "/api/v1/vpn/reissue/"
 _PRODUCT_CODE = "vpn_30d"
 
 
@@ -22,6 +23,13 @@ class VPNMenu:
 @final
 @dataclass(kw_only=True, slots=True, frozen=True)
 class VPNPurchase:
+    expired_at: str
+    subscription_url: str
+
+
+@final
+@dataclass(kw_only=True, slots=True, frozen=True)
+class VPNReissue:
     expired_at: str
     subscription_url: str
 
@@ -52,3 +60,11 @@ class VPNClient:
             telegram_id=telegram_id,
         )
         return VPNPurchase(**response)
+
+    async def reissue(self, *, telegram_id: str | int) -> VPNReissue:
+        response = await self.backend.post(
+            _REISSUE_PATH,
+            data={"username": str(telegram_id)},
+            telegram_id=telegram_id,
+        )
+        return VPNReissue(**response)

@@ -393,6 +393,51 @@ signature или секреты.
 У `none` оба nullable-поля равны `null`; у `expired` URL сохраняется, но не
 выдаёт рабочую конфигурацию.
 
+### POST /api/v1/vpn/reissue/
+
+POST-only endpoint защищён permission `BotAuthToken` через заголовок
+`Bot-Auth-Token`. Принимает только username Telegram-пользователя:
+
+```json
+{
+  "username": "1487189460"
+}
+```
+
+Для active VPN-подписки перевыпускает subscription token, VLESS UUID и Hysteria
+secret, сохраняя `expired_at` и active-state. Успешный ответ — `200 OK` и ровно
+два поля:
+
+```json
+{
+  "expired_at": "2026-08-31T12:00:00+00:00",
+  "subscription_url": "https://example.com/api/v1/vpn/subscriptions/new-token/"
+}
+```
+
+Для отсутствующей, истёкшей или неактивной подписки возвращает `400`:
+
+```json
+{
+  "error": "🔒 Перевыпуск VPN-ссылки доступен только после продления подписки.",
+  "detail": {}
+}
+```
+
+Повторный перевыпуск в пределах пяти минут возвращает `400` с тем же форматом:
+
+```json
+{
+  "error": "🔒 Пожалуйста, подождите 5 минут с последнего обновления.",
+  "detail": {}
+}
+```
+
+Старая subscription URL сразу после успешного DB update возвращает `404`; новая
+возвращает профили с новыми credentials. Один существующий post-commit scheduler
+асинхронно ставит profile PUT delivery на активные VPN-ноды. Ответ не ждёт
+завершения нод и не вводит readiness state.
+
 ### GET /api/v1/vpn/subscriptions/<token>/
 
 Публичный endpoint. Успешный ответ имеет `200 OK`, `Content-Type: text/plain` и
@@ -412,7 +457,9 @@ subscription URL или Base64 payload.
 }
 ```
 
-Ответ содержит срок и постоянную внешнюю subscription-ссылку:
+Покупка или продление возвращает срок и текущую внешнюю subscription-ссылку.
+Этот flow сохраняет её без явного перевыпуска; подтверждённый перевыпуск заменяет
+её новым token:
 
 ```json
 {

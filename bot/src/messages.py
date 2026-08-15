@@ -228,6 +228,15 @@ VPN_ACTIVE_TEXT = """🔐 <b>Твоя VPN-подписка активна</b>
 Subscription-ссылка:
 <code>{subscription_url}</code>"""
 
+VPN_REISSUE_CONFIRM_TEXT = """🔄 <b>Перевыпуск VPN-ссылки</b>
+
+Будет создана новая subscription-ссылка, а старая перестанет работать.
+Продолжить?"""
+
+VPN_REISSUE_DONE_BANNER = """✅ <b>VPN-ссылка перевыпущена!</b>
+
+Старая subscription-ссылка больше не работает."""
+
 VPN_PURCHASED_TEXT = """✅ <b>VPN-подписка активирована</b>
 
 Действует до: <b>{expired_at}</b>

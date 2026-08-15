@@ -127,6 +127,16 @@ def vpn_subscription(*, is_expired: bool) -> InlineKeyboardMarkup:
                 )
             ]
         )
+    keyboard.append(
+        [
+            InlineKeyboardButton(
+                text="🔄 Перевыпустить ссылку",
+                callback_data="vpn_reissue",
+                style="primary",
+            )
+        ]
+    )
+    if is_expired:
         keyboard.append(
             [
                 InlineKeyboardButton(
@@ -138,6 +148,21 @@ def vpn_subscription(*, is_expired: bool) -> InlineKeyboardMarkup:
     else:
         keyboard.append([_VPN_BACK])
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+
+def vpn_reissue_confirmation() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="✅ Да, перевыпустить",
+                    callback_data="vpn_reissue_confirm",
+                    style="primary",
+                )
+            ],
+            [InlineKeyboardButton(text="🔙 Отмена", callback_data="vpn_subscription")],
+        ]
+    )
 
 
 def vpn_purchased() -> InlineKeyboardMarkup:
