@@ -7,7 +7,11 @@ import pytest
 from aiogram.types import LabeledPrice
 
 from src import keyboards, messages as messages_module
-from src.exceptions import APIError, VPNSubscriptionDoesNotExist
+from src.exceptions import (
+    APIError,
+    VPNReissueRequiresRenewal,
+    VPNSubscriptionDoesNotExist,
+)
 from src.handlers import payments as payments_module
 from src.handlers import vpn as vpn_module
 from src.handlers.free_trial import process_boost_free
@@ -28,6 +32,8 @@ from src.handlers.vpn import (
     process_vpn_menu,
     process_vpn_pay_crypto,
     process_vpn_pay_stars,
+    process_vpn_reissue,
+    process_vpn_reissue_confirm,
     process_vpn_subscription,
 )
 from src.handlers.referrals import process_referral, process_referral_link
@@ -46,6 +52,8 @@ from src.messages import (
     SITE_URL,
     SUPPORT_URL,
     TERMS_URL,
+    VPN_REISSUE_CONFIRM_TEXT,
+    VPN_REISSUE_DONE_BANNER,
     VPN_PRODUCT_MENU_TEXT,
     WELCOME_TEXT_MONTH,
     WELCOME_TEXT_NOT_FREE,
@@ -59,7 +67,7 @@ from src.domains.payments import (
     StarsInvoice,
 )
 from src.domains.referrals import ReferralCabinet, ReferralRewardKey
-from src.domains.vpn import VPNMenu, VPNPurchase
+from src.domains.vpn import VPNMenu, VPNPurchase, VPNReissue
 from tests.fakes import FakeBot, FakeCallback, FakeMessage, make_deps
 
 
@@ -247,22 +255,44 @@ class FakePayments:
 
 
 class FakeVPN:
-    def __init__(self, *, menu: VPNMenu, purchase: VPNPurchase | None = None) -> None:
-        self._menu = menu
+    def __init__(
+        self,
+        *,
+        menu: VPNMenu | list[VPNMenu],
+        purchase: VPNPurchase | None = None,
+        reissue: VPNReissue | None = None,
+        reissue_error: APIError | None = None,
+    ) -> None:
+        self._menus = menu if isinstance(menu, list) else [menu]
         self._purchase = purchase or VPNPurchase(
             expired_at="2026-08-31T12:00:00+00:00",
             subscription_url="https://vpn.example/subscriptions/token/",
         )
+        self._reissue = reissue or VPNReissue(
+            expired_at="2026-08-31T12:00:00+00:00",
+            subscription_url="https://vpn.example/subscriptions/reissued/",
+        )
+        self._reissue_error = reissue_error
         self.menu_calls: list[str] = []
         self.purchase_calls: list[tuple] = []
+        self.reissue_calls: list[str] = []
+        self.events: list[str] = []
 
     async def get_menu(self, *, telegram_id):
         self.menu_calls.append(telegram_id)
-        return self._menu
+        self.events.append("menu")
+        return self._menus.pop(0)
 
     async def confirm_purchase(self, *, telegram_id, charge_id, provider):
         self.purchase_calls.append((telegram_id, charge_id, provider))
         return self._purchase
+
+    async def reissue(self, *, telegram_id):
+        self.reissue_calls.append(telegram_id)
+        self.events.append("reissue")
+        if self._reissue_error is not None:
+            raise self._reissue_error
+        return self._reissue
 
 
 def _deps_with_vpn(*, vpn: FakeVPN, payments: FakePayments | None = None):
@@ -1195,7 +1225,10 @@ async def test_vpn_purchase_fetches_stars_invoice_and_shows_stars_only_screen():
 
 Subscription-ссылка:
 <code>https://vpn.example/subscriptions/active/</code>""",
-            [[("🔙 Назад", "show_vpn_menu", None)]],
+            [
+                [("🔄 Перевыпустить ссылку", "vpn_reissue", "primary")],
+                [("🔙 Назад", "show_vpn_menu", None)],
+            ],
         ),
         (
             VPNMenu(
@@ -1211,6 +1244,7 @@ Subscription-ссылка:
 <code>https://vpn.example/subscriptions/expired/</code>""",
             [
                 [("💳 Продлить VPN", "vpn", "success")],
+                [("🔄 Перевыпустить ссылку", "vpn_reissue", "primary")],
                 [("🔙 Назад в VPN", "show_vpn_menu", None)],
             ],
         ),
@@ -1258,6 +1292,132 @@ async def test_vpn_subscription_without_subscription_keeps_menu_and_raises_error
         "пожалуйста, напишите в поддержку: @mtprotokeys_support."
     )
     assert "@mtproto_keys" not in exc_info.value.message
+
+
+async def test_vpn_reissue_status_gate_and_confirmation():
+    expired_callback = FakeCallback(chat_id=42, user_id=42, data="vpn_reissue")
+    expired_vpn = FakeVPN(
+        menu=VPNMenu(
+            status="expired",
+            expired_at="2026-07-31T12:00:00+00:00",
+            subscription_url="https://vpn.example/subscriptions/expired/",
+        )
+    )
+
+    with pytest.raises(VPNReissueRequiresRenewal) as exc_info:
+        await process_vpn_reissue(expired_callback, _deps_with_vpn(vpn=expired_vpn))
+
+    assert exc_info.value.telegram_id == "42"
+    assert exc_info.value.message == (
+        "🔒 Перевыпуск VPN-ссылки доступен только после продления подписки."
+    )
+    assert expired_vpn.menu_calls == ["42"]
+    assert expired_vpn.reissue_calls == []
+    assert expired_callback.message.edits == []
+
+    active_callback = FakeCallback(chat_id=42, user_id=42, data="vpn_reissue")
+    active_vpn = FakeVPN(
+        menu=VPNMenu(
+            status="active",
+            expired_at="2026-08-31T12:00:00+00:00",
+            subscription_url="https://vpn.example/subscriptions/active/",
+        )
+    )
+
+    await process_vpn_reissue(active_callback, _deps_with_vpn(vpn=active_vpn))
+
+    assert active_vpn.menu_calls == ["42"]
+    assert active_vpn.reissue_calls == []
+    text, markup = active_callback.message.edits[0]
+    assert text == VPN_REISSUE_CONFIRM_TEXT
+    assert [
+        [(button.text, button.callback_data, button.style) for button in row]
+        for row in markup.inline_keyboard
+    ] == [
+        [("✅ Да, перевыпустить", "vpn_reissue_confirm", "primary")],
+        [("🔙 Отмена", "vpn_subscription", None)],
+    ]
+
+
+async def test_vpn_reissue_without_subscription_keeps_menu_and_raises_error():
+    callback = FakeCallback(chat_id=42, user_id=42, data="vpn_reissue")
+    vpn = FakeVPN(
+        menu=VPNMenu(status="none", expired_at=None, subscription_url=None)
+    )
+
+    with pytest.raises(VPNSubscriptionDoesNotExist) as exc_info:
+        await process_vpn_reissue(callback, _deps_with_vpn(vpn=vpn))
+
+    assert callback.answers
+    assert vpn.menu_calls == ["42"]
+    assert vpn.reissue_calls == []
+    assert callback.message.edits == []
+    assert exc_info.value.telegram_id == "42"
+    assert exc_info.value.message == (
+        "🔒 У вас нет активной VPN-подписки. Если вы думаете, что это ошибка, "
+        "пожалуйста, напишите в поддержку: @mtprotokeys_support."
+    )
+
+
+async def test_vpn_reissue_cancel_reloads_without_mutation():
+    callback = FakeCallback(chat_id=42, user_id=42, data="vpn_subscription")
+    vpn = FakeVPN(
+        menu=VPNMenu(
+            status="active",
+            expired_at="2026-08-31T12:00:00+00:00",
+            subscription_url="https://vpn.example/subscriptions/active/",
+        )
+    )
+
+    await process_vpn_subscription(callback, _deps_with_vpn(vpn=vpn))
+
+    assert vpn.events == ["menu"]
+    assert vpn.reissue_calls == []
+    assert "https://vpn.example/subscriptions/active/" in callback.message.edits[0][0]
+
+
+async def test_vpn_reissue_success_reloads_menu_with_banner():
+    callback = FakeCallback(chat_id=42, user_id=42, data="vpn_reissue_confirm")
+    vpn = FakeVPN(
+        menu=VPNMenu(
+            status="active",
+            expired_at="2026-08-31T12:00:00+00:00",
+            subscription_url="https://vpn.example/subscriptions/new-token/",
+        ),
+        reissue=VPNReissue(
+            expired_at="2026-08-31T12:00:00+00:00",
+            subscription_url="https://vpn.example/subscriptions/result-token/",
+        ),
+    )
+
+    await process_vpn_reissue_confirm(callback, _deps_with_vpn(vpn=vpn))
+
+    assert vpn.events == ["reissue", "menu"]
+    assert vpn.reissue_calls == ["42"]
+    text, _ = callback.message.edits[0]
+    assert text.startswith(VPN_REISSUE_DONE_BANNER)
+    assert "https://vpn.example/subscriptions/new-token/" in text
+    assert "https://vpn.example/subscriptions/result-token/" not in text
+
+
+async def test_vpn_reissue_api_error_preserves_confirmation():
+    callback = FakeCallback(chat_id=42, user_id=42, data="vpn_reissue_confirm")
+    error = APIError("42", message="🔒 Пожалуйста, подождите 5 минут с последнего обновления.")
+    vpn = FakeVPN(
+        menu=VPNMenu(
+            status="active",
+            expired_at="2026-08-31T12:00:00+00:00",
+            subscription_url="https://vpn.example/subscriptions/active/",
+        ),
+        reissue_error=error,
+    )
+
+    with pytest.raises(APIError) as exc_info:
+        await process_vpn_reissue_confirm(callback, _deps_with_vpn(vpn=vpn))
+
+    assert exc_info.value is error
+    assert vpn.events == ["reissue"]
+    assert callback.message.edits == []
 
 
 async def test_vpn_stars_invoice_uses_distinct_payload_and_vpn_product(monkeypatch):

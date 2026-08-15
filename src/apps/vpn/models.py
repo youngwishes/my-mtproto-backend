@@ -41,6 +41,7 @@ class VPNSubscription(BaseDjangoModel):
         default=_generate_hysteria_secret,
     )
     expired_at = models.DateTimeField("истекает")
+    last_reissued_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self) -> str:
         return f"VPN subscription #{self.pk} — {self.user_id}"

@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import Mock, patch
 
-from django.test import SimpleTestCase
+from django.conf import settings
+from django.test import SimpleTestCase, override_settings
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from apps.vpn.services.dtos import VPNReissueOut
 from apps.vpn.tests.factories import VPNSubscriptionFactory
 
 
@@ -26,6 +29,45 @@ class TestVPNSubscriptionLogging(SimpleTestCase):
 
 
 class TestVPNSubscriptionApplicationLogging(APITestCase):
+    @override_settings(BOT_AUTH_TOKEN="private-bot-auth-token")
+    @patch("apps.vpn.api.v1.views.reissue_views.get_reissue_vpn_subscription_service")
+    def test_reissue_request_log_does_not_include_credentials_or_bot_token(
+        self,
+        get_reissue_service: Mock,
+    ) -> None:
+        """Catches logging that serializes reissue request credentials or bot auth."""
+        subscription = VPNSubscriptionFactory(
+            token="old-private-subscription-token",
+            vless_uuid="11111111-2222-3333-4444-555555555555",
+            hysteria_secret="old-private-hysteria-secret",
+        )
+        get_reissue_service.return_value.return_value = VPNReissueOut(
+            expired_at=subscription.expired_at,
+            subscription_url="https://dash.example.com/api/v1/vpn/subscriptions/new-private-token/",
+        )
+
+        with self.assertLogs("config.middlewares", level="INFO") as captured_logs:
+            response = self.client.post(
+                "/api/v1/vpn/reissue/",
+                data={"username": subscription.user.username},
+                headers={"Bot-Auth-Token": settings.BOT_AUTH_TOKEN},
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        text = "\n".join(captured_logs.output)
+        self.assertEqual(
+            text,
+            "INFO:config.middlewares:{'method': 'POST', 'path': '/api/v1/vpn/reissue/'}",
+        )
+        for private_value in (
+            subscription.token,
+            str(subscription.vless_uuid),
+            subscription.hysteria_secret,
+            "new-private-token",
+            settings.BOT_AUTH_TOKEN,
+        ):
+            self.assertNotIn(private_value, text)
+
     def test_get_does_not_log_subscription_token_or_credentials(self) -> None:
         subscription = VPNSubscriptionFactory(
             token="private-subscription-token",

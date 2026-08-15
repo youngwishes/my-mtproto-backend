@@ -16,6 +16,10 @@ from apps.vpn.services.notify_vpn_expiry_service import (
     NotifyVPNExpiryService,
     get_notify_vpn_expiry_service,
 )
+from apps.vpn.services.reissue_vpn_subscription_service import (
+    ReissueVPNSubscriptionService,
+    get_reissue_vpn_subscription_service,
+)
 from apps.vpn.services.schedule_profiles_service import (
     ScheduleProfilesService,
     get_schedule_profiles_service,
@@ -28,11 +32,13 @@ __all__ = [
     "GetSubscriptionService",
     "NodeClientService",
     "NotifyVPNExpiryService",
+    "ReissueVPNSubscriptionService",
     "ScheduleProfilesService",
     "get_fulfill_vpn_purchase_service",
     "get_expire_vpn_subscriptions_service",
     "get_node_client_service",
     "get_notify_vpn_expiry_service",
+    "get_reissue_vpn_subscription_service",
     "get_schedule_profiles_service",
     "get_subscription_service",
 ]

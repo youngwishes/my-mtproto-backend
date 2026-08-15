@@ -216,13 +216,16 @@ provider transaction ID и one-to-one `Payment` образуют остальн�
 | Поле | Тип | Описание |
 |------|-----|----------|
 | `user` | OneToOne → SystemUser | Владелец |
-| `token` | str (unique) | Непредсказуемый token постоянной subscription URL |
-| `vless_uuid` | UUID | Стабильный credential VLESS |
-| `hysteria_secret` | str | Стабильный credential Hysteria 2 |
+| `token` | str (unique) | Непредсказуемый token текущей subscription URL; заменяется при перевыпуске |
+| `vless_uuid` | UUID | Credential VLESS; заменяется при перевыпуске |
+| `hysteria_secret` | str | Credential Hysteria 2; заменяется при перевыпуске |
 | `expired_at` | DateTimeField | Точный срок доступа |
+| `last_reissued_at` | DateTimeField? | Nullable момент последнего перевыпуска для пятиминутного cooldown |
 
 При продлении, повторной покупке после истечения и повторной обработке платежа
-token и credentials не меняются.
+token и credentials не меняются. Перевыпуск active-подписки атомарно заменяет
+все три credential и записывает `last_reissued_at`, сохраняя `expired_at` и
+`is_active`; `updated_at` не используется для cooldown.
 
 ## VPNInstance (apps/vpn)
 

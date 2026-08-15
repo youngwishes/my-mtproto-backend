@@ -271,12 +271,35 @@ Celery Beat в 12:00 UTC вызывает тонкую задачу
 
 ## VPN
 
-`apps.vpn` хранит единственную VPN-подписку пользователя, стабильные credentials
-и subscription token. Бот запрашивает read-only menu endpoint, получает цены
-только из активного `Product(code="vpn_30d")`, а successful payment направляет
-исключительно в `/api/v1/vpn/payments/buy/`. Ответ покупки содержит срок и
-внешнюю постоянную subscription URL; бот показывает её сразу и не ждёт фоновой
-выдачи профилей на VPN-ноды.
+`apps.vpn` хранит единственную VPN-подписку пользователя с subscription token,
+VLESS UUID, Hysteria secret и nullable `last_reissued_at`. Бот запрашивает
+read-only menu endpoint, получает цены только из активного
+`Product(code="vpn_30d")`, а successful payment направляет исключительно в
+`/api/v1/vpn/payments/buy/`. Ответ покупки содержит срок и внешнюю
+subscription URL; бот показывает её сразу и не ждёт фоновой выдачи профилей на
+VPN-ноды. Продление и платёжный flow не меняются credentials.
+
+`POST /api/v1/vpn/reissue/` защищён `BotAuthToken` и принимает только
+`username`. Для active-подписки `ReissueVPNSubscriptionService` без более
+строгой блокировки, чем у MTProxy, проверяет пятиминутный cooldown, в одной
+транзакции заменяет token, VLESS UUID и Hysteria secret и записывает
+`last_reissued_at`; `expired_at` и `is_active` сохраняются. Неактивная или
+истёкшая подписка не изменяется: бот отказывает ей локально до вызова endpoint,
+а backend также отклоняет её при прямом запросе. После commit service ровно один
+раз вызывает существующий `ScheduleProfilesService`, который ставит текущие
+idempotent profile PUT-задачи для активных VPN-нод. Это не readiness-протокол:
+старый URL сразу возвращает `404`, а прежние профили перестают работать
+eventually, когда асинхронная доставка заменит credentials на нодах.
+
+В боте обе subscription-клавиатуры содержат `vpn_reissue`. Active-подписка
+показывает подтверждение, cancel возвращает к повторно загруженному экрану без
+mutation, а success вызывает backend, повторно читает menu и добавляет banner с
+новой URL. Cooldown backend остаётся в существующем error path. Node-agent,
+delivery retries, MTProxy и payment/lifecycle flows не меняются.
+
+Откат application SHA не возвращает уже ротированные token или credentials:
+rotation необратима для операционного rollback, а существующая асинхронная
+доставка актуального DB state должна завершиться.
 
 VPN callbacks и invoice payload отделены от MTProto: `vpn`,
 `vpn_pay_yukassa`/`vpn_pay_stars` и `vpn_yukassa`/`vpn_stars`. Статусы меню

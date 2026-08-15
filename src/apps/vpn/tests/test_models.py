@@ -4,6 +4,7 @@ from django.db import IntegrityError
 from django.test import TestCase
 
 from apps.users.tests.factories import SystemUserFactory
+from apps.vpn.models import VPNSubscription
 from apps.vpn.tests.factories import VPNSubscriptionFactory
 
 
@@ -31,3 +32,11 @@ class TestVPNSubscriptionModel(TestCase):
             (subscription.token, subscription.vless_uuid, subscription.hysteria_secret),
             credentials,
         )
+
+    def test_last_reissued_at_is_nullable_and_blank_by_default(self) -> None:
+        """Catches a cooldown field that requires a value for existing subscriptions."""
+        field = VPNSubscription._meta.get_field("last_reissued_at")
+
+        self.assertTrue(field.null)
+        self.assertTrue(field.blank)
+        self.assertIsNone(VPNSubscriptionFactory().last_reissued_at)

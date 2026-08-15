@@ -7,13 +7,15 @@ from aiogram.types import CallbackQuery
 
 from src import keyboards
 from src.bot import bot
-from src.exceptions import VPNSubscriptionDoesNotExist
+from src.exceptions import VPNReissueRequiresRenewal, VPNSubscriptionDoesNotExist
 from src.handlers.payments import show_crypto_invoice, show_platega_invoice
 from src.messages import (
     VPN_ACTIVE_TEXT,
     VPN_EXPIRED_TEXT,
     VPN_MENU_TEXT,
     VPN_PRODUCT_MENU_TEXT,
+    VPN_REISSUE_CONFIRM_TEXT,
+    VPN_REISSUE_DONE_BANNER,
 )
 
 if TYPE_CHECKING:
@@ -56,6 +58,50 @@ async def process_vpn_subscription(
     deps: Dependencies,
 ) -> None:
     await callback.answer()
+    await _render_vpn_subscription(callback, deps)
+
+
+@router.callback_query(F.data == "vpn_reissue")
+async def process_vpn_reissue(callback: CallbackQuery, deps: Dependencies) -> None:
+    await callback.answer()
+    if deps.vpn is None:
+        raise RuntimeError("VPN client is not configured")
+
+    menu = await deps.vpn.get_menu(telegram_id=str(callback.from_user.id))
+    if menu.status == "none":
+        raise VPNSubscriptionDoesNotExist(str(callback.from_user.id))
+    if menu.status == "expired":
+        raise VPNReissueRequiresRenewal(str(callback.from_user.id))
+
+    await callback.message.edit_text(
+        text=VPN_REISSUE_CONFIRM_TEXT,
+        reply_markup=keyboards.vpn_reissue_confirmation(),
+    )
+
+
+@router.callback_query(F.data == "vpn_reissue_confirm")
+async def process_vpn_reissue_confirm(
+    callback: CallbackQuery,
+    deps: Dependencies,
+) -> None:
+    await callback.answer()
+    if deps.vpn is None:
+        raise RuntimeError("VPN client is not configured")
+
+    await deps.vpn.reissue(telegram_id=str(callback.from_user.id))
+    await _render_vpn_subscription(
+        callback,
+        deps,
+        banner=VPN_REISSUE_DONE_BANNER,
+    )
+
+
+async def _render_vpn_subscription(
+    callback: CallbackQuery,
+    deps: Dependencies,
+    *,
+    banner: str | None = None,
+) -> None:
     if deps.vpn is None:
         raise RuntimeError("VPN client is not configured")
 
@@ -73,6 +119,8 @@ async def process_vpn_subscription(
             expired_at=menu.expired_at,
             subscription_url=menu.subscription_url,
         )
+    if banner is not None:
+        text = f"{banner}\n\n{text}"
 
     await callback.message.edit_text(
         text=text,

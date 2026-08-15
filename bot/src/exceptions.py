@@ -20,3 +20,7 @@ class APIError(BaseServiceError):
 
 class VPNSubscriptionDoesNotExist(BaseServiceError):
     """🔒 У вас нет активной VPN-подписки. Если вы думаете, что это ошибка, пожалуйста, напишите в поддержку: @mtprotokeys_support."""
+
+
+class VPNReissueRequiresRenewal(BaseServiceError):
+    """🔒 Перевыпуск VPN-ссылки доступен только после продления подписки."""
