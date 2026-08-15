@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import timedelta
 from html import escape
-from typing import TYPE_CHECKING, Callable, Iterable, final
+from typing import TYPE_CHECKING, final
 
 from django.conf import settings
 
@@ -11,6 +11,9 @@ from apps.core.telegram.transport import send_telegram_message
 from apps.infrastructure.selectors import get_project_servers_due_by
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable
+    from datetime import date
+
     from apps.infrastructure.models import ProjectServer
 
 

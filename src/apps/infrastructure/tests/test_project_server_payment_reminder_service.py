@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Iterator
 from datetime import date, timedelta
 from decimal import Decimal
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 from django.test import TestCase, override_settings
@@ -10,6 +10,9 @@ from django.test import TestCase, override_settings
 from apps.infrastructure.models import ProjectServer
 from apps.infrastructure.tests.factories import ProjectServerFactory
 from apps.vds.models import Hosting
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 
 class _SingleUseIterable:

@@ -1,10 +1,13 @@
 from __future__ import annotations
 
-from datetime import date
-
-from django.db.models import QuerySet
+from typing import TYPE_CHECKING
 
 from apps.infrastructure.models import ProjectServer
+
+if TYPE_CHECKING:
+    from datetime import date
+
+    from django.db.models import QuerySet
 
 
 def get_project_servers_due_by(

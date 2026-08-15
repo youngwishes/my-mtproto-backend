@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from celery import shared_task
-from celery.app.task import Task
 from django.utils import timezone
 
 from apps.infrastructure.services import get_project_server_payment_reminder_service
+
+if TYPE_CHECKING:
+    from celery.app.task import Task
 
 
 @shared_task(bind=True, max_retries=3)
