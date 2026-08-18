@@ -173,11 +173,11 @@ class TestSubscriptionAppleCashback(AppleCashbackPurchaseTestMixin, TestCase):
         self.assertEqual(AppleCashbackPurchase.objects.count(), 0)
 
     @mock.patch(
-        "apps.payments.services.create_payment_service.create_apple_cashback_purchase",
-        side_effect=RuntimeError("ledger failed"),
+        "apps.payments.services.create_payment_service._saved_subscription_result",
+        side_effect=RuntimeError("outcome failed"),
     )
-    def test_post_fulfilment_failure_rolls_back_key_payment_and_loyalty_effects(
-        self, _mock_create_purchase: mock.Mock
+    def test_post_persistence_failure_rolls_back_all_purchase_effects(
+        self, _mock_saved_result: mock.Mock
     ) -> None:
         original_expiry = timezone.now() + timedelta(days=10)
         key = MTPRotoKey.objects.create(
@@ -191,18 +191,40 @@ class TestSubscriptionAppleCashback(AppleCashbackPurchaseTestMixin, TestCase):
         payment_count_before = Payment.objects.count()
         purchase_count_before = AppleCashbackPurchase.objects.count()
 
-        with self.assertRaisesRegex(RuntimeError, "ledger failed"):
+        with self.assertRaisesRegex(RuntimeError, "outcome failed"):
             self.service(payment=self._payment(charge_id="failed-charge"))
 
         key.refresh_from_db()
         self.user.refresh_from_db()
-        self.assertEqual(key.expired_date, original_expiry)
-        self.assertEqual(self.user.apple_balance, 7)
-        self.assertEqual(MTPRotoKey.objects.count(), 1)
-        self.assertEqual(Payment.objects.count(), payment_count_before)
         self.assertEqual(
-            AppleCashbackPurchase.objects.count(),
-            purchase_count_before,
+            (
+                key.expired_date,
+                self.user.apple_balance,
+                MTPRotoKey.objects.count(),
+                Payment.objects.count(),
+                AppleCashbackPurchase.objects.count(),
+                Payment.objects.filter(
+                    provider=PaymentProviderEnum.STARS,
+                    charge_id="failed-charge",
+                    kind=PaymentKindEnum.SUBSCRIPTION,
+                ).exists(),
+                AppleCashbackPurchase.objects.filter(
+                    identity_key="stars:failed-charge:subscription"
+                ).exists(),
+                AppleCashbackPurchase.objects.filter(
+                    payment__user=self.user
+                ).count(),
+            ),
+            (
+                original_expiry,
+                7,
+                1,
+                payment_count_before,
+                purchase_count_before,
+                False,
+                False,
+                1,
+            ),
         )
 
     def test_pre_launch_replay_returns_only_tag_without_mutation(self) -> None:
