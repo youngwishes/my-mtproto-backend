@@ -5,6 +5,7 @@ from apps.users.models import SystemUser
 
 class SystemUserFactory(factory.django.DjangoModelFactory):
     username = factory.Sequence(function=lambda n: f"user{n}")
+    apple_balance = 0
 
     class Meta:
         model = SystemUser

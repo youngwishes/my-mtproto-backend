@@ -158,6 +158,62 @@ class Payment(BaseDjangoModel):
         ]
 
 
+class AppleCashbackPurchase(BaseDjangoModel):
+    """Stored eligible-payment loyalty outcome or a zero-balance historical row."""
+
+    payment = models.OneToOneField(
+        "payments.Payment",
+        on_delete=models.CASCADE,
+        related_name="apple_cashback_purchase",
+        verbose_name="платёж",
+    )
+    identity_key = models.CharField("ключ идентичности", max_length=256, unique=True)
+    rate_percent = models.PositiveSmallIntegerField(
+        "ставка cashback, %", null=True, blank=True
+    )
+    apples_earned = models.PositiveIntegerField("начислено яблок")
+    balance_after = models.PositiveIntegerField("баланс после")
+    eligible_purchase_count_after = models.PositiveIntegerField(
+        "количество подходящих покупок после"
+    )
+    result_expired_at = models.DateTimeField(
+        "результирующее истечение ключа", null=True, blank=True
+    )
+
+    class Meta:
+        verbose_name = "покупка с apple cashback"
+        verbose_name_plural = "покупки с apple cashback"
+
+
+class AppleRedemption(BaseDjangoModel):
+    """A saved apple redemption quote and, once confirmed, its outcome."""
+
+    user = models.ForeignKey(
+        "users.SystemUser",
+        on_delete=models.CASCADE,
+        related_name="apple_redemptions",
+        verbose_name="пользователь",
+    )
+    key = models.ForeignKey(
+        "vds.MTPRotoKey",
+        on_delete=models.SET_NULL,
+        related_name="apple_redemptions",
+        verbose_name="ключ",
+        null=True,
+        blank=True,
+    )
+    apples_spent = models.PositiveIntegerField("потрачено яблок")
+    quoted_expired_at = models.DateTimeField("истечение из предпросмотра")
+    new_expired_at = models.DateTimeField(
+        "новое истечение", null=True, blank=True
+    )
+    balance_after = models.PositiveIntegerField("баланс после", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "списание яблок"
+        verbose_name_plural = "списания яблок"
+
+
 class CryptoPaymentIntent(BaseDjangoModel):
     """Локальная покупка через Crypto Pay до и после выдачи результата."""
 
