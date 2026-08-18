@@ -11,7 +11,6 @@ from apps.payments.enums import PaymentKindEnum, PaymentProviderEnum, ProductCod
 from apps.payments.exceptions import BadPaymentData
 from apps.payments.models import AppleCashbackPurchase, GiftCertificate, Payment
 from apps.payments.services import (
-    CreatePaymentService,
     get_create_gift_certificate_service,
     get_create_payment_service,
 )
@@ -23,7 +22,6 @@ from apps.payments.services.dtos import (
     CreatePaymentOut,
     HistoricalPurchaseReplayDTO,
 )
-from apps.payments.services.extend_key_service import get_extend_key_service
 from apps.payments.tests.factories import (
     AppleCashbackPurchaseFactory,
     GiftCertificateFactory,
@@ -174,20 +172,38 @@ class TestSubscriptionAppleCashback(AppleCashbackPurchaseTestMixin, TestCase):
         self.assertEqual(Payment.objects.count(), 0)
         self.assertEqual(AppleCashbackPurchase.objects.count(), 0)
 
-    def test_fulfilment_failure_rolls_back_all_payment_and_loyalty_effects(self) -> None:
-        service = CreatePaymentService(
-            extend_key_service=get_extend_key_service(),
-            issue_key_service=mock.Mock(side_effect=RuntimeError("fulfilment failed")),
+    @mock.patch(
+        "apps.payments.services.create_payment_service.create_apple_cashback_purchase",
+        side_effect=RuntimeError("ledger failed"),
+    )
+    def test_post_fulfilment_failure_rolls_back_key_payment_and_loyalty_effects(
+        self, _mock_create_purchase: mock.Mock
+    ) -> None:
+        original_expiry = timezone.now() + timedelta(days=10)
+        key = MTPRotoKey.objects.create(
+            user=self.user,
+            token="rollback-token",
+            expired_date=original_expiry,
         )
+        self._seed_historical_purchases(user=self.user, count=1)
+        self.user.apple_balance = 7
+        self.user.save(update_fields=["apple_balance"])
+        payment_count_before = Payment.objects.count()
+        purchase_count_before = AppleCashbackPurchase.objects.count()
 
-        with self.assertRaisesRegex(RuntimeError, "fulfilment failed"):
-            service(payment=self._payment(charge_id="failed-charge"))
+        with self.assertRaisesRegex(RuntimeError, "ledger failed"):
+            self.service(payment=self._payment(charge_id="failed-charge"))
 
+        key.refresh_from_db()
         self.user.refresh_from_db()
-        self.assertEqual(self.user.apple_balance, 0)
-        self.assertEqual(MTPRotoKey.objects.count(), 0)
-        self.assertEqual(Payment.objects.count(), 0)
-        self.assertEqual(AppleCashbackPurchase.objects.count(), 0)
+        self.assertEqual(key.expired_date, original_expiry)
+        self.assertEqual(self.user.apple_balance, 7)
+        self.assertEqual(MTPRotoKey.objects.count(), 1)
+        self.assertEqual(Payment.objects.count(), payment_count_before)
+        self.assertEqual(
+            AppleCashbackPurchase.objects.count(),
+            purchase_count_before,
+        )
 
     def test_pre_launch_replay_returns_only_tag_without_mutation(self) -> None:
         payment = PaymentFactory(
