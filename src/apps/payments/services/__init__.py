@@ -9,6 +9,15 @@ from apps.payments.services.apply_platega_payment import (
     EnqueuePlategaNotification,
     get_apply_platega_payment_service,
 )
+from apps.payments.services.apple_redemptions import (
+    ConfirmAppleRedemptionService,
+    EnqueueAppleKeyPush,
+    GetAppleStatusService,
+    PreviewAppleRedemptionService,
+    get_apple_status_service,
+    get_confirm_apple_redemption_service,
+    get_preview_apple_redemption_service,
+)
 from apps.payments.services.create_crypto_invoice import (
     CreateOrReuseCryptoInvoiceService,
     get_create_or_reuse_crypto_invoice_service,
@@ -50,6 +59,13 @@ __all__ = [
     "ApplyPlategaPaymentService",
     "EnqueuePlategaNotification",
     "get_apply_platega_payment_service",
+    "ConfirmAppleRedemptionService",
+    "EnqueueAppleKeyPush",
+    "get_confirm_apple_redemption_service",
+    "GetAppleStatusService",
+    "get_apple_status_service",
+    "PreviewAppleRedemptionService",
+    "get_preview_apple_redemption_service",
     "CreateOrReuseCryptoInvoiceService",
     "get_create_or_reuse_crypto_invoice_service",
     "CreateOrReusePlategaInvoiceService",

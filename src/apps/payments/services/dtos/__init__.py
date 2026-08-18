@@ -2,6 +2,14 @@ from apps.payments.services.dtos.apple_cashback_dtos import (
     ApplePurchaseOutcomeDTO,
     HistoricalPurchaseReplayDTO,
 )
+from apps.payments.services.dtos.apple_redemption_dtos import (
+    AppleRedemptionConfirmIn,
+    AppleRedemptionConfirmOut,
+    AppleRedemptionPreviewIn,
+    AppleRedemptionPreviewOut,
+    AppleStatusIn,
+    AppleStatusOut,
+)
 from apps.payments.services.dtos.create_payment_dto import (
     CreatePaymentIn,
     CreatePaymentOut,
@@ -36,6 +44,12 @@ from apps.payments.services.dtos.platega_dtos import (
 __all__ = [
     "ApplePurchaseOutcomeDTO",
     "HistoricalPurchaseReplayDTO",
+    "AppleRedemptionConfirmIn",
+    "AppleRedemptionConfirmOut",
+    "AppleRedemptionPreviewIn",
+    "AppleRedemptionPreviewOut",
+    "AppleStatusIn",
+    "AppleStatusOut",
     "CreatePaymentIn",
     "CreatePaymentOut",
     "CreatePaymentResult",

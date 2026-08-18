@@ -17,6 +17,7 @@ from apps.payments.enums import (
 )
 from apps.payments.models import (
     AppleCashbackPurchase,
+    AppleRedemption,
     CryptoPaymentIntent,
     GiftCertificate,
     Payment,
@@ -25,6 +26,7 @@ from apps.payments.models import (
     Product,
 )
 from apps.users.models import SystemUser
+from apps.vds.models import MTPRotoKey
 
 if TYPE_CHECKING:
     from apps.payments.services.dtos.crypto_pay_dtos import CryptoInvoiceDTO
@@ -99,6 +101,70 @@ def get_apple_cashback_purchase_by_identity(
 def count_apple_cashback_purchases(*, user_id: int) -> int:
     """Count completed eligible purchases, including launch history."""
     return AppleCashbackPurchase.objects.filter(payment__user_id=user_id).count()
+
+
+def get_existing_apple_redemption_key(
+    *, user_id: int, now: datetime
+) -> MTPRotoKey | None:
+    """Select the user's best valid key, then their best existing dated key."""
+    return _select_existing_apple_redemption_key(
+        keys=MTPRotoKey.objects.filter(user_id=user_id),
+        now=now,
+    )
+
+
+def get_existing_apple_redemption_key_for_update(
+    *, user_id: int, now: datetime
+) -> MTPRotoKey | None:
+    """Lock and select the user's key eligible for confirmed redemption."""
+    return _select_existing_apple_redemption_key(
+        keys=MTPRotoKey.objects.select_for_update().filter(user_id=user_id),
+        now=now,
+    )
+
+
+def _select_existing_apple_redemption_key(
+    *, keys: QuerySet[MTPRotoKey], now: datetime
+) -> MTPRotoKey | None:
+    active = (
+        keys.active()
+        .filter(was_deleted=False, expired_date__gt=now)
+        .order_by("-expired_date", "-pk")
+        .first()
+    )
+    if active is not None:
+        return active
+    return keys.filter(expired_date__isnull=False).order_by(
+        "-expired_date", "-pk"
+    ).first()
+
+
+def get_apple_redemption_for_update(
+    *, confirmation_id: int
+) -> AppleRedemption | None:
+    """Lock a saved quote/outcome and load its owner."""
+    return (
+        AppleRedemption.objects.select_for_update()
+        .select_related("user")
+        .filter(pk=confirmation_id)
+        .first()
+    )
+
+
+def create_apple_redemption(
+    *,
+    user_id: int,
+    key_id: int,
+    apples_spent: int,
+    quoted_expired_at: datetime,
+) -> AppleRedemption:
+    """Persist one immutable pending apple-redemption quote."""
+    return AppleRedemption.objects.create(
+        user_id=user_id,
+        key_id=key_id,
+        apples_spent=apples_spent,
+        quoted_expired_at=quoted_expired_at,
+    )
 
 
 def create_apple_cashback_purchase(
