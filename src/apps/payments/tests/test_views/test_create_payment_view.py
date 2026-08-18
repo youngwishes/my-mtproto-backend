@@ -7,9 +7,13 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from apps.payments.enums import PaymentProviderEnum
-from apps.payments.models import Payment
-from apps.payments.tests.factories import ProductFactory
+from apps.payments.enums import PaymentKindEnum, PaymentProviderEnum, ProductCodeEnum
+from apps.payments.models import AppleCashbackPurchase, Payment
+from apps.payments.tests.factories import (
+    AppleCashbackPurchaseFactory,
+    PaymentFactory,
+    ProductFactory,
+)
 from apps.users.tests.factories import SystemUserFactory
 from apps.vds.models import MTPRotoKey
 
@@ -18,7 +22,11 @@ class TestCreatePaymentView(APITestCase):
     url: str = reverse("product-buy")
 
     def setUp(self) -> None:
-        self.product = ProductFactory()
+        self.product = ProductFactory(
+            code=ProductCodeEnum.MTPROTO_30D,
+            price=9900,
+            currency="RUB",
+        )
         self.user = SystemUserFactory(username="99887766")
 
     def _post(self, data: dict) -> object:
@@ -27,6 +35,24 @@ class TestCreatePaymentView(APITestCase):
             data=data,
             headers={"Bot-Auth-Token": settings.BOT_AUTH_TOKEN},
         )
+
+    def test_create_payment_requires_correct_bot_auth_token(self) -> None:
+        payload = {
+            "username": self.user.username,
+            "charge_id": "auth-subscription",
+            "provider": PaymentProviderEnum.STARS,
+        }
+
+        missing = self.client.post(path=self.url, data=payload)
+        wrong = self.client.post(
+            path=self.url,
+            data=payload,
+            headers={"Bot-Auth-Token": "wrong-token"},
+        )
+
+        self.assertEqual(missing.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(wrong.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertFalse(Payment.objects.exists())
 
     @mock.patch("apps.notifications.services.send_notification_service.send_telegram_message")
     @mock.patch("apps.vds.tasks.push_key_to_servers_task.delay")
@@ -38,7 +64,24 @@ class TestCreatePaymentView(APITestCase):
                 "provider": PaymentProviderEnum.YUKASSA,
             })
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(telegram.call_count, 1)
+        self.assertEqual(
+            response.json(),
+            {
+                "expired_date": (timezone.now() + timedelta(days=30))
+                .date()
+                .strftime("%d.%m.%y"),
+                "loyalty": {
+                    "apples_earned": 5,
+                    "rate_percent": 5,
+                    "balance": 5,
+                    "eligible_purchase_count": 1,
+                    "level": "Новичок",
+                    "level_up": False,
+                    "next_purchase_rate_percent": 5,
+                },
+            },
+        )
+        self.assertEqual(telegram.call_count, 0)
         self.assertEqual(Payment.objects.count(), 1)
         self.assertEqual(MTPRotoKey.objects.count(), 1)
 
@@ -63,7 +106,8 @@ class TestCreatePaymentView(APITestCase):
             "provider": PaymentProviderEnum.STARS,
         })
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(telegram.call_count, 1)
+        self.assertEqual(response.json()["loyalty"]["apples_earned"], 5)
+        self.assertEqual(telegram.call_count, 0)
 
         payment = Payment.objects.first()
         self.assertEqual(payment.charge_id, "stars_tx_789")
@@ -72,7 +116,7 @@ class TestCreatePaymentView(APITestCase):
     @mock.patch("apps.notifications.services.send_notification_service.send_telegram_message")
     @mock.patch("apps.vds.tasks.push_key_to_servers_task.delay")
     def test_create_payment_twice_extends_key(self, mock_push, telegram) -> None:
-        self._post({
+        first_response = self._post({
             "username": self.user.username,
             "charge_id": "charge_first",
             "provider": PaymentProviderEnum.YUKASSA,
@@ -80,13 +124,16 @@ class TestCreatePaymentView(APITestCase):
         payment = Payment.objects.first()
         self.assertIsNotNone(payment.key)
 
-        self._post({
+        second_response = self._post({
             "username": self.user.username,
             "charge_id": "charge_second",
             "provider": PaymentProviderEnum.YUKASSA,
         })
         payment.refresh_from_db()
-        self.assertEqual(telegram.call_count, 2)
+        self.assertEqual(first_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(second_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(second_response.json()["loyalty"]["balance"], 10)
+        self.assertEqual(telegram.call_count, 0)
         self.assertEqual(Payment.objects.count(), 2)
         self.assertEqual(MTPRotoKey.objects.count(), 1)
         self.assertIsNone(payment.key)
@@ -109,3 +156,73 @@ class TestCreatePaymentView(APITestCase):
             "provider": "paypal",
         })
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_blank_charge_id_returns_400_without_effect(self) -> None:
+        response = self._post({
+            "username": self.user.username,
+            "charge_id": "   ",
+            "provider": PaymentProviderEnum.STARS,
+        })
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(Payment.objects.exists())
+
+    def test_backend_authoritative_purchase_rejects_price_input(self) -> None:
+        response = self._post({
+            "username": self.user.username,
+            "charge_id": "authoritative-price",
+            "provider": PaymentProviderEnum.STARS,
+            "price": 1,
+        })
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(Payment.objects.exists())
+
+    def test_historical_replay_returns_exact_tag_without_mutation(self) -> None:
+        payment = PaymentFactory(
+            user=self.user,
+            provider=PaymentProviderEnum.STARS,
+            charge_id="historical-api-subscription",
+            kind=PaymentKindEnum.SUBSCRIPTION,
+        )
+        AppleCashbackPurchaseFactory(
+            payment=payment,
+            identity_key="stars:historical-api-subscription:subscription",
+            rate_percent=None,
+            apples_earned=0,
+            balance_after=0,
+            eligible_purchase_count_after=1,
+            result_expired_at=None,
+        )
+
+        response = self._post({
+            "username": self.user.username,
+            "charge_id": "historical-api-subscription",
+            "provider": PaymentProviderEnum.STARS,
+        })
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json(), {"kind": "historical_replay"})
+        self.assertEqual(set(response.json()), {"kind"})
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.apple_balance, 0)
+        self.assertEqual(Payment.objects.count(), 1)
+        self.assertEqual(AppleCashbackPurchase.objects.count(), 1)
+        self.assertFalse(MTPRotoKey.objects.exists())
+
+    def test_post_launch_duplicate_returns_unchanged_full_response(self) -> None:
+        request = {
+            "username": self.user.username,
+            "charge_id": "post-launch-api-subscription",
+            "provider": PaymentProviderEnum.STARS,
+        }
+
+        first = self._post(request)
+        second = self._post(request)
+
+        self.assertEqual(first.status_code, status.HTTP_200_OK)
+        self.assertEqual(second.status_code, status.HTTP_200_OK)
+        self.assertEqual(second.json(), first.json())
+        self.assertEqual(set(second.json()), {"expired_date", "loyalty"})
+        self.assertEqual(Payment.objects.count(), 1)
+        self.assertEqual(AppleCashbackPurchase.objects.count(), 1)

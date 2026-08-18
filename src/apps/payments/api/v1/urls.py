@@ -4,6 +4,9 @@ from django.urls import path
 
 from apps.payments.api.v1.views import (
     ActivateGiftCertificateView,
+    AppleRedemptionConfirmView,
+    AppleRedemptionPreviewView,
+    AppleStatusView,
     CreateCryptoInvoiceView,
     CryptoPayWebhookView,
     CreatePaymentView,
@@ -17,6 +20,17 @@ urlpatterns = [
     path("", ProductAPIView.as_view(), name="product"),
     path("products/<str:code>/", ProductAPIView.as_view(), name="product-by-code"),
     path("buy/", CreatePaymentView.as_view(), name="product-buy"),
+    path("apples/status/", AppleStatusView.as_view(), name="apple-status"),
+    path(
+        "apples/redemptions/preview/",
+        AppleRedemptionPreviewView.as_view(),
+        name="apple-redemption-preview",
+    ),
+    path(
+        "apples/redemptions/confirm/",
+        AppleRedemptionConfirmView.as_view(),
+        name="apple-redemption-confirm",
+    ),
     path(
         "crypto/invoices/",
         CreateCryptoInvoiceView.as_view(),
