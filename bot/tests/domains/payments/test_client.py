@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import FrozenInstanceError
 from urllib.parse import parse_qs
 
 import httpx
@@ -11,8 +12,14 @@ from src.core.backend_client import BackendClient
 from src.domains import payments as payments_domain
 from src.domains.payments import (
     ActivatedGiftCertificate,
+    ApplePurchaseOutcome,
+    AppleRedemptionPreview,
+    AppleRedemptionResult,
+    AppleStatus,
+    ConfirmedPurchase,
     CryptoInvoice,
     GiftCertificate,
+    HistoricalPurchaseReplay,
     PaymentsClient,
     StarsInvoice,
 )
@@ -25,6 +32,13 @@ GIFT_BUY_URL = f"{BASE}/api/v1/payments/gift-certificates/buy/"
 GIFT_ACTIVATE_URL = f"{BASE}/api/v1/payments/gift-certificates/activate/"
 CRYPTO_INVOICE_URL = f"{BASE}/api/v1/payments/crypto/invoices/"
 PLATEGA_INVOICE_URL = f"{BASE}/api/v1/payments/platega/invoices/"
+APPLE_STATUS_URL = f"{BASE}/api/v1/payments/apples/status/"
+APPLE_REDEMPTION_PREVIEW_URL = (
+    f"{BASE}/api/v1/payments/apples/redemptions/preview/"
+)
+APPLE_REDEMPTION_CONFIRM_URL = (
+    f"{BASE}/api/v1/payments/apples/redemptions/confirm/"
+)
 
 PRODUCT_JSON = {
     "title": "MTPRoto на месяц",
@@ -100,24 +114,86 @@ async def test_get_vpn_stars_invoice_uses_vpn_product(client: PaymentsClient):
 
 
 @respx.mock
-async def test_confirm_purchase_posts_charge(client: PaymentsClient):
-    route = respx.post(BUY_URL).mock(return_value=httpx.Response(200))
+async def test_confirm_purchase_maps_saved_loyalty_and_posts_only_payment_identity(
+    client: PaymentsClient,
+) -> None:
+    route = respx.post(BUY_URL).mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "expired_date": "18.09.26",
+                "loyalty": {
+                    "apples_earned": 5,
+                    "rate_percent": 5,
+                    "balance": 20,
+                    "eligible_purchase_count": 4,
+                    "level": "Садовник",
+                    "level_up": True,
+                    "next_purchase_rate_percent": 10,
+                },
+            },
+        )
+    )
 
     result = await client.confirm_purchase(
         telegram_id=42, charge_id="ch_1", provider="stars"
     )
 
-    assert result is None
-    body = route.calls.last.request.content
-    assert b"username=42" in body
-    assert b"charge_id=ch_1" in body
-    assert b"provider=stars" in body
+    assert result == ConfirmedPurchase(
+        expired_date="18.09.26",
+        loyalty=ApplePurchaseOutcome(
+            apples_earned=5,
+            rate_percent=5,
+            balance=20,
+            eligible_purchase_count=4,
+            level="Садовник",
+            level_up=True,
+            next_purchase_rate_percent=10,
+        ),
+    )
+    assert parse_qs(route.calls.last.request.content) == {
+        b"username": [b"42"],
+        b"charge_id": [b"ch_1"],
+        b"provider": [b"stars"],
+    }
+    assert route.calls.last.request.headers["Bot-Auth-Token"] == "t"
+
+
+@respx.mock
+async def test_confirm_purchase_maps_exact_historical_tag(
+    client: PaymentsClient,
+) -> None:
+    respx.post(BUY_URL).mock(
+        return_value=httpx.Response(200, json={"kind": "historical_replay"})
+    )
+
+    result = await client.confirm_purchase(
+        telegram_id=42,
+        charge_id="historical_charge",
+        provider="stars",
+    )
+
+    assert result == HistoricalPurchaseReplay()
 
 
 @respx.mock
 async def test_confirm_gift_certificate_purchase_returns_code(client: PaymentsClient):
     route = respx.post(GIFT_BUY_URL).mock(
-        return_value=httpx.Response(200, json={"code": "KEY-ABCD-1234"})
+        return_value=httpx.Response(
+            200,
+            json={
+                "code": "KEY-ABCD-1234",
+                "loyalty": {
+                    "apples_earned": 10,
+                    "rate_percent": 10,
+                    "balance": 27,
+                    "eligible_purchase_count": 6,
+                    "level": "Садовник",
+                    "level_up": False,
+                    "next_purchase_rate_percent": 10,
+                },
+            },
+        )
     )
 
     result = await client.confirm_gift_certificate_purchase(
@@ -126,11 +202,150 @@ async def test_confirm_gift_certificate_purchase_returns_code(client: PaymentsCl
         provider="yukassa",
     )
 
-    assert result == GiftCertificate(code="KEY-ABCD-1234")
-    body = route.calls.last.request.content
-    assert b"username=42" in body
-    assert b"charge_id=gift_ch_1" in body
-    assert b"provider=yukassa" in body
+    assert result == GiftCertificate(
+        code="KEY-ABCD-1234",
+        loyalty=ApplePurchaseOutcome(
+            apples_earned=10,
+            rate_percent=10,
+            balance=27,
+            eligible_purchase_count=6,
+            level="Садовник",
+            level_up=False,
+            next_purchase_rate_percent=10,
+        ),
+    )
+    assert parse_qs(route.calls.last.request.content) == {
+        b"username": [b"42"],
+        b"charge_id": [b"gift_ch_1"],
+        b"provider": [b"yukassa"],
+    }
+    assert route.calls.last.request.headers["Bot-Auth-Token"] == "t"
+
+
+@respx.mock
+async def test_confirm_gift_certificate_purchase_maps_exact_historical_tag(
+    client: PaymentsClient,
+) -> None:
+    respx.post(GIFT_BUY_URL).mock(
+        return_value=httpx.Response(200, json={"kind": "historical_replay"})
+    )
+
+    result = await client.confirm_gift_certificate_purchase(
+        telegram_id=42,
+        charge_id="historical_gift",
+        provider="yukassa",
+    )
+
+    assert result == HistoricalPurchaseReplay()
+
+
+@respx.mock
+async def test_get_apple_status_posts_only_username_and_maps_frozen_snapshot(
+    client: PaymentsClient,
+) -> None:
+    route = respx.post(APPLE_STATUS_URL).mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "balance": 37,
+                "eligible_purchase_count": 4,
+                "level": "Садовник",
+                "rate_percent": 10,
+                "next_level_purchase_count": 7,
+                "purchases_to_next_level": 3,
+                "is_max_level": False,
+                "redeemable_days": 2,
+                "missing_apples": 0,
+                "has_existing_key": True,
+            },
+        )
+    )
+
+    result = await client.get_apple_status(telegram_id=42)
+
+    assert result == AppleStatus(
+        balance=37,
+        eligible_purchase_count=4,
+        level="Садовник",
+        rate_percent=10,
+        next_level_purchase_count=7,
+        purchases_to_next_level=3,
+        is_max_level=False,
+        redeemable_days=2,
+        missing_apples=0,
+        has_existing_key=True,
+    )
+    assert parse_qs(route.calls.last.request.content) == {b"username": [b"42"]}
+    assert route.calls.last.request.headers["Bot-Auth-Token"] == "t"
+    with pytest.raises(FrozenInstanceError):
+        result.balance = 999  # type: ignore[misc]
+
+
+@respx.mock
+async def test_preview_apple_redemption_posts_only_username_and_mode(
+    client: PaymentsClient,
+) -> None:
+    route = respx.post(APPLE_REDEMPTION_PREVIEW_URL).mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "confirmation_id": 17,
+                "mode": "all",
+                "apples_spent": 30,
+                "days": 2,
+                "projected_expired_date": "21.08.26",
+            },
+        )
+    )
+
+    result = await client.preview_apple_redemption(telegram_id=42, mode="all")
+
+    assert result == AppleRedemptionPreview(
+        confirmation_id=17,
+        mode="all",
+        apples_spent=30,
+        days=2,
+        projected_expired_date="21.08.26",
+    )
+    assert parse_qs(route.calls.last.request.content) == {
+        b"username": [b"42"],
+        b"mode": [b"all"],
+    }
+    assert route.calls.last.request.headers["Bot-Auth-Token"] == "t"
+
+
+@respx.mock
+async def test_confirm_apple_redemption_posts_only_username_and_confirmation_id(
+    client: PaymentsClient,
+) -> None:
+    route = respx.post(APPLE_REDEMPTION_CONFIRM_URL).mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "apples_spent": 30,
+                "days": 2,
+                "expired_date": "21.08.26",
+                "balance": 7,
+            },
+        )
+    )
+
+    result = await client.confirm_apple_redemption(
+        telegram_id=42,
+        confirmation_id=17,
+    )
+
+    assert result == AppleRedemptionResult(
+        apples_spent=30,
+        days=2,
+        expired_date="21.08.26",
+        balance=7,
+    )
+    assert parse_qs(route.calls.last.request.content) == {
+        b"username": [b"42"],
+        b"confirmation_id": [b"17"],
+    }
+    assert route.calls.last.request.headers["Bot-Auth-Token"] == "t"
 
 
 @respx.mock
