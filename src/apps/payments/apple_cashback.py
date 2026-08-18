@@ -7,7 +7,7 @@ from decimal import Decimal, ROUND_HALF_UP
 APPLES_PER_DAY = 15
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, kw_only=True, slots=True)
 class AppleLevelDTO:
     name: str
     rate_percent: int
@@ -17,10 +17,22 @@ class AppleLevelDTO:
 def get_apple_level(*, eligible_purchase_count: int) -> AppleLevelDTO:
     """Return the fixed loyalty level for completed eligible purchases."""
     if eligible_purchase_count < 4:
-        return AppleLevelDTO("Новичок", 5, 4)
+        return AppleLevelDTO(
+            name="Новичок",
+            rate_percent=5,
+            next_level_purchase_count=4,
+        )
     if eligible_purchase_count < 7:
-        return AppleLevelDTO("Садовник", 10, 7)
-    return AppleLevelDTO("Мастер сада", 15, None)
+        return AppleLevelDTO(
+            name="Садовник",
+            rate_percent=10,
+            next_level_purchase_count=7,
+        )
+    return AppleLevelDTO(
+        name="Мастер сада",
+        rate_percent=15,
+        next_level_purchase_count=None,
+    )
 
 
 def calculate_apples(*, nominal_rub_amount: Decimal, rate_percent: int) -> int:

@@ -14,6 +14,43 @@ from apps.payments.apple_cashback import (
 
 
 class TestAppleCashbackRules(SimpleTestCase):
+    def test_package_reexports_the_apple_cashback_public_contract(self) -> None:
+        from apps.payments import (
+            APPLES_PER_DAY as exported_apples_per_day,
+            AppleLevelDTO as exported_apple_level_dto,
+            AppleRedemptionModeEnum,
+            build_apple_purchase_identity_key as exported_identity_key_builder,
+            calculate_apples as exported_calculate_apples,
+            get_apple_level as exported_get_apple_level,
+        )
+
+        self.assertEqual(exported_apples_per_day, 15)
+        self.assertEqual(AppleRedemptionModeEnum.ONE_DAY, "one_day")
+        self.assertEqual(
+            exported_calculate_apples(
+                nominal_rub_amount=Decimal("99.00"), rate_percent=5
+            ),
+            5,
+        )
+        self.assertEqual(
+            exported_identity_key_builder(
+                provider="stars", charge_id="charge", kind="subscription"
+            ),
+            "stars:charge:subscription",
+        )
+        self.assertEqual(
+            exported_get_apple_level(eligible_purchase_count=4),
+            exported_apple_level_dto(
+                name="Садовник",
+                rate_percent=10,
+                next_level_purchase_count=7,
+            ),
+        )
+
+    def test_apple_level_dto_requires_keyword_arguments(self) -> None:
+        with self.assertRaises(TypeError):
+            AppleLevelDTO("Новичок", 5, 4)
+
     def test_purchase_count_boundaries_return_the_fixed_level_and_next_target(self) -> None:
         cases = (
             (0, AppleLevelDTO(name="Новичок", rate_percent=5, next_level_purchase_count=4)),
