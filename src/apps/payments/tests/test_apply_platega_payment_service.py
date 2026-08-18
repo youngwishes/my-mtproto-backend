@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from contextlib import nullcontext
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from unittest import mock
 from uuid import UUID, uuid4
 
@@ -17,7 +18,7 @@ from apps.payments.enums import (
     ProductCodeEnum,
 )
 from apps.payments.exceptions import PlategaPaymentRetryable
-from apps.payments.models import GiftCertificate, Payment
+from apps.payments.models import AppleCashbackPurchase, GiftCertificate, Payment
 from apps.payments.services import CreatePaymentService
 from apps.payments.services.apply_platega_payment import ApplyPlategaPaymentService
 from apps.payments.services.dtos import ValidatedPlategaPaymentDTO
@@ -25,7 +26,12 @@ from apps.payments.services.extend_key_service import get_extend_key_service
 from apps.payments.services.gift_certificates import (
     get_create_gift_certificate_service,
 )
-from apps.payments.tests.factories import PlategaPaymentIntentFactory
+from apps.payments.tests.factories import (
+    AppleCashbackPurchaseFactory,
+    GiftCertificateFactory,
+    PaymentFactory,
+    PlategaPaymentIntentFactory,
+)
 from apps.users.tests.factories import SystemUserFactory
 from apps.vds.models import MTPRotoKey
 from apps.vds.services import get_issue_key_on_commit_service
@@ -58,7 +64,6 @@ class ApplyPlategaPaymentServiceMixin:
             create_payment_service=CreatePaymentService(
                 extend_key_service=get_extend_key_service(),
                 issue_key_service=get_issue_key_on_commit_service(),
-                notify_success=mock.Mock(),
             ),
             fulfill_vpn_purchase_service=FulfillVPNPurchaseService(
                 schedule_profiles=self.schedule_profiles,
@@ -120,6 +125,7 @@ class TestApplyPlategaPaymentService(ApplyPlategaPaymentServiceMixin, TestCase):
                     product_code=product_code,
                     status=PlategaPaymentIntentStatusEnum.ACTIVE,
                     provider_transaction_id=transaction_id,
+                    rub_amount=Decimal("99.00"),
                 )
                 validated = self.validated(
                     intent_id=intent.pk,
@@ -149,6 +155,13 @@ class TestApplyPlategaPaymentService(ApplyPlategaPaymentServiceMixin, TestCase):
                 else:
                     self.assertEqual(GiftCertificate.objects.filter(buyer=user).count(), 1)
 
+                if kind != PaymentKindEnum.VPN_SUBSCRIPTION:
+                    purchase = AppleCashbackPurchase.objects.get(payment=stored)
+                    self.assertEqual(purchase.apples_earned, 5)
+                    self.assertEqual(purchase.rate_percent, 5)
+                    user.refresh_from_db()
+                    self.assertEqual(user.apple_balance, 5)
+
                 duplicate = self.service(payment=validated)
                 self.assertFalse(duplicate.fulfilled)
                 self.assertTrue(duplicate.already_fulfilled)
@@ -162,6 +175,71 @@ class TestApplyPlategaPaymentService(ApplyPlategaPaymentServiceMixin, TestCase):
 
         self.assertEqual(self.enqueue_notification.call_count, 3)
         push_key.assert_called_once()
+
+    def test_historical_subscription_and_gift_replays_finalize_without_enqueue(
+        self,
+    ) -> None:
+        cases = (
+            PaymentKindEnum.SUBSCRIPTION,
+            PaymentKindEnum.GIFT_CERTIFICATE,
+        )
+
+        for offset, kind in enumerate(cases, start=1):
+            with self.subTest(kind=kind):
+                user = SystemUserFactory(username=f"historical-platega-{offset}")
+                transaction_id = uuid4()
+                payment = PaymentFactory(
+                    user=user,
+                    provider=PaymentProviderEnum.PLATEGA,
+                    charge_id=str(transaction_id),
+                    kind=kind,
+                )
+                if kind == PaymentKindEnum.GIFT_CERTIFICATE:
+                    GiftCertificateFactory(buyer=user, payment=payment)
+                AppleCashbackPurchaseFactory(
+                    payment=payment,
+                    identity_key=f"platega:{transaction_id}:{kind}",
+                    rate_percent=None,
+                    apples_earned=0,
+                    balance_after=0,
+                    eligible_purchase_count_after=1,
+                    result_expired_at=None,
+                )
+                intent = PlategaPaymentIntentFactory(
+                    initiator=user,
+                    purchase_kind=kind,
+                    status=PlategaPaymentIntentStatusEnum.ACTIVE,
+                    provider_transaction_id=transaction_id,
+                    rub_amount=Decimal("99.00"),
+                )
+                validated = self.validated(
+                    intent_id=intent.pk,
+                    transaction_id=transaction_id,
+                )
+
+                with self.captureOnCommitCallbacks(execute=True) as callbacks:
+                    applied = self.service(payment=validated)
+                with self.captureOnCommitCallbacks(execute=True) as duplicate_callbacks:
+                    duplicate = self.service(payment=validated)
+
+                intent.refresh_from_db()
+                user.refresh_from_db()
+                self.assertTrue(applied.fulfilled)
+                self.assertTrue(duplicate.already_fulfilled)
+                self.assertEqual(intent.status, PlategaPaymentIntentStatusEnum.FULFILLED)
+                self.assertEqual(intent.payment, payment)
+                self.assertIsNone(intent.notification_queued_at)
+                self.assertEqual(callbacks, [])
+                self.assertEqual(duplicate_callbacks, [])
+                self.assertEqual(user.apple_balance, 0)
+                self.assertFalse(MTPRotoKey.objects.filter(user=user).exists())
+                self.assertEqual(Payment.objects.filter(user=user).count(), 1)
+                self.assertEqual(
+                    AppleCashbackPurchase.objects.filter(payment__user=user).count(),
+                    1,
+                )
+
+        self.enqueue_notification.assert_not_called()
 
     @mock.patch("apps.vds.services.issue_key_service.push_key_to_servers_task.delay")
     def test_late_expired_confirmation_does_not_touch_newer_active_intent(
@@ -298,7 +376,8 @@ class TestApplyPlategaPaymentService(ApplyPlategaPaymentServiceMixin, TestCase):
                 PaymentKindEnum.SUBSCRIPTION,
                 ProductCodeEnum.MTPROTO_30D,
                 mock.patch(
-                    "apps.payments.services.create_payment_service.get_user_by_username",
+                    "apps.payments.services.create_payment_service."
+                    "get_payment_user_for_update",
                     return_value=None,
                 ),
             ),
@@ -311,7 +390,8 @@ class TestApplyPlategaPaymentService(ApplyPlategaPaymentServiceMixin, TestCase):
                 PaymentKindEnum.GIFT_CERTIFICATE,
                 ProductCodeEnum.MTPROTO_30D,
                 mock.patch(
-                    "apps.payments.services.gift_certificates.get_user_by_username",
+                    "apps.payments.services.gift_certificates."
+                    "get_payment_user_for_update",
                     return_value=None,
                 ),
             ),
@@ -528,6 +608,11 @@ class TestApplyPlategaPaymentService(ApplyPlategaPaymentServiceMixin, TestCase):
             charge_id=str(transaction_id),
             provider=PaymentProviderEnum.PLATEGA,
             kind=PaymentKindEnum.SUBSCRIPTION,
+        )
+        AppleCashbackPurchaseFactory(
+            payment=stored,
+            identity_key=f"platega:{transaction_id}:subscription",
+            result_expired_at=self.now,
         )
         type(intent).objects.filter(pk=intent.pk).update(
             status=PlategaPaymentIntentStatusEnum.FULFILLED,

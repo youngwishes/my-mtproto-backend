@@ -5,13 +5,20 @@ from unittest import mock
 from django.test import TestCase
 
 from apps.payments.clients import CryptoPayClient
-from apps.payments.enums import CryptoPaymentIntentStatusEnum
+from apps.payments.enums import (
+    CryptoPaymentIntentStatusEnum,
+    PaymentKindEnum,
+    PaymentProviderEnum,
+)
 from apps.payments.exceptions import CryptoPayClientError, CryptoPaymentRetryable
 from apps.payments.services.dtos import ApplyCryptoPaymentOut, ValidatedCryptoPaymentDTO
 from apps.payments.tests.factories import (
+    AppleCashbackPurchaseFactory,
     CryptoPaymentIntentFactory,
+    PaymentFactory,
     make_crypto_invoice,
 )
+from apps.users.tests.factories import SystemUserFactory
 
 
 class TestReconcileCryptoPaymentsService(TestCase):
@@ -172,11 +179,49 @@ class TestReconcileCryptoPaymentsService(TestCase):
             self.service()
 
     def test_unnotified_fulfilled_intent_is_enqueued_once_per_run(self) -> None:
+        user = SystemUserFactory()
+        payment = PaymentFactory(
+            user=user,
+            kind=PaymentKindEnum.SUBSCRIPTION,
+            provider=PaymentProviderEnum.CRYPTO_PAY,
+        )
+        AppleCashbackPurchaseFactory(
+            payment=payment,
+            identity_key=f"crypto_pay:{payment.charge_id}:subscription",
+        )
         intent = CryptoPaymentIntentFactory(
+            initiator=user,
             status=CryptoPaymentIntentStatusEnum.FULFILLED,
+            payment=payment,
         )
 
         counters = self.service()
 
         self.enqueue_notification.assert_called_once_with(intent_id=intent.pk)
         self.assertEqual(counters["notifications_enqueued"], 1)
+
+    def test_historical_fulfilled_intent_is_not_enqueued(self) -> None:
+        user = SystemUserFactory()
+        payment = PaymentFactory(
+            user=user,
+            kind=PaymentKindEnum.SUBSCRIPTION,
+            provider=PaymentProviderEnum.CRYPTO_PAY,
+        )
+        AppleCashbackPurchaseFactory(
+            payment=payment,
+            identity_key=f"crypto_pay:{payment.charge_id}:subscription",
+            rate_percent=None,
+            apples_earned=0,
+            balance_after=0,
+            eligible_purchase_count_after=1,
+        )
+        CryptoPaymentIntentFactory(
+            initiator=user,
+            status=CryptoPaymentIntentStatusEnum.FULFILLED,
+            payment=payment,
+        )
+
+        counters = self.service()
+
+        self.enqueue_notification.assert_not_called()
+        self.assertEqual(counters["notifications_enqueued"], 0)

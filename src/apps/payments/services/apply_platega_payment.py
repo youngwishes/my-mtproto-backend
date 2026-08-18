@@ -30,6 +30,7 @@ from apps.payments.services.dtos import (
     ApplyPlategaPaymentOut,
     CreateGiftCertificateIn,
     CreatePaymentIn,
+    HistoricalPurchaseReplayDTO,
 )
 from apps.payments.services.gift_certificates import (
     get_create_gift_certificate_service,
@@ -143,15 +144,20 @@ class ApplyPlategaPaymentService:
                 claimed = True
 
                 charge_id = str(payment.transaction_id)
+                historical_replay = False
                 if intent.purchase_kind == PaymentKindEnum.SUBSCRIPTION:
-                    self.create_payment_service(
+                    result = self.create_payment_service(
                         payment=CreatePaymentIn(
                             username=intent.initiator.username,
                             charge_id=charge_id,
                             provider=PaymentProviderEnum.PLATEGA,
+                            nominal_rub_amount=intent.rub_amount,
                         ),
-                        send_success_notification=False,
                         notify_on_error=False,
+                    )
+                    historical_replay = isinstance(
+                        result,
+                        HistoricalPurchaseReplayDTO,
                     )
                 elif intent.purchase_kind == PaymentKindEnum.VPN_SUBSCRIPTION:
                     self.fulfill_vpn_purchase_service(
@@ -164,13 +170,18 @@ class ApplyPlategaPaymentService:
                         notify_on_error=False,
                     )
                 elif intent.purchase_kind == PaymentKindEnum.GIFT_CERTIFICATE:
-                    self.create_gift_certificate_service(
+                    result = self.create_gift_certificate_service(
                         certificate=CreateGiftCertificateIn(
                             username=intent.initiator.username,
                             charge_id=charge_id,
                             provider=PaymentProviderEnum.PLATEGA,
+                            nominal_rub_amount=intent.rub_amount,
                         ),
                         notify_on_error=False,
+                    )
+                    historical_replay = isinstance(
+                        result,
+                        HistoricalPurchaseReplayDTO,
                     )
                 else:
                     raise PlategaPaymentRetryable(
@@ -199,6 +210,12 @@ class ApplyPlategaPaymentService:
                     raise PlategaPaymentRetryable(
                         "0",
                         reason_code="fulfillment_retryable",
+                    )
+
+                if historical_replay:
+                    return ApplyPlategaPaymentOut(
+                        fulfilled=True,
+                        already_fulfilled=False,
                     )
 
                 queued_at = self.clock()

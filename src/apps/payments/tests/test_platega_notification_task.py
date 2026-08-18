@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from decimal import Decimal
 from unittest import mock
 
 from celery.exceptions import Retry
@@ -16,6 +17,7 @@ from apps.payments.services import get_create_payment_service
 from apps.payments.services.dtos import CreatePaymentIn
 from apps.payments.tasks import notify_platega_purchase_task
 from apps.payments.tests.factories import (
+    AppleCashbackPurchaseFactory,
     GiftCertificateFactory,
     PaymentFactory,
     PlategaPaymentIntentFactory,
@@ -26,7 +28,7 @@ from apps.vpn.tests.factories import VPNSubscriptionFactory
 
 
 _TELEGRAM_TRANSPORT = (
-    "apps.notifications.services.send_notification_service.send_telegram_message"
+    "apps.payments.tasks.send_telegram_message"
 )
 
 
@@ -47,6 +49,15 @@ class TestNotifyPlategaPurchaseTask(TestCase):
             kind=PaymentKindEnum.SUBSCRIPTION,
             provider=PaymentProviderEnum.PLATEGA,
         )
+        purchase = AppleCashbackPurchaseFactory(
+            payment=payment,
+            identity_key=f"platega:{payment.charge_id}:subscription",
+            apples_earned=5,
+            rate_percent=5,
+            balance_after=5,
+            eligible_purchase_count_after=4,
+            result_expired_at=key.expired_date,
+        )
         intent = PlategaPaymentIntentFactory(
             initiator=user,
             purchase_kind=PaymentKindEnum.SUBSCRIPTION,
@@ -59,14 +70,21 @@ class TestNotifyPlategaPurchaseTask(TestCase):
         notify_platega_purchase_task.run(intent.pk)
 
         self.assertIn(
-            key.expired_date.date().strftime("%d.%m.%y"),
+            purchase.result_expired_at.date().strftime("%d.%m.%y"),
             send.call_args.kwargs["text"],
         )
+        text = send.call_args.kwargs["text"]
+        self.assertIn("Начислено: <b>5 🍏</b>", text)
+        self.assertIn("Ставка: <b>5%</b>", text)
+        self.assertIn("Баланс: <b>5 🍏</b>", text)
+        self.assertIn("Уровень: <b>Садовник</b>", text)
+        self.assertIn("Кэшбэк следующей покупки: <b>10%</b>", text)
+        self.assertIsNotNone(send.call_args.kwargs["markup"])
         intent.refresh_from_db()
         self.assertIsNotNone(intent.notification_sent_at)
 
     @mock.patch(_TELEGRAM_TRANSPORT)
-    def test_mtproto_extension_uses_current_stored_key_expiry(
+    def test_mtproto_extension_uses_saved_purchase_expiry(
         self,
         send: mock.Mock,
     ) -> None:
@@ -89,13 +107,19 @@ class TestNotifyPlategaPurchaseTask(TestCase):
             fulfilled_at=timezone.now(),
             notification_queued_at=timezone.now(),
         )
+        original_result_expiry = key.expired_date
+        AppleCashbackPurchaseFactory(
+            payment=payment,
+            identity_key=f"platega:{payment.charge_id}:subscription",
+            result_expired_at=original_result_expiry,
+        )
         get_create_payment_service()(
             payment=CreatePaymentIn(
                 username=user.username,
                 charge_id="later-stars-extension",
                 provider=PaymentProviderEnum.STARS,
+                nominal_rub_amount=Decimal("99.00"),
             ),
-            send_success_notification=False,
         )
 
         notify_platega_purchase_task.run(intent.pk)
@@ -104,6 +128,10 @@ class TestNotifyPlategaPurchaseTask(TestCase):
         payment.refresh_from_db()
         self.assertIsNone(payment.key)
         self.assertIn(
+            original_result_expiry.date().strftime("%d.%m.%y"),
+            send.call_args.kwargs["text"],
+        )
+        self.assertNotIn(
             key.expired_date.date().strftime("%d.%m.%y"),
             send.call_args.kwargs["text"],
         )
@@ -154,6 +182,14 @@ class TestNotifyPlategaPurchaseTask(TestCase):
             provider=PaymentProviderEnum.PLATEGA,
         )
         certificate = GiftCertificateFactory(buyer=user, payment=payment)
+        AppleCashbackPurchaseFactory(
+            payment=payment,
+            identity_key=f"platega:{payment.charge_id}:gift_certificate",
+            apples_earned=10,
+            rate_percent=10,
+            balance_after=15,
+            eligible_purchase_count_after=7,
+        )
         intent = PlategaPaymentIntentFactory(
             initiator=user,
             purchase_kind=PaymentKindEnum.GIFT_CERTIFICATE,
@@ -166,6 +202,8 @@ class TestNotifyPlategaPurchaseTask(TestCase):
         notify_platega_purchase_task.run(intent.pk)
 
         self.assertIn(certificate.code, send.call_args.kwargs["text"])
+        self.assertIn("Начислено: <b>10 🍏</b>", send.call_args.kwargs["text"])
+        self.assertIn("Уровень: <b>Мастер сада</b>", send.call_args.kwargs["text"])
         intent.refresh_from_db()
         self.assertIsNotNone(intent.notification_sent_at)
 
@@ -233,6 +271,11 @@ class TestNotifyPlategaPurchaseTask(TestCase):
             fulfilled_at=timezone.now(),
             notification_queued_at=timezone.now(),
         )
+        AppleCashbackPurchaseFactory(
+            payment=payment,
+            identity_key=f"platega:{payment.charge_id}:subscription",
+            result_expired_at=key.expired_date,
+        )
 
         with mock.patch.object(
             notify_platega_purchase_task,
@@ -246,5 +289,39 @@ class TestNotifyPlategaPurchaseTask(TestCase):
         self.assertNotIn("result-secret-token", str(retry_exc))
         self.assertIsNone(raised.exception.__cause__)
         self.assertIsNone(raised.exception.__context__)
+        intent.refresh_from_db()
+        self.assertIsNone(intent.notification_sent_at)
+
+    @mock.patch(_TELEGRAM_TRANSPORT)
+    def test_historical_purchase_returns_before_transport(
+        self,
+        send: mock.Mock,
+    ) -> None:
+        user = SystemUserFactory(username="200008")
+        payment = PaymentFactory(
+            user=user,
+            kind=PaymentKindEnum.SUBSCRIPTION,
+            provider=PaymentProviderEnum.PLATEGA,
+        )
+        AppleCashbackPurchaseFactory(
+            payment=payment,
+            identity_key=f"platega:{payment.charge_id}:subscription",
+            rate_percent=None,
+            apples_earned=0,
+            balance_after=0,
+            eligible_purchase_count_after=1,
+            result_expired_at=None,
+        )
+        intent = PlategaPaymentIntentFactory(
+            initiator=user,
+            purchase_kind=PaymentKindEnum.SUBSCRIPTION,
+            status=PlategaPaymentIntentStatusEnum.FULFILLED,
+            payment=payment,
+            notification_queued_at=timezone.now(),
+        )
+
+        notify_platega_purchase_task.run(intent.pk)
+
+        send.assert_not_called()
         intent.refresh_from_db()
         self.assertIsNone(intent.notification_sent_at)

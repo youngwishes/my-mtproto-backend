@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from decimal import Decimal
 from unittest import mock
 
 from celery.exceptions import Retry
@@ -16,6 +17,7 @@ from apps.payments.tasks import notify_crypto_purchase_task
 from apps.payments.services import get_create_payment_service
 from apps.payments.services.dtos import CreatePaymentIn
 from apps.payments.tests.factories import (
+    AppleCashbackPurchaseFactory,
     CryptoPaymentIntentFactory,
     GiftCertificateFactory,
     PaymentFactory,
@@ -26,9 +28,7 @@ from apps.vpn.tests.factories import VPNSubscriptionFactory
 
 
 class TestNotifyCryptoPurchaseTask(TestCase):
-    @mock.patch(
-        "apps.notifications.services.send_notification_service.send_telegram_message"
-    )
+    @mock.patch("apps.payments.tasks.send_telegram_message")
     def test_mtproto_notification_uses_existing_template_and_marks_sent(
         self,
         send: mock.Mock,
@@ -41,6 +41,15 @@ class TestNotifyCryptoPurchaseTask(TestCase):
             kind=PaymentKindEnum.SUBSCRIPTION,
             provider=PaymentProviderEnum.CRYPTO_PAY,
         )
+        purchase = AppleCashbackPurchaseFactory(
+            payment=payment,
+            identity_key=f"crypto_pay:{payment.charge_id}:subscription",
+            apples_earned=5,
+            rate_percent=5,
+            balance_after=5,
+            eligible_purchase_count_after=4,
+            result_expired_at=key.expired_date,
+        )
         intent = CryptoPaymentIntentFactory(
             initiator=key.user,
             purchase_kind=PaymentKindEnum.SUBSCRIPTION,
@@ -52,16 +61,21 @@ class TestNotifyCryptoPurchaseTask(TestCase):
         notify_crypto_purchase_task.run(intent.pk)
 
         self.assertIn(
-            key.expired_date.date().strftime("%d.%m.%y"),
+            purchase.result_expired_at.date().strftime("%d.%m.%y"),
             send.call_args.kwargs["text"],
         )
+        text = send.call_args.kwargs["text"]
+        self.assertIn("Начислено: <b>5 🍏</b>", text)
+        self.assertIn("Ставка: <b>5%</b>", text)
+        self.assertIn("Баланс: <b>5 🍏</b>", text)
+        self.assertIn("Уровень: <b>Садовник</b>", text)
+        self.assertIn("Кэшбэк следующей покупки: <b>10%</b>", text)
+        self.assertIsNotNone(send.call_args.kwargs["markup"])
         intent.refresh_from_db()
         self.assertIsNotNone(intent.notification_sent_at)
 
-    @mock.patch(
-        "apps.notifications.services.send_notification_service.send_telegram_message"
-    )
-    def test_mtproto_renewal_before_delivery_uses_current_key(
+    @mock.patch("apps.payments.tasks.send_telegram_message")
+    def test_mtproto_renewal_before_delivery_uses_saved_purchase_expiry(
         self, send: mock.Mock
     ) -> None:
         user = SystemUserFactory(username="100005")
@@ -81,13 +95,21 @@ class TestNotifyCryptoPurchaseTask(TestCase):
             status=CryptoPaymentIntentStatusEnum.FULFILLED,
             payment=original_payment,
         )
+        original_result_expiry = key.expired_date
+        AppleCashbackPurchaseFactory(
+            payment=original_payment,
+            identity_key=(
+                f"crypto_pay:{original_payment.charge_id}:subscription"
+            ),
+            result_expired_at=original_result_expiry,
+        )
         get_create_payment_service()(
             payment=CreatePaymentIn(
                 username=user.username,
                 charge_id="later-stars-renewal",
                 provider=PaymentProviderEnum.STARS,
+                nominal_rub_amount=Decimal("99.00"),
             ),
-            send_success_notification=False,
         )
 
         notify_crypto_purchase_task.run(intent.pk)
@@ -96,6 +118,10 @@ class TestNotifyCryptoPurchaseTask(TestCase):
         original_payment.refresh_from_db()
         self.assertIsNone(original_payment.key)
         self.assertIn(
+            original_result_expiry.date().strftime("%d.%m.%y"),
+            send.call_args.kwargs["text"],
+        )
+        self.assertNotIn(
             key.expired_date.date().strftime("%d.%m.%y"),
             send.call_args.kwargs["text"],
         )
@@ -103,9 +129,7 @@ class TestNotifyCryptoPurchaseTask(TestCase):
         self.assertIsNotNone(intent.notification_sent_at)
 
     @override_settings(VPN_SUBSCRIPTION_BASE_URL="https://vpn.example")
-    @mock.patch(
-        "apps.notifications.services.send_notification_service.send_telegram_message"
-    )
+    @mock.patch("apps.payments.tasks.send_telegram_message")
     def test_vpn_notification_uses_expiry_and_permanent_url_then_marks_sent(
         self,
         send: mock.Mock,
@@ -140,9 +164,7 @@ class TestNotifyCryptoPurchaseTask(TestCase):
         intent.refresh_from_db()
         self.assertIsNotNone(intent.notification_sent_at)
 
-    @mock.patch(
-        "apps.notifications.services.send_notification_service.send_telegram_message"
-    )
+    @mock.patch("apps.payments.tasks.send_telegram_message")
     def test_gift_notification_uses_code_then_marks_sent(
         self,
         send: mock.Mock,
@@ -153,6 +175,16 @@ class TestNotifyCryptoPurchaseTask(TestCase):
         certificate.payment.provider = PaymentProviderEnum.CRYPTO_PAY
         certificate.payment.kind = PaymentKindEnum.GIFT_CERTIFICATE
         certificate.payment.save(update_fields=["provider", "kind"])
+        AppleCashbackPurchaseFactory(
+            payment=certificate.payment,
+            identity_key=(
+                f"crypto_pay:{certificate.payment.charge_id}:gift_certificate"
+            ),
+            apples_earned=10,
+            rate_percent=10,
+            balance_after=15,
+            eligible_purchase_count_after=7,
+        )
         intent = CryptoPaymentIntentFactory(
             initiator=certificate.buyer,
             purchase_kind=PaymentKindEnum.GIFT_CERTIFICATE,
@@ -164,11 +196,13 @@ class TestNotifyCryptoPurchaseTask(TestCase):
         notify_crypto_purchase_task.run(intent.pk)
 
         self.assertIn(certificate.code, send.call_args.kwargs["text"])
+        self.assertIn("Начислено: <b>10 🍏</b>", send.call_args.kwargs["text"])
+        self.assertIn("Уровень: <b>Мастер сада</b>", send.call_args.kwargs["text"])
         intent.refresh_from_db()
         self.assertIsNotNone(intent.notification_sent_at)
 
     @mock.patch(
-        "apps.notifications.services.send_notification_service.send_telegram_message",
+        "apps.payments.tasks.send_telegram_message",
         side_effect=RuntimeError("telegram unavailable"),
     )
     def test_temporary_send_error_retries_without_marking_sent(
@@ -190,6 +224,11 @@ class TestNotifyCryptoPurchaseTask(TestCase):
             payment=payment,
             fulfilled_at=timezone.now(),
         )
+        AppleCashbackPurchaseFactory(
+            payment=payment,
+            identity_key=f"crypto_pay:{payment.charge_id}:subscription",
+            result_expired_at=key.expired_date,
+        )
 
         with mock.patch.object(
             notify_crypto_purchase_task,
@@ -204,5 +243,38 @@ class TestNotifyCryptoPurchaseTask(TestCase):
             "result-secret-token",
             str(retry.call_args.kwargs["exc"]),
         )
+        intent.refresh_from_db()
+        self.assertIsNone(intent.notification_sent_at)
+
+    @mock.patch("apps.payments.tasks.send_telegram_message")
+    def test_historical_purchase_returns_before_transport(
+        self,
+        send: mock.Mock,
+    ) -> None:
+        user = SystemUserFactory(username="100006")
+        payment = PaymentFactory(
+            user=user,
+            kind=PaymentKindEnum.SUBSCRIPTION,
+            provider=PaymentProviderEnum.CRYPTO_PAY,
+        )
+        AppleCashbackPurchaseFactory(
+            payment=payment,
+            identity_key=f"crypto_pay:{payment.charge_id}:subscription",
+            rate_percent=None,
+            apples_earned=0,
+            balance_after=0,
+            eligible_purchase_count_after=1,
+            result_expired_at=None,
+        )
+        intent = CryptoPaymentIntentFactory(
+            initiator=user,
+            purchase_kind=PaymentKindEnum.SUBSCRIPTION,
+            status=CryptoPaymentIntentStatusEnum.FULFILLED,
+            payment=payment,
+        )
+
+        notify_crypto_purchase_task.run(intent.pk)
+
+        send.assert_not_called()
         intent.refresh_from_db()
         self.assertIsNone(intent.notification_sent_at)

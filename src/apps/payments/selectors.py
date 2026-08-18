@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 from django.db import IntegrityError, transaction
-from django.db.models import Case, IntegerField, QuerySet, When
+from django.db.models import Case, IntegerField, Q, QuerySet, When
 
 from apps.payments.enums import (
     CryptoPaymentIntentStatusEnum,
@@ -267,13 +267,22 @@ def get_crypto_intent_by_id(*, intent_id: int) -> CryptoPaymentIntent | None:
 def get_crypto_intent_for_notification(
     *, intent_id: int
 ) -> CryptoPaymentIntent | None:
-    return CryptoPaymentIntent.objects.select_related(
-        "initiator", "payment", "payment__key", "payment__gift_certificate"
-    ).filter(
-        pk=intent_id,
-        status=CryptoPaymentIntentStatusEnum.FULFILLED,
-        notification_sent_at__isnull=True,
-    ).first()
+    return (
+        CryptoPaymentIntent.objects.select_related(
+            "initiator",
+            "payment",
+            "payment__key",
+            "payment__gift_certificate",
+            "payment__apple_cashback_purchase",
+            "payment__user__vpn_subscription",
+        )
+        .filter(
+            pk=intent_id,
+            status=CryptoPaymentIntentStatusEnum.FULFILLED,
+            notification_sent_at__isnull=True,
+        )
+        .first()
+    )
 
 
 def get_unfinished_crypto_intents(*, limit: int) -> QuerySet[CryptoPaymentIntent]:
@@ -290,10 +299,20 @@ def get_unfinished_crypto_intents(*, limit: int) -> QuerySet[CryptoPaymentIntent
 def get_unnotified_fulfilled_crypto_intents(
     *, limit: int
 ) -> QuerySet[CryptoPaymentIntent]:
-    return CryptoPaymentIntent.objects.select_related("initiator", "payment").filter(
-        status=CryptoPaymentIntentStatusEnum.FULFILLED,
-        notification_sent_at__isnull=True,
-    ).order_by("pk")[:limit]
+    return (
+        CryptoPaymentIntent.objects.select_related(
+            "initiator",
+            "payment",
+            "payment__apple_cashback_purchase",
+        )
+        .filter(
+            Q(purchase_kind=PaymentKindEnum.VPN_SUBSCRIPTION)
+            | Q(payment__apple_cashback_purchase__rate_percent__isnull=False),
+            status=CryptoPaymentIntentStatusEnum.FULFILLED,
+            notification_sent_at__isnull=True,
+        )
+        .order_by("pk")[:limit]
+    )
 
 
 def get_payment_by_identity(
@@ -657,6 +676,7 @@ def get_platega_intent_for_notification(
             "payment",
             "payment__key",
             "payment__gift_certificate",
+            "payment__apple_cashback_purchase",
             "payment__user__vpn_subscription",
         )
         .filter(
@@ -732,6 +752,8 @@ def claim_platega_notification_enqueue(
     *, intent_id: int, queued_at: datetime
 ) -> int:
     return PlategaPaymentIntent.objects.filter(
+        Q(purchase_kind=PaymentKindEnum.VPN_SUBSCRIPTION)
+        | Q(payment__apple_cashback_purchase__rate_percent__isnull=False),
         pk=intent_id,
         status=PlategaPaymentIntentStatusEnum.FULFILLED,
         notification_queued_at__isnull=True,
