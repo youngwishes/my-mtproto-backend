@@ -7,12 +7,13 @@ from django.conf import settings
 from django.test import TestCase
 from django.utils import timezone
 
-from apps.payments.enums import PaymentProviderEnum
+from apps.payments.enums import PaymentProviderEnum, ProductCodeEnum
 from apps.payments.exceptions import BadPaymentData
 from apps.payments.models import Payment
 from apps.payments.services import CreatePaymentService, get_create_payment_service
-from apps.payments.services.dtos import CreatePaymentIn
+from apps.payments.services.dtos import CreatePaymentIn, CreatePaymentOut
 from apps.payments.services.extend_key_service import get_extend_key_service
+from apps.payments.tests.factories import ProductFactory
 from apps.users.tests.factories import SystemUserFactory
 from apps.vds.models import MTPRotoKey
 from apps.vds.tests.factories import MTPRotoKeyFactory, VDSInstanceFactory
@@ -22,6 +23,11 @@ class TestCreatePaymentService(TestCase):
     def setUp(self) -> None:
         self.user = SystemUserFactory(username="12345678")
         self.vds = VDSInstanceFactory()
+        ProductFactory(
+            code=ProductCodeEnum.MTPROTO_30D,
+            price=9900,
+            currency="RUB",
+        )
         self.service = get_create_payment_service()
 
     def _make_payment(
@@ -37,30 +43,25 @@ class TestCreatePaymentService(TestCase):
             provider=provider,
         )
 
-    def test_crypto_can_disable_direct_success_notification(self) -> None:
-        notifier = mock.Mock()
+    def test_service_has_no_direct_success_notification_dependency(self) -> None:
         issue = mock.Mock(return_value=MTPRotoKeyFactory(user=self.user))
         service = CreatePaymentService(
             extend_key_service=get_extend_key_service(),
             issue_key_service=issue,
-            notify_success=notifier,
         )
 
-        service(
-            payment=self._make_payment(charge_id="crypto_charge"),
-            send_success_notification=False,
-        )
+        result = service(payment=self._make_payment(charge_id="sync_charge"))
 
-        notifier.assert_not_called()
+        self.assertIsInstance(result, CreatePaymentOut)
 
     @mock.patch("apps.vds.tasks.push_key_to_servers_task.delay")
     @mock.patch("apps.notifications.services.send_notification_service.send_telegram_message")
-    def test_default_notification_and_issue_push_run_after_commit(
+    def test_domain_service_does_not_send_success_and_issue_push_runs_after_commit(
         self, mock_send: mock.Mock, mock_push: mock.Mock
     ) -> None:
         with self.captureOnCommitCallbacks(execute=False) as callbacks:
             self.service(payment=self._make_payment(charge_id="default_charge"))
-            self.assertEqual(mock_send.call_count, 1)
+            mock_send.assert_not_called()
             self.assertEqual(mock_push.call_count, 0)
 
         for callback in callbacks:
@@ -91,7 +92,7 @@ class TestCreatePaymentService(TestCase):
         self.assertEqual(payment.charge_id, "charge_new")
         self.assertEqual(payment.provider, PaymentProviderEnum.YUKASSA)
 
-        mock_send.assert_called_once()
+        mock_send.assert_not_called()
 
     @mock.patch("apps.notifications.services.send_notification_service.send_telegram_message")
     def test_extends_existing_active_key(self, mock_send: mock.Mock) -> None:
@@ -117,20 +118,7 @@ class TestCreatePaymentService(TestCase):
         self.assertEqual(payment.key, existing_key)
         self.assertEqual(payment.charge_id, "charge_extend")
 
-        mock_send.assert_called_once()
-
-    @mock.patch("apps.vds.tasks.push_key_to_servers_task.delay")
-    @mock.patch("apps.notifications.services.send_notification_service.send_telegram_message")
-    def test_payment_succeeds_when_notification_send_fails(
-        self, mock_send: mock.Mock, mock_push: mock.Mock
-    ) -> None:
-        # Сбой доставки уведомления не должен рушить успешный платёж (best-effort).
-        mock_send.side_effect = Exception("telegram down")
-
-        self.service(payment=self._make_payment(charge_id="charge_notify_fail"))
-
-        self.assertEqual(Payment.objects.count(), 1)
-        self.assertEqual(MTPRotoKey.objects.count(), 1)
+        mock_send.assert_not_called()
 
     @mock.patch("apps.vds.tasks.push_key_to_servers_task.delay")
     @mock.patch("apps.notifications.services.send_notification_service.send_telegram_message")
@@ -211,15 +199,12 @@ class TestCreatePaymentService(TestCase):
 
     @mock.patch("apps.vds.tasks.push_key_to_servers_task.delay")
     @mock.patch("apps.notifications.services.send_notification_service.send_telegram_message")
-    def test_notification_context_contains_expired_date_not_link(
+    def test_domain_service_never_calls_notification_transport(
         self, mock_send: mock.Mock, mock_push: mock.Mock
     ) -> None:
         self.service(payment=self._make_payment(charge_id="charge_ctx"))
 
-        mock_send.assert_called_once()
-        call_kwargs = mock_send.call_args
-        rendered_text = call_kwargs[1].get("text") or call_kwargs[0][1]
-        self.assertNotIn("tg://proxy", rendered_text)
+        mock_send.assert_not_called()
 
     @mock.patch("apps.core.decorators._log_service_error")
     def test_raises_bad_payment_data_when_user_not_found(self, mock_log: mock.Mock) -> None:

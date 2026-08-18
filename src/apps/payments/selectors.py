@@ -16,6 +16,7 @@ from apps.payments.enums import (
     PlategaPaymentIntentStatusEnum,
 )
 from apps.payments.models import (
+    AppleCashbackPurchase,
     CryptoPaymentIntent,
     GiftCertificate,
     Payment,
@@ -23,6 +24,7 @@ from apps.payments.models import (
     PlategaPaymentIntent,
     Product,
 )
+from apps.users.models import SystemUser
 
 if TYPE_CHECKING:
     from apps.payments.services.dtos.crypto_pay_dtos import CryptoInvoiceDTO
@@ -76,6 +78,49 @@ def get_payment_method_commission_percent(*, code: str) -> Decimal | None:
 
 def get_active_product_by_code(*, code: str) -> Product | None:
     return Product.objects.active().filter(code=code).first()
+
+
+def get_payment_user_for_update(*, username: str) -> SystemUser | None:
+    """Return the payment owner while locking their mutable loyalty state."""
+    return SystemUser.objects.select_for_update().filter(username=username).first()
+
+
+def get_apple_cashback_purchase_by_identity(
+    *, identity_key: str
+) -> AppleCashbackPurchase | None:
+    """Return the saved eligible-purchase outcome for a provider identity."""
+    return (
+        AppleCashbackPurchase.objects.select_related("payment", "payment__user")
+        .filter(identity_key=identity_key)
+        .first()
+    )
+
+
+def count_apple_cashback_purchases(*, user_id: int) -> int:
+    """Count completed eligible purchases, including launch history."""
+    return AppleCashbackPurchase.objects.filter(payment__user_id=user_id).count()
+
+
+def create_apple_cashback_purchase(
+    *,
+    payment_id: int,
+    identity_key: str,
+    rate_percent: int,
+    apples_earned: int,
+    balance_after: int,
+    eligible_purchase_count_after: int,
+    result_expired_at: datetime | None,
+) -> AppleCashbackPurchase:
+    """Persist the immutable loyalty snapshot for one eligible payment."""
+    return AppleCashbackPurchase.objects.create(
+        payment_id=payment_id,
+        identity_key=identity_key,
+        rate_percent=rate_percent,
+        apples_earned=apples_earned,
+        balance_after=balance_after,
+        eligible_purchase_count_after=eligible_purchase_count_after,
+        result_expired_at=result_expired_at,
+    )
 
 
 def get_vpn_payment_by_identity_for_update(
@@ -140,6 +185,31 @@ def get_gift_certificate_by_payment_identity(
         payment__provider=provider,
         payment__charge_id=charge_id,
     ).select_related("buyer", "payment", "activated_by").first()
+
+
+def create_gift_certificate_payment(
+    *, user_id: int, provider: str, charge_id: str
+) -> Payment:
+    """Persist one successful gift-certificate payment."""
+    return Payment.objects.create(
+        user_id=user_id,
+        key=None,
+        charge_id=charge_id,
+        provider=provider,
+        kind=PaymentKindEnum.GIFT_CERTIFICATE,
+    )
+
+
+def create_gift_certificate(
+    *, code: str, buyer_id: int, payment_id: int, expires_at: datetime
+) -> GiftCertificate:
+    """Persist the gift result owned by its paying buyer."""
+    return GiftCertificate.objects.create(
+        code=code,
+        buyer_id=buyer_id,
+        payment_id=payment_id,
+        expires_at=expires_at,
+    )
 
 
 def get_reusable_crypto_intent(

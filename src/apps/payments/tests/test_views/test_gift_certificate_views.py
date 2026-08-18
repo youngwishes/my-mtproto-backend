@@ -9,9 +9,9 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from apps.payments.enums import PaymentProviderEnum
+from apps.payments.enums import PaymentProviderEnum, ProductCodeEnum
 from apps.payments.models import GiftCertificate, Payment
-from apps.payments.tests.factories import GiftCertificateFactory
+from apps.payments.tests.factories import GiftCertificateFactory, ProductFactory
 from apps.users.tests.factories import SystemUserFactory
 from apps.vds.models import MTPRotoKey
 
@@ -22,6 +22,11 @@ class TestGiftCertificateViews(APITestCase):
 
     def setUp(self) -> None:
         self.user = SystemUserFactory(username="99887766")
+        ProductFactory(
+            code=ProductCodeEnum.MTPROTO_30D,
+            price=9900,
+            currency="RUB",
+        )
 
     def _post(self, url: str, data: dict) -> object:
         return self.client.post(

@@ -1,4 +1,12 @@
-from apps.payments.services.dtos.create_payment_dto import CreatePaymentIn
+from apps.payments.services.dtos.apple_cashback_dtos import (
+    ApplePurchaseOutcomeDTO,
+    HistoricalPurchaseReplayDTO,
+)
+from apps.payments.services.dtos.create_payment_dto import (
+    CreatePaymentIn,
+    CreatePaymentOut,
+    CreatePaymentResult,
+)
 from apps.payments.services.dtos.crypto_pay_dtos import (
     ApplyCryptoPaymentOut,
     CreateCryptoInvoiceIn,
@@ -12,6 +20,7 @@ from apps.payments.services.dtos.gift_certificate_dtos import (
     ActivateGiftCertificateOut,
     CreateGiftCertificateIn,
     CreateGiftCertificateOut,
+    CreateGiftCertificateResult,
 )
 from apps.payments.services.dtos.platega_dtos import (
     ApplyPlategaPaymentOut,
@@ -25,7 +34,11 @@ from apps.payments.services.dtos.platega_dtos import (
 )
 
 __all__ = [
+    "ApplePurchaseOutcomeDTO",
+    "HistoricalPurchaseReplayDTO",
     "CreatePaymentIn",
+    "CreatePaymentOut",
+    "CreatePaymentResult",
     "ApplyCryptoPaymentOut",
     "CreateCryptoInvoiceIn",
     "CreateCryptoInvoiceOut",
@@ -36,6 +49,7 @@ __all__ = [
     "ActivateGiftCertificateOut",
     "CreateGiftCertificateIn",
     "CreateGiftCertificateOut",
+    "CreateGiftCertificateResult",
     "ApplyPlategaPaymentOut",
     "CreatePlategaInvoiceIn",
     "CreatePlategaInvoiceOut",
