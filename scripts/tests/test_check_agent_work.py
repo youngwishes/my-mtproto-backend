@@ -1473,6 +1473,47 @@ class TestCheckAgentWork(unittest.TestCase):
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
         self.assertIn("batch dependency cycle", result.stdout)
 
+    def test_overlapping_batch_ownership_requires_dependency_order(self) -> None:
+        for ordered in (False, True):
+            with (
+                self.subTest(ordered=ordered),
+                tempfile.TemporaryDirectory() as tmp_dir,
+            ):
+                work_dir = self.write_valid_work(Path(tmp_dir))
+                manifest = work_dir / "task.toml"
+                manifest_text = manifest.read_text(encoding="utf-8")
+                second_batch = (
+                    manifest_text.split("[[batches]]", maxsplit=1)[1]
+                    .replace('id = "B1"', 'id = "B2"')
+                    .replace('items = ["AW-001"]', 'items = ["AW-002"]')
+                    .replace(
+                        "dependencies = []",
+                        'dependencies = ["B1"]' if ordered else "dependencies = []",
+                    )
+                )
+                manifest.write_text(
+                    manifest_text + "\n[[batches]]" + second_batch,
+                    encoding="utf-8",
+                )
+                result = self.run_checker(work_dir)
+
+                if ordered:
+                    self.assertEqual(
+                        result.returncode,
+                        0,
+                        result.stdout + result.stderr,
+                    )
+                else:
+                    self.assertEqual(
+                        result.returncode,
+                        1,
+                        result.stdout + result.stderr,
+                    )
+                    self.assertIn(
+                        "unordered batches B1 and B2 overlap files",
+                        result.stdout,
+                    )
+
 
 if __name__ == "__main__":
     unittest.main()

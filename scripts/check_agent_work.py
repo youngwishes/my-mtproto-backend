@@ -111,6 +111,24 @@ def is_safe_artifact_path(value: str) -> bool:
     )
 
 
+def depends_on(
+    dependency_graph: dict[str, set[str]],
+    batch_id: str,
+    dependency_id: str,
+) -> bool:
+    pending = list(dependency_graph.get(batch_id, set()))
+    visited: set[str] = set()
+    while pending:
+        candidate = pending.pop()
+        if candidate == dependency_id:
+            return True
+        if candidate in visited:
+            continue
+        visited.add(candidate)
+        pending.extend(dependency_graph.get(candidate, set()))
+    return False
+
+
 def validate_manifest_shape(task: dict[str, object], manifest: Path) -> list[str]:
     violations: list[str] = []
     if unknown_fields := sorted(set(task) - TASK_FIELDS):
@@ -488,6 +506,33 @@ def check_work_dir(
             f"{manifest}: batch dependency cycle: "
             f"{', '.join(sorted(remaining_dependencies))}"
         )
+    batch_ownership = {
+        batch["id"]: set(batch["allowed_files"])
+        for batch in batches
+        if isinstance(batch.get("id"), str)
+    }
+    ordered_batch_ids = sorted(batch_ownership)
+    for index, first_batch_id in enumerate(ordered_batch_ids):
+        for second_batch_id in ordered_batch_ids[index + 1 :]:
+            overlapping_files = sorted(
+                batch_ownership[first_batch_id]
+                & batch_ownership[second_batch_id]
+            )
+            is_ordered = depends_on(
+                dependency_graph,
+                first_batch_id,
+                second_batch_id,
+            ) or depends_on(
+                dependency_graph,
+                second_batch_id,
+                first_batch_id,
+            )
+            if overlapping_files and not is_ordered:
+                violations.append(
+                    f"{manifest}: unordered batches {first_batch_id} and "
+                    f"{second_batch_id} overlap files: "
+                    f"{', '.join(overlapping_files)}"
+                )
     if changed_files is not None and task.get("status") not in {"draft", "approved"}:
         batch_allowed_files = {
             allowed_file
