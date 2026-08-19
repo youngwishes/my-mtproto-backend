@@ -201,6 +201,38 @@ class DocumentationBoundaryCheckTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("HTTP contracts belong to docs/CONTRACTS.md", result.stdout)
 
+    def test_provider_contract_without_api_path_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            architecture = root / "docs" / "ARCHITECTURE.md"
+            architecture.parent.mkdir(parents=True)
+            architecture.write_text(
+                "# Architecture\n\n"
+                "POST {PLATEGA_BASE_URL}/transaction/process creates a payment.\n",
+                encoding="utf-8",
+            )
+
+            result = self.run_checker(root)
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("HTTP contracts belong to docs/CONTRACTS.md", result.stdout)
+
+    def test_vds_health_contract_without_api_path_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            vds = root / "docs" / "apps" / "VDS.md"
+            vds.parent.mkdir(parents=True)
+            vds.write_text(
+                "# VDS\n\n## Зона ответственности\n\n"
+                "Health probe uses GET {server.internal_url}.\n",
+                encoding="utf-8",
+            )
+
+            result = self.run_checker(root)
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("HTTP contracts belong to docs/CONTRACTS.md", result.stdout)
+
     def test_json_contract_example_outside_contracts_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
@@ -243,6 +275,22 @@ class DocumentationBoundaryCheckTests(unittest.TestCase):
                 "# Architecture\n\n"
                 "Internal Telegram callback configuration:\n\n"
                 "```json\n{\"callback\": \"open_menu\"}\n```\n",
+                encoding="utf-8",
+            )
+
+            result = self.run_checker(root)
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_internal_api_and_webhook_configuration_json_is_allowed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            architecture = root / "docs" / "ARCHITECTURE.md"
+            architecture.parent.mkdir(parents=True)
+            architecture.write_text(
+                "# Architecture\n\n"
+                "Internal API client and webhook worker configuration:\n\n"
+                "```json\n{\"timeout\": 5, \"retries\": 3}\n```\n",
                 encoding="utf-8",
             )
 

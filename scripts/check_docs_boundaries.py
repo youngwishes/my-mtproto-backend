@@ -58,6 +58,14 @@ OWNERSHIP_RULES: Final = (
         message="HTTP contracts belong to docs/CONTRACTS.md",
     ),
     OwnershipRule(
+        owner="docs/CONTRACTS.md",
+        pattern=re.compile(
+            r"\bPOST\s+\{PLATEGA_BASE_URL\}/transaction/process\b|"
+            r"\bGET\s+\{server\.internal_url\}(?=[\s`.,|)]|$)"
+        ),
+        message="HTTP contracts belong to docs/CONTRACTS.md",
+    ),
+    OwnershipRule(
         owner="docs/DEVELOPMENT_WORKFLOW.md",
         pattern=re.compile(
             r"\b(?:scope_revision|task packet|blocking_in_scope|"
@@ -85,11 +93,11 @@ MIN_PROSE_DUPLICATE_LENGTH: Final = 160
 MIN_CODE_DUPLICATE_LENGTH: Final = 80
 MARKDOWN_LINK: Final = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
 WIRE_CONTEXT: Final = re.compile(
-    r"\b(?:http|api|endpoint|webhook)\b|wire-(?:contract|контракт)|"
-    r"\b(?:provider|провайдер)\b.{0,80}"
+    r"\bhttp\b|wire-(?:contract|контракт)|"
+    r"\b(?:api|endpoint|webhook|provider|провайдер)\b.{0,80}"
     r"(?:request|response|payload|запрос|ответ)|"
     r"(?:request|response|payload|запрос|ответ).{0,80}"
-    r"\b(?:provider|провайдер)\b",
+    r"\b(?:api|endpoint|webhook|provider|провайдер)\b",
     re.IGNORECASE,
 )
 AGENT_REQUIRED_LINKS: Final = (
