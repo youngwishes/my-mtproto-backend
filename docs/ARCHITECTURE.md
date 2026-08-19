@@ -128,6 +128,78 @@ def get_first_free_link_service() -> FirstFreeLinkService:
     return FirstFreeLinkService()
 ```
 
+## Apple cashback
+
+Apple cashback остаётся частью `apps.payments`, а не отдельным loyalty-
+приложением. Текущее mutable-состояние — `SystemUser.apple_balance`; уровень и
+ставка вычисляются из числа строк `AppleCashbackPurchase`. Эта таблица хранит
+уникальную provider identity и неизменяемый результат подходящей оплаты,
+`AppleRedemption` — предпросмотр и зафиксированный результат обмена. Других
+account/counter/config-таблиц нет: правила `0..3/4..6/7+`, ставки `5/10/15%` и
+курс `15 🍏 = 1 день` заданы кодом.
+
+Успешная MTProxy-подписка и покупка подарочного сертификата выполняются вместе
+с записью покупки и обновлением баланса внутри обычной DB-транзакции с
+блокировкой строки пользователя. Ставка берётся по count до текущей оплаты, а
+начисление рассчитывается от номинальной RUB-цены с `ROUND_HALF_UP`. Для
+Stars/Yukassa цена читается из активного `Product(mtproto_30d)`, для Crypto и
+Platega — из сохранённого полного `intent.rub_amount`; provider currency,
+фактическая сумма и комиссия не являются входом расчёта. Уникальный
+`AppleCashbackPurchase.identity_key` и существующие provider state machines
+дают ровно один product/payment/count/balance effect. VPN, certificate
+activation, бесплатные и реферальные выдачи обходят эту границу.
+
+Data migration создаёт для pre-launch `Payment.kind=subscription|gift_certificate`
+исторические строки с `rate_percent=NULL`, нулевыми apples/balance snapshot и
+порядковым count-after; непустые `(provider, charge_id, kind)` дедуплицируются,
+а пустая legacy identity получает `legacy:<payment.pk>`. `Payment.user`
+остаётся владельцем подарочной покупки. Поэтому история задаёт уровень, но
+`apple_balance` после запуска равен нулю. Повтор такой identity возвращает
+только успешный tag `{"kind":"historical_replay"}` и не меняет ключ,
+сертификат, Payment, count или баланс.
+
+Владение сообщением разделено по payment path. Для синхронных Stars/Yukassa
+только bot handler показывает объединённый expiry/code и loyalty outcome;
+`CreatePaymentService` и `CreateGiftCertificateService` Telegram-сообщение не
+отправляют. Для Crypto/Platega единственный success sender — существующая
+post-commit Celery-задача: она читает сохранённый purchase snapshot, добавляет
+loyalty-блок к прежнему шаблону, сохраняет markup и ставит sent marker только
+после transport success. Исторический replay не ставит notification и при
+прямом вызове task завершается до Telegram transport; reconciliation его не
+переочередит. Обычный post-launch duplicate возвращает прежний сохранённый
+полный результат без повторных доменных эффектов.
+
+Redemption selector выбирает только ключ пользователя: сначала действующий
+active/non-deleted с максимальным `(expired_date, pk)`, иначе существующий
+датированный ключ с максимальным `(expired_date, pk)`, включая истёкший или
+очищенный. Preview `one_day|all` создаёт pending `AppleRedemption`, сохраняет
+spend и `max(expired_date, preview_at)+days`, но не резервирует яблоки и не
+меняет ключ. Confirm принимает только owner и `confirmation_id`, блокирует
+redemption, пользователя и выбранный ключ, проверяет неизменность key/balance,
+атомарно списывает quote и фиксирует
+`max(current_expiry, confirmation_at)+days`. Повтор confirmation возвращает
+сохранённый outcome. Реактивированный ключ после commit передаётся существующей
+`push_key_to_servers_task`; active-key extension остаётся DB-only и обычный
+fleet reconciliation доставляет состояние. Issue service и синхронный VDS
+вызов в redemption отсутствуют.
+
+Bot использует три защищённых `Bot-Auth-Token` POST-контракта под
+`/api/v1/payments/apples/`: status, redemption preview и confirm. Backend один
+вычисляет balance/count/level/rate/spend/days/expiry; bot хранит frozen DTO,
+показывает `🍏 Мои яблоки`, сохранённый preview и отправляет на confirm только
+ID. Eligibility/validation возвращают `400`, временная storage-ошибка — `503`,
+повтор успешного confirm — тот же `200`.
+
+Миграции аддитивно добавляют поле пользователя и две payment-owned таблицы.
+До первого post-launch credit/redemption возможен rollback application и
+schema; после появления нового loyalty state используется roll-forward:
+аддитивные schema/data сохраняются, а старый SHA не должен принимать новые
+подходящие оплаты. Решение не добавляет очередь, cache, внешний сервис,
+distributed lock, общий retry/concurrency framework, event sourcing, admin-
+настройку правил или generic loyalty engine и не меняет provider/fleet
+инварианты. API и логи не раскрывают Bot auth, provider credentials, key token,
+proxy URL или provider body.
+
 ## Crypto Pay
 
 Django владеет созданием Crypto Pay-счёта и webhook; bot получает только
