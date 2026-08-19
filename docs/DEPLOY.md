@@ -21,8 +21,7 @@ ansible -i ansible/inventory/production.ini mtproto_keys -m ansible.builtin.ping
 
 ## Новый релиз
 
-1. Выполни repository checks: они не изменяют production, DNS, сертификаты,
-   environment или provider panels.
+1. Выполни repository checks:
 
    ```bash
    git status --short
@@ -51,22 +50,12 @@ ansible -i ansible/inventory/production.ini mtproto_keys -m ansible.builtin.ping
      --private-key ~/.ssh/id_ed25519_deploy
    ```
 
-4. До отдельного разрешения выполни операционные pre-deploy gates. Read-only
-   проверь DNS новых имён на production, затем в существующем certificate lineage
-   `/etc/nginx/ssl/live/beatvault.ru/` проверь валидную chain и точный SAN-набор
-   `beatvault.ru`, `dash.mtprotokeys.com`, `flower.mtprotokeys.com`; второй
-   certificate path не создавай. В защищённом production environment проверь
-   `TLS_DOMAIN=mtprotokeys.com` и
-   `VPN_SUBSCRIPTION_BASE_URL=https://dash.mtprotokeys.com`, не меняя bot
-   `API_URL` или credentials. У provider кабинетов должны быть настроены
-   указанные ниже callback URL на `dash.mtprotokeys.com`.
-
-5. Остановись и запроси новое явное разрешение пользователя непосредственно
+4. Остановись и запроси новое явное разрешение пользователя непосредственно
    перед deploy. Назови `RELEASE_SHA`, результаты тестов и существенные риски.
    Разрешение на merge или предыдущий deploy не считается разрешением на этот
    запуск playbook.
 
-6. Только после такого разрешения разверни этот SHA:
+5. Только после такого разрешения разверни этот SHA:
 
    ```bash
    ansible-playbook -i ansible/inventory/production.ini ansible/deploy.yml \
@@ -74,7 +63,7 @@ ansible -i ansible/inventory/production.ini mtproto_keys -m ansible.builtin.ping
      --private-key ~/.ssh/id_ed25519_deploy
    ```
 
-7. Успешный запуск должен завершиться с `failed=0`. Проверь `nginx -t`, SHA и
+6. Успешный запуск должен завершиться с `failed=0`. Проверь `nginx -t`, SHA и
    все Compose-сервисы через хост из Ansible inventory, затем внешние HTTPS и
    HTTP-to-HTTPS redirect для `dash.mtprotokeys.com` и `beatvault.ru`:
 
@@ -87,47 +76,22 @@ ansible -i ansible/inventory/production.ini mtproto_keys -m ansible.builtin.ping
      -a 'git -C /root/my-mtproto-backend rev-parse HEAD && cd /root/my-mtproto-backend && docker compose ps && docker exec nginx nginx -t'
    ```
 
-Проверь, что HTTP каждого Django-host перенаправляется на свой HTTPS-host,
-`flower.mtprotokeys.com` без credentials отвечает `401`, а с credentials из
-защищённого окружения отвечает успешно. Для каждого из трёх имён повторно
-проверь валидную TLS chain и тот же точный SAN-набор, а также проверь callback
-settings у провайдеров. Playbook сам запускает миграции через entrypoint Django,
-проверяет HTTP-ответ и состояние всех Compose-сервисов. При ошибке он
-автоматически возвращает предыдущий SHA/Compose stack. Для полного
-операционного rollback вернуть VPN base и provider callbacks на `beatvault.ru`,
-но не `TLS_DOMAIN=mtprotokeys.com` и не legacy
-`flower.beatvault.ru`/`www.beatvault.ru`. Уже применённые миграции БД
-автоматически не откатываются; перед ручным откатом проверь их совместимость и
-состояние backup в Litestream.
+Проверь, что HTTP каждого Django-host перенаправляется на свой HTTPS-host, а
+`flower.mtprotokeys.com` по HTTPS без credentials отвечает `401` и с credentials
+из защищённого окружения отвечает успешно. Playbook сам запускает миграции через
+entrypoint Django, проверяет HTTP-ответ и состояние всех Compose-сервисов. При
+ошибке он автоматически возвращает предыдущий SHA/Compose stack. Уже
+применённые миграции БД автоматически не откатываются; перед ручным откатом
+проверь их совместимость и состояние backup в Litestream.
 
-## Crypto Pay rollout и rollback
+## Crypto Pay: production-конфигурация и rollback
 
-До release задать только в backend `.env` значения `CRYPTOPAY_API_TOKEN`,
-`CRYPTOPAY_WEBHOOK_SECRET` и при необходимости `CRYPTOPAY_BASE_URL`; bot `.env`
-не получает эти переменные. Оставить `CRYPTOPAY_REQUEST_TIMEOUT=5`, если иной
-операционный таймаут не согласован. Не добавлять значения в Git, логи или
-командную историю.
-
-В рамках обычного подготовленного релиза до запуска существующего Ansible
-playbook заполнить backend `.env` и настроить в кабинете Crypto Pay HTTPS webhook
-на `https://dash.mtprotokeys.com/api/v1/payments/crypto/webhooks/<webhook-secret>/`.
-Секрет URL хранится только вне Git; новый endpoint дополнительно проверяет HMAC.
-До выпуска прежний bot не показывает Crypto Pay-кнопок, поэтому счета ещё не
-создаются.
-
-Затем один раз развернуть проверенный `RELEASE_SHA` существующим Ansible
-playbook из раздела «Новый релиз»: он обновляет migration и весь Compose stack
-(Django, worker, Beat и bot) как одну поддерживаемую поставку. Не запускать
-ручной `docker compose` и не развертывать backend и bot отдельными этапами.
-После успешного playbook выполнить предусмотренный post-deploy smoke: проверить
-HTTP/Compose/SHA по шагу 7 и создать только неплатёжный Crypto Pay invoice, если
-операционные test credentials разрешают это. Не оплачивать счёт.
-
-Для непроизводственного smoke использовать отдельные testnet token/secret и
-`CRYPTOPAY_BASE_URL=https://testnet-pay.crypt.bot`. Создать один счёт для
-локального тестового пользователя, зафиксировать только HTTP status,
-`rub_amount`, `expires_at`, `reused` и наличие HTTPS URL, затем повторить запрос
-для `reused=true`. Счёт не оплачивать; production smoke не заменяет testnet.
+Crypto Pay использует только backend `.env`: `CRYPTOPAY_API_TOKEN`,
+`CRYPTOPAY_WEBHOOK_SECRET`, опциональный `CRYPTOPAY_BASE_URL` и стандартный
+`CRYPTOPAY_REQUEST_TIMEOUT=5`. Bot `.env` этих значений не содержит. Секреты и
+секретная часть webhook URL не попадают в Git, логи или командную историю.
+Обычный релиз не требует повторной проверки этой конфигурации или provider
+callback.
 
 При rollback развернуть предыдущий совместимый SHA тем же Ansible playbook как
 один whole-stack release: прежний bot скроет Crypto Pay-кнопки, а backend
@@ -137,15 +101,14 @@ component-level rollback. Не удалять и не откатывать ре�
 `CryptoPaymentIntent` строки и не менять продукты. Merge и production deploy
 требуют отдельных явных разрешений.
 
-## Platega SBP rollout и rollback
+## Platega SBP: production-конфигурация и rollback
 
-До отдельно одобренного release задать только в Django/Celery backend `.env`
-четыре значения: `PLATEGA_MERCHANT_ID`, `PLATEGA_SECRET`, HTTPS
-`PLATEGA_BASE_URL` и положительный `PLATEGA_REQUEST_TIMEOUT`. Bot `.env` не
-получает ни одно из них. `PLATEGA_CALLBACK_DEBUG_LOGGING` по умолчанию должен
-оставаться `false`. Production credentials, значения security headers,
-Telegram metadata и payment URL нельзя помещать в Git, логи или командную
-историю.
+Platega использует только Django/Celery backend `.env`:
+`PLATEGA_MERCHANT_ID`, `PLATEGA_SECRET`, HTTPS `PLATEGA_BASE_URL` и положительный
+`PLATEGA_REQUEST_TIMEOUT`. Bot `.env` этих значений не содержит.
+`PLATEGA_CALLBACK_DEBUG_LOGGING` по умолчанию остаётся `false`. Production
+credentials, значения security headers, Telegram metadata и payment URL нельзя
+помещать в Git, логи или командную историю.
 
 Для контролируемой диагностики фактического provider payload допускается
 временно установить `PLATEGA_CALLBACK_DEBUG_LOGGING=true`. После одного
@@ -154,26 +117,18 @@ Telegram metadata и payment URL нельзя помещать в Git, логи 
 Событие создаётся только после успешной проверки Platega credentials и не
 содержит значения `X-MerchantId`, `X-Secret`, Authorization или Cookie.
 
-В кабинете Platega настроить HTTPS callback ровно на
+Production callback Platega направлен на
 `https://dash.mtprotokeys.com/api/v1/payments/platega/callback/` с теми же
 `X-MerchantId`/`X-Secret`. Endpoint аутентифицирует оба raw header до body
 parsing; redirects успеха и ошибки ведут в `BOT_LINK`, но не являются
 доказательством платежа. Для SBP нет status GET, polling schedule или ручной
 проверки.
 
-До deploy обязательно проверить, что глобальный `platega_sbp` выключен; если
-строка уже активна, администратор отдельно выключает её до запуска playbook.
 Additive commission migration задаёт существующей строке `8.00%`, но никогда не
 меняет её сохранённый `is_active`; отсутствующая строка создаётся выключенной, а
 Stars/Crypto Pay сохраняют свои переключатели и получают `0.00%`.
-
-Затем развернуть отдельно проверенный whole-stack SHA, применить migration,
-проверить migration state, `commission_percent=8.00`, сохранённые активности,
-`401` без/с неверными headers и безопасный create smoke без оплаты. Только после
-этого администратор вручную включает глобальный toggle отдельным последующим
-gate. Само наличие настроек, migration или этого документа не разрешает
-commit/merge либо production deploy: соответствующие явные gates из раздела
-«Новый релиз» сохраняются.
+Обычный релиз сохраняет текущие переключатели способов оплаты и не требует
+выключать `platega_sbp` или повторно проверять callback.
 
 Для штатного rollback сначала выключить toggle, подтвердить, что он остаётся
 выключенным, и проверить отсутствие intent в
@@ -186,18 +141,12 @@ whole-stack SHA. Additive migration, intent/Payment rows и backend environment
 откатывается. `CHARGEBACKED` не имеет rollout/recovery процедуры в этой фиче и
 остаётся только unsupported safe acknowledgement.
 
-## VPN rollout
+## VPN: production-конфигурация
 
-До включения VPN-продаж задать
-`VPN_SUBSCRIPTION_BASE_URL=https://dash.mtprotokeys.com` и защищённый
-`VPN_AGENT_TOKEN` вне Git. После отдельного release gate сначала развернуть и
-проверить VPN node-agent и оба transport на ноде, затем backend/bot с неактивным
-товаром `vpn_30d`. Создать `VPNInstance` неактивной, выполнить backfill, провести
-smoke-check и активировать ноду вручную; только затем включить товар и выполнить
-реальную smoke-покупку с импортом subscription URL в HAPP. Эти действия не
-являются разрешением на merge или production deploy.
+VPN использует `VPN_SUBSCRIPTION_BASE_URL=https://dash.mtprotokeys.com` и
+защищённый `VPN_AGENT_TOKEN` вне Git. Обычный релиз не повторяет первоначальный
+rollout node-agent, transport, `VPNInstance` и товара `vpn_30d`.
 
-Для первого MVP rollout `VPNInstance.management_url` указывает на публичный
-plaintext HTTP management proxy ноды. Host firewall отсутствует; bearer token
-и route allowlist остаются. Риск перехвата token/profile payload принят
-пользователем до deploy.
+В текущем MVP `VPNInstance.management_url` указывает на публичный plaintext HTTP
+management proxy ноды. Host firewall отсутствует; bearer token и route allowlist
+остаются. Риск перехвата token/profile payload принят пользователем.
