@@ -12,12 +12,14 @@ from django.utils import timezone
 class TestCryptoPaymentMigration(TransactionTestCase):
     migrate_from = ("payments", "0006_product_code_vpn_payment")
     migrate_to = ("payments", "0007_crypto_payment_intent")
+    users_target = ("users", "0018_systemuser_apple_balance")
 
     def setUp(self) -> None:
         super().setUp()
         self.executor = MigrationExecutor(connection)
-        self.executor.migrate([self.migrate_from])
-        old_apps = self.executor.loader.project_state([self.migrate_from]).apps
+        before_targets = [self.migrate_from, self.users_target]
+        self.executor.migrate(before_targets)
+        old_apps = self.executor.loader.project_state(before_targets).apps
         user = old_apps.get_model("users", "SystemUser").objects.create(
             username="legacy-user",
         )
@@ -45,8 +47,9 @@ class TestCryptoPaymentMigration(TransactionTestCase):
         self.legacy_ids = (product.pk, payment.pk, gift.pk)
 
         self.executor = MigrationExecutor(connection)
-        self.executor.migrate([self.migrate_to])
-        self.apps = self.executor.loader.project_state([self.migrate_to]).apps
+        after_targets = [self.migrate_to, self.users_target]
+        self.executor.migrate(after_targets)
+        self.apps = self.executor.loader.project_state(after_targets).apps
 
     def tearDown(self) -> None:
         self.executor = MigrationExecutor(connection)

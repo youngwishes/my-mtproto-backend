@@ -42,7 +42,6 @@ class TestApplyPlategaPaymentConcurrency(TransactionTestCase):
             create_payment_service=CreatePaymentService(
                 extend_key_service=get_extend_key_service(),
                 issue_key_service=get_issue_key_on_commit_service(),
-                notify_success=mock.Mock(),
             ),
             fulfill_vpn_purchase_service=FulfillVPNPurchaseService(
                 schedule_profiles=mock.Mock(),
