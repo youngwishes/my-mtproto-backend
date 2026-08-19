@@ -175,10 +175,14 @@ active/non-deleted с максимальным `(expired_date, pk)`, иначе 
 очищенный. Preview `one_day|all` создаёт pending `AppleRedemption`, сохраняет
 spend и `max(expired_date, preview_at)+days`, но не резервирует яблоки и не
 меняет ключ. Confirm принимает только owner и `confirmation_id`, блокирует
-redemption, пользователя и выбранный ключ, проверяет неизменность key/balance,
-атомарно списывает quote и фиксирует
-`max(current_expiry, confirmation_at)+days`. Повтор confirmation возвращает
-сохранённый outcome. Реактивированный ключ после commit передаётся существующей
+redemption, пользователя и выбранный ключ и требует, чтобы текущий selector
+по-прежнему выбрал тот же key, а balance покрывал сохранённый spend. Рост
+баланса не меняет quoted `apples_spent`/days; сдвиг expiry того же ключа также
+допустим. Confirm атомарно списывает ровно quote и заново вычисляет committed
+дату как `max(current_same_key_expiry, confirmation_at)+days`, поэтому она может
+отличаться от показанной preview-даты. Другой выбранный key, удалённый или
+недоступный quoted key либо balance ниже quoted spend делают quote stale.
+Повтор confirmation возвращает сохранённый outcome. Реактивированный ключ после commit передаётся существующей
 `push_key_to_servers_task`; active-key extension остаётся DB-only и обычный
 fleet reconciliation доставляет состояние. Issue service и синхронный VDS
 вызов в redemption отсутствуют.
