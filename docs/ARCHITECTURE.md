@@ -46,7 +46,7 @@ logging до чтения body.
 | Пакетный менеджер | uv |
 | Деплой | Docker Compose |
 
-## Публичные домены и release gate
+## Публичные домены
 
 Nginx принимает HTTP для ровно `dash.mtprotokeys.com`,
 `flower.mtprotokeys.com` и переходного alias `beatvault.ru`: ACME challenge
@@ -57,17 +57,14 @@ Compose Basic Auth. Django разрешает только эти два пуб�
 с local/container hosts; Flower не направляется в Django.
 
 Переходный сертификат использует существующий lineage
-`/etc/nginx/ssl/live/beatvault.ru/` и перед deploy обязан иметь точный SAN-набор:
-`beatvault.ru`, `dash.mtprotokeys.com`, `flower.mtprotokeys.com`. Новые
-MTProto-секреты используют `TLS_DOMAIN=mtprotokeys.com`, а новые VPN
-subscription URL используют `VPN_SUBSCRIPTION_BASE_URL=https://dash.mtprotokeys.com`.
-Внутренний Ansible healthcheck посылает `Host: dash.mtprotokeys.com`, но не
-заменяет внешнюю проверку валидной TLS chain и SAN.
+`/etc/nginx/ssl/live/beatvault.ru/` с SAN `beatvault.ru`,
+`dash.mtprotokeys.com`, `flower.mtprotokeys.com`. MTProto-секреты используют
+`TLS_DOMAIN=mtprotokeys.com`, а VPN subscription URL —
+`VPN_SUBSCRIPTION_BASE_URL=https://dash.mtprotokeys.com`. Внутренний Ansible
+healthcheck посылает `Host: dash.mtprotokeys.com`.
 
 При неуспешном deploy playbook сохраняет автоматический возврат предыдущего
-SHA/Compose stack. Для полного операционного rollback вернуть VPN base и
-provider callbacks на `beatvault.ru`, не откатывать `TLS_DOMAIN=mtprotokeys.com`
-и не восстанавливать `flower.beatvault.ru` либо `www.beatvault.ru`.
+SHA/Compose stack.
 
 ## Компоненты репозитория
 
@@ -305,12 +302,9 @@ flow; ошибки product API не маскируются под empty-state, �
 
 Commission migration даёт остальным способам `0.00%`, устанавливает
 `platega_sbp` ставку `8.00%` и не изменяет ни один сохранённый `is_active`;
-отсутствующая строка создаётся выключенной. Поэтому перед whole-stack deploy
-операционный gate обязан подтвердить, что `platega_sbp` выключен. После deploy
-проверяются migration state, ставка и сохранённые переключатели, а включение
-остаётся отдельным последующим gate. Перед rollback способ снова выключается и
-остаётся выключенным на старом SHA; additive column/data и реальные платежи не
-удаляются.
+отсутствующая строка создаётся выключенной. Обычный whole-stack deploy сохраняет
+текущий `is_active` и не требует выключать способ оплаты. При rollback additive
+column/data и реальные платежи не удаляются.
 
 Отдельная additive migration добавляет `is_priority` с default `False`, не
 изменяя сохранённые доступность, комиссию и платёжные данные.
