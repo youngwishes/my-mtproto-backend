@@ -2,73 +2,26 @@
 
 ## Зона ответственности
 
-Управление VDS-серверами (прокси-нодами) и MTProto-ключами пользователей. Взаимодействует с FastAPI-инстансами на каждом VDS через REST API для создания, обновления и удаления ключей.
+MTProto-ключи, VDS-инстансы и асинхронное выравнивание DB state на fleet.
+Инварианты хранения находятся в [MODELS.md](../MODELS.md), HTTP-взаимодействие с
+нодами — в [CONTRACTS.md](../CONTRACTS.md), общий поток — в
+[ARCHITECTURE.md](../ARCHITECTURE.md).
 
-## Reconcile-модель
+## Карта компонентов
 
-БД — единственный источник правды. `MTPRotoKey` — это один секрет, валидный на **всём флоте**, без понятия «домашний сервер». Серверы равноправны (каждый активный ключ присутствует на всех здоровых VDS); присутствие секретов на серверах — производный кэш, выравниваемый reconcile-механизмами (мгновенный пуш при выдаче/перевыпуске + бэкфилл при восстановлении сервера).
-
-## Ключевые модели
-
-- **Hosting** — справочник хостинг-провайдеров. Хранит название и ссылку на сайт/панель хостинга; один `Hosting` связан со многими `VDSInstance`.
-- **VDSInstance** — прокси-сервер. Хранит ссылку на `Hosting`, IP-адреса, порт, `is_keys_available`, `is_healthy`, `location`, а также `expired_at` — дату, до которой оплачен конкретный инстанс. `name` — DNS-субдомен сервера в хосте proxy-URL (`{name}.mtprotokeys.com`). Менеджер — `ActiveQuerySet` (`.active()`); выбора «наименее нагруженного» сервера больше нет.
-- **MTPRotoKey** — прокси-ключ пользователя: token, дата истечения, связь с пользователем (без `vds`/`node_number`/`tls_domain`). `get_proxy_link(*, server_name)` формирует `tg://proxy` ссылку; домен маскировки — из `settings.TLS_DOMAIN`, чей default равен `mtprotokeys.com`.
-
-## Сервисы
-
-- **IssueKeyService** — выдача ключа: чистая запись в БД + пинок `push_key_to_servers_task` (без выбора сервера и синхронного HTTP). Глобальный лимит `settings.GLOBAL_KEYS_LIMIT` → `KeysLimitReached`.
-- **UpdateKeyService** — перевыпуск ключа (новый token, тот же срок): запись в БД + пинок доставки.
-- **PushKeyToServerInfraService** — идемпотентно доставляет один секрет на один здоровый VDS: POST `/api/users`; если пользователь уже есть (`409`) — ротация секрета через PATCH `/api/users` (важно при перевыпуске: новый токен обязан заместить старый; PATCH тем же секретом — безопасный no-op).
-- **SyncKeysToVdsInfraService** — синхронизирует все активные валидные ключи БД на конкретный сервер (бэкфилл при восстановлении).
-- **MigrateVdsKeysInfraService** — досылает все активные валидные ключи на остальные активные серверы.
-- **GetMyServersService** — генерирует `tg://proxy` ссылки на лету для каждого активного VDS. Если активного ключа нет, а бесплатный период не использован, активирует его через инъектированный `FirstFreeLinkService` и сразу возвращает серверы; если период израсходован — `KeyDoesNotExist`.
-- **VDSHealthCheckInfraService** — проверяет доступность сервера GET-запросом.
-- **RemoveUserKeyInfraService** / **RemoveKeysFromVdsInstanceInfraService** / **RemoveDeadKeysFromVdsInfraService** — удаление ключей с VDS.
-- **RemoveExpiredKeysDailyService** — дневное удаление истёкших ключей. Недоступность
-  одного активного VDS (`VDSNotAvailable`) изолируется: этот сервер помечается
-  нездоровым, остальные активные VDS всё равно обрабатываются, после чего
-  сохраняется существующая деактивация ключей в БД и уведомление пользователя.
-
-## Celery-задачи
-
-- **remove_user_keys_daily** — ежедневное удаление истёкших ключей (9:00 UTC)
-- **notify_before_removing_daily** — уведомление за 1 день до истечения (15:00 UTC)
-- **notify_before_removing_daily_hour_before** — уведомление за 1 час (8:00 UTC)
-- **push_key_to_servers_task(key_id)** — мгновенный пинок: фан-аут секрета одного ключа на все здоровые VDS (по `push_key_to_server_task` на каждый)
-- **push_key_to_server_task** — идемпотентная доставка на один сервер (POST, на `409` → PATCH-ротация); при ошибке: retry с экспоненциальной задержкой (60s → 240s → 960s), при исчерпании ретраев — `_handle_replication_failure`
-- **migrate_vds_keys_task** — досылка всех активных ключей на остальные серверы (админ-экшен)
-- **sync_keys_to_vds_task** — синхронизирует все активные ключи БД на конкретный сервер
-- **remove_dead_keys_from_vds_task** / **remove_key_from_another_vds_instances_task** — удаление ключей с серверов
-- **check_vds_health_task** — каждые 5 минут проверяет нездоровые (`is_healthy=False`)
-  серверы; после успешного probe ожидает завершения ежедневной деактивации, если
-  в БД ещё есть активные истёкшие ключи. Затем синхронно удаляет с VDS известные
-  БД истёкшие ключи, выставляет `is_healthy=True` и запускает
-  `sync_keys_to_vds_task`. При `VDSNotAvailable` во время удаления сервер остаётся
-  нездоровым, его sync не запускается, а обработка остальных нездоровых VDS продолжается.
-- **broadcast_proxy_links_task** — массовая рассылка
-
-## Механизм отказоустойчивости доставки
-
-```
-Ошибка доставки ключа (push_key_to_server_task)
-      │
-      ▼
-retry (max 3, backoff: 60s → 240s → 960s)
-      │ исчерпан
-      ▼
-_handle_replication_failure
-  → VDSInstance.is_healthy = False
-  → уведомление администратора в Telegram
-      │
-      ▼
-check_vds_health_task (каждые 5 мин)
-  → VDSHealthCheckInfraService: GET internal_url
-  → active expired keys ожидают DB-деактивацию → оставаться unhealthy
-  → восстановлен → удалить известные БД истёкшие ключи
-  → is_healthy = True → sync_keys_to_vds_task (бэкфилл)
-```
+- Hosting, VDSInstance, MTPRotoKey — доменные модели.
+- issue/update services — DB-изменение ключа.
+- push/sync/remove infra services — идемпотентная доставка и очистка VDS.
+- health-check services — состояние нод и восстановление.
+- tasks.py — fan-out, retry, reconcile, cleanup и уведомления.
 
 ## Зависимости
 
-Зависит от: core (декораторы, транспорт), notifications (шаблоны уведомлений), users (модель SystemUser).
-От него зависят: payments (выдача ключа при оплате), users (бесплатные ключи).
+Использует core, users и notifications. Payments и users вызывают выдачу или
+продление MTProxy-ключа.
+
+## Границы
+
+БД — source of truth; VDS хранит производную копию. Один ключ содержит один
+secret для всей fleet. Issue/reissue не выполняет синхронный HTTP, а server
+links формируются на лету.

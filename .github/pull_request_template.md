@@ -38,7 +38,9 @@
 
 - [ ] Relevant tests pass
 - [ ] Full `make test` passes
+- [ ] `make docs-check` passes
 - [ ] Production Compose configuration is valid
 - [ ] Documentation is updated or confirmed unnecessary
+- [ ] New information has one canonical documentation owner
 - [ ] Temporary agent artifacts are absent from the diff
 - [ ] Diff contains no secrets or unrelated changes
