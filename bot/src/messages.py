@@ -1,10 +1,108 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from src.enums import FreeAvailable
+
+if TYPE_CHECKING:
+    from src.domains.payments import (
+        ApplePurchaseOutcome,
+        AppleRedemptionPreview,
+        AppleRedemptionResult,
+        AppleStatus,
+    )
 
 SITE_URL = "https://mtprotokeys.com"
 SUPPORT_URL = "https://t.me/mtprotokeys_support"
 VPN_SETUP_URL = "https://mtprotokeys.com/vpn/"
 TERMS_URL = "https://mtprotokeys.com/terms"
 PRIVACY_URL = "https://mtprotokeys.com/privacy"
+
+
+def render_apple_status(*, status: AppleStatus) -> str:
+    progress = (
+        "Максимальный уровень достигнут"
+        if status.is_max_level
+        else (
+            "До следующего уровня: "
+            f"<b>{status.purchases_to_next_level}</b>"
+        )
+    )
+    return (
+        "🍏 <b>Мои яблоки</b>\n\n"
+        f"Баланс: <b>{status.balance} 🍏</b>\n"
+        "Покупок MTProxy: "
+        f"<b>{status.eligible_purchase_count}</b>\n"
+        f"Уровень: <b>{status.level}</b>\n"
+        f"Кэшбэк: <b>{status.rate_percent}%</b>\n"
+        f"{progress}\n\n"
+        "Курс: <b>15 🍏 = 1 день</b>"
+    )
+
+
+def render_apple_spend(*, balance: int, redeemable_days: int) -> str:
+    return (
+        "🍏 <b>Потратить яблоки</b>\n\n"
+        f"Баланс: <b>{balance} 🍏</b>\n"
+        f"Доступно дней: <b>{redeemable_days}</b>\n\n"
+        "Выберите вариант продления:"
+    )
+
+
+def render_insufficient_apples(*, missing_apples: int) -> str:
+    return (
+        f"🍏 Для обмена не хватает <b>{missing_apples} 🍏</b>.\n"
+        "Курс: <b>15 🍏 = 1 день</b>"
+    )
+
+
+APPLE_KEY_REQUIRED_TEXT = (
+    "🍏 Яблоки можно потратить только на продление своего "
+    "существующего MTProxy-ключа."
+)
+
+
+def render_apple_redemption_preview(*, preview: AppleRedemptionPreview) -> str:
+    return (
+        "🍏 <b>Подтверждение обмена</b>\n\n"
+        f"Списать: <b>{preview.apples_spent} 🍏</b>\n"
+        f"Добавить дней: <b>{preview.days}</b>\n"
+        "Продление до: "
+        f"<b>{preview.projected_expired_date}</b>\n\n"
+        "Подтвердить обмен?"
+    )
+
+
+def render_apple_redemption_result(*, result: AppleRedemptionResult) -> str:
+    return (
+        "✅ <b>Яблоки обменены</b>\n\n"
+        f"Списано: <b>{result.apples_spent} 🍏</b>\n"
+        f"Добавлено дней: <b>{result.days}</b>\n"
+        f"Продление до: <b>{result.expired_date}</b>\n"
+        f"Баланс: <b>{result.balance} 🍏</b>"
+    )
+
+
+def render_apple_purchase_outcome(*, outcome: ApplePurchaseOutcome) -> str:
+    lines = [
+        "",
+        "",
+        "🍏 <b>Кэшбэк</b>",
+        f"Начислено: <b>{outcome.apples_earned} 🍏</b>",
+        f"Ставка: <b>{outcome.rate_percent}%</b>",
+        f"Баланс: <b>{outcome.balance} 🍏</b>",
+        f"Уровень: <b>{outcome.level}</b>",
+    ]
+    if outcome.level_up:
+        lines.extend(
+            (
+                "",
+                f"🎉 Новый уровень: <b>{outcome.level}</b>",
+                "Кэшбэк следующей покупки: "
+                f"<b>{outcome.next_purchase_rate_percent}%</b>",
+            )
+        )
+    return "\n".join(lines)
 
 PRODUCT_MENU_TEXT = (
     "👋 Добро пожаловать в MTProto Keys!\n\n"
@@ -147,6 +245,12 @@ PAYMENT_METHODS_TEXT = f"""💳 <b>Оплата подписки</b>
 <i>Оплачивая подписку, вы принимаете <a href="{TERMS_URL}">Условия использования</a> и <a href="{PRIVACY_URL}">Политику конфиденциальности</a>.</i>
 
 👇 <b>Выберите способ оплаты:</b>"""
+
+MTPROXY_PURCHASED_TEXT = """🎉 <b>Спасибо за покупку!</b>
+
+⏳ Подписка активна до: <b>{expired_date}</b>
+
+👇 Нажми «Мои серверы», чтобы подключиться ко всем серверам"""
 
 CRYPTO_PAY_BUTTON = "💎 Crypto Pay"
 CRYPTO_INVOICE_TEXT = (

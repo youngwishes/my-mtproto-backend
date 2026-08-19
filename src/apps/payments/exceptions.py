@@ -7,6 +7,26 @@ class BadPaymentData(BaseServiceError):
     """Некорректные данные платежа"""
 
 
+class InsufficientApples(BaseServiceError):
+    """Недостаточно яблок для обмена."""
+
+
+class AppleKeyRequired(BaseServiceError):
+    """Для обмена яблок нужен существующий MTProxy-ключ."""
+
+
+class InvalidAppleRedemption(BaseServiceError):
+    """Некорректные данные обмена яблок."""
+
+
+class StaleAppleRedemption(BaseServiceError):
+    """Условия обмена изменились. Создайте новый предпросмотр."""
+
+
+class AppleRedemptionRetryable(BaseInfraError):
+    """Не удалось завершить обмен яблок. Попробуйте ещё раз."""
+
+
 class ProductNotFound(BaseServiceError):
     """Продукт не найден"""
 

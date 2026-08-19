@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 from django.db import IntegrityError, transaction
-from django.db.models import Case, IntegerField, QuerySet, When
+from django.db.models import Case, IntegerField, Q, QuerySet, When
 
 from apps.payments.enums import (
     CryptoPaymentIntentStatusEnum,
@@ -16,6 +16,8 @@ from apps.payments.enums import (
     PlategaPaymentIntentStatusEnum,
 )
 from apps.payments.models import (
+    AppleCashbackPurchase,
+    AppleRedemption,
     CryptoPaymentIntent,
     GiftCertificate,
     Payment,
@@ -23,6 +25,8 @@ from apps.payments.models import (
     PlategaPaymentIntent,
     Product,
 )
+from apps.users.models import SystemUser
+from apps.vds.models import MTPRotoKey
 
 if TYPE_CHECKING:
     from apps.payments.services.dtos.crypto_pay_dtos import CryptoInvoiceDTO
@@ -76,6 +80,113 @@ def get_payment_method_commission_percent(*, code: str) -> Decimal | None:
 
 def get_active_product_by_code(*, code: str) -> Product | None:
     return Product.objects.active().filter(code=code).first()
+
+
+def get_payment_user_for_update(*, username: str) -> SystemUser | None:
+    """Return the payment owner while locking their mutable loyalty state."""
+    return SystemUser.objects.select_for_update().filter(username=username).first()
+
+
+def get_apple_cashback_purchase_by_identity(
+    *, identity_key: str
+) -> AppleCashbackPurchase | None:
+    """Return the saved eligible-purchase outcome for a provider identity."""
+    return (
+        AppleCashbackPurchase.objects.select_related("payment", "payment__user")
+        .filter(identity_key=identity_key)
+        .first()
+    )
+
+
+def count_apple_cashback_purchases(*, user_id: int) -> int:
+    """Count completed eligible purchases, including launch history."""
+    return AppleCashbackPurchase.objects.filter(payment__user_id=user_id).count()
+
+
+def get_existing_apple_redemption_key(
+    *, user_id: int, now: datetime
+) -> MTPRotoKey | None:
+    """Select the user's best valid key, then their best existing dated key."""
+    return _select_existing_apple_redemption_key(
+        keys=MTPRotoKey.objects.filter(user_id=user_id),
+        now=now,
+    )
+
+
+def get_existing_apple_redemption_key_for_update(
+    *, user_id: int, now: datetime
+) -> MTPRotoKey | None:
+    """Lock and select the user's key eligible for confirmed redemption."""
+    return _select_existing_apple_redemption_key(
+        keys=MTPRotoKey.objects.select_for_update().filter(user_id=user_id),
+        now=now,
+    )
+
+
+def _select_existing_apple_redemption_key(
+    *, keys: QuerySet[MTPRotoKey], now: datetime
+) -> MTPRotoKey | None:
+    active = (
+        keys.active()
+        .filter(was_deleted=False, expired_date__gt=now)
+        .order_by("-expired_date", "-pk")
+        .first()
+    )
+    if active is not None:
+        return active
+    return keys.filter(expired_date__isnull=False).order_by(
+        "-expired_date", "-pk"
+    ).first()
+
+
+def get_apple_redemption_for_update(
+    *, confirmation_id: int
+) -> AppleRedemption | None:
+    """Lock a saved quote/outcome and load its owner."""
+    return (
+        AppleRedemption.objects.select_for_update()
+        .select_related("user")
+        .filter(pk=confirmation_id)
+        .first()
+    )
+
+
+def create_apple_redemption(
+    *,
+    user_id: int,
+    key_id: int,
+    apples_spent: int,
+    quoted_expired_at: datetime,
+) -> AppleRedemption:
+    """Persist one immutable pending apple-redemption quote."""
+    return AppleRedemption.objects.create(
+        user_id=user_id,
+        key_id=key_id,
+        apples_spent=apples_spent,
+        quoted_expired_at=quoted_expired_at,
+    )
+
+
+def create_apple_cashback_purchase(
+    *,
+    payment_id: int,
+    identity_key: str,
+    rate_percent: int,
+    apples_earned: int,
+    balance_after: int,
+    eligible_purchase_count_after: int,
+    result_expired_at: datetime | None,
+) -> AppleCashbackPurchase:
+    """Persist the immutable loyalty snapshot for one eligible payment."""
+    return AppleCashbackPurchase.objects.create(
+        payment_id=payment_id,
+        identity_key=identity_key,
+        rate_percent=rate_percent,
+        apples_earned=apples_earned,
+        balance_after=balance_after,
+        eligible_purchase_count_after=eligible_purchase_count_after,
+        result_expired_at=result_expired_at,
+    )
 
 
 def get_vpn_payment_by_identity_for_update(
@@ -142,6 +253,31 @@ def get_gift_certificate_by_payment_identity(
     ).select_related("buyer", "payment", "activated_by").first()
 
 
+def create_gift_certificate_payment(
+    *, user_id: int, provider: str, charge_id: str
+) -> Payment:
+    """Persist one successful gift-certificate payment."""
+    return Payment.objects.create(
+        user_id=user_id,
+        key=None,
+        charge_id=charge_id,
+        provider=provider,
+        kind=PaymentKindEnum.GIFT_CERTIFICATE,
+    )
+
+
+def create_gift_certificate(
+    *, code: str, buyer_id: int, payment_id: int, expires_at: datetime
+) -> GiftCertificate:
+    """Persist the gift result owned by its paying buyer."""
+    return GiftCertificate.objects.create(
+        code=code,
+        buyer_id=buyer_id,
+        payment_id=payment_id,
+        expires_at=expires_at,
+    )
+
+
 def get_reusable_crypto_intent(
     *, initiator_id: int, purchase_kind: str, now: datetime
 ) -> CryptoPaymentIntent | None:
@@ -197,13 +333,22 @@ def get_crypto_intent_by_id(*, intent_id: int) -> CryptoPaymentIntent | None:
 def get_crypto_intent_for_notification(
     *, intent_id: int
 ) -> CryptoPaymentIntent | None:
-    return CryptoPaymentIntent.objects.select_related(
-        "initiator", "payment", "payment__key", "payment__gift_certificate"
-    ).filter(
-        pk=intent_id,
-        status=CryptoPaymentIntentStatusEnum.FULFILLED,
-        notification_sent_at__isnull=True,
-    ).first()
+    return (
+        CryptoPaymentIntent.objects.select_related(
+            "initiator",
+            "payment",
+            "payment__key",
+            "payment__gift_certificate",
+            "payment__apple_cashback_purchase",
+            "payment__user__vpn_subscription",
+        )
+        .filter(
+            pk=intent_id,
+            status=CryptoPaymentIntentStatusEnum.FULFILLED,
+            notification_sent_at__isnull=True,
+        )
+        .first()
+    )
 
 
 def get_unfinished_crypto_intents(*, limit: int) -> QuerySet[CryptoPaymentIntent]:
@@ -220,10 +365,20 @@ def get_unfinished_crypto_intents(*, limit: int) -> QuerySet[CryptoPaymentIntent
 def get_unnotified_fulfilled_crypto_intents(
     *, limit: int
 ) -> QuerySet[CryptoPaymentIntent]:
-    return CryptoPaymentIntent.objects.select_related("initiator", "payment").filter(
-        status=CryptoPaymentIntentStatusEnum.FULFILLED,
-        notification_sent_at__isnull=True,
-    ).order_by("pk")[:limit]
+    return (
+        CryptoPaymentIntent.objects.select_related(
+            "initiator",
+            "payment",
+            "payment__apple_cashback_purchase",
+        )
+        .filter(
+            Q(purchase_kind=PaymentKindEnum.VPN_SUBSCRIPTION)
+            | Q(payment__apple_cashback_purchase__rate_percent__isnull=False),
+            status=CryptoPaymentIntentStatusEnum.FULFILLED,
+            notification_sent_at__isnull=True,
+        )
+        .order_by("pk")[:limit]
+    )
 
 
 def get_payment_by_identity(
@@ -587,6 +742,7 @@ def get_platega_intent_for_notification(
             "payment",
             "payment__key",
             "payment__gift_certificate",
+            "payment__apple_cashback_purchase",
             "payment__user__vpn_subscription",
         )
         .filter(
@@ -662,6 +818,8 @@ def claim_platega_notification_enqueue(
     *, intent_id: int, queued_at: datetime
 ) -> int:
     return PlategaPaymentIntent.objects.filter(
+        Q(purchase_kind=PaymentKindEnum.VPN_SUBSCRIPTION)
+        | Q(payment__apple_cashback_purchase__rate_percent__isnull=False),
         pk=intent_id,
         status=PlategaPaymentIntentStatusEnum.FULFILLED,
         notification_queued_at__isnull=True,

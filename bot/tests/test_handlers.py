@@ -62,8 +62,14 @@ from src.domains.free_trial import FreeTrialKey
 from src.domains.links import MyServers, ReissuedKey, ServerItem
 from src.domains.payments import (
     ActivatedGiftCertificate,
+    ApplePurchaseOutcome,
+    AppleRedemptionPreview,
+    AppleRedemptionResult,
+    AppleStatus,
+    ConfirmedPurchase,
     CryptoInvoice,
     GiftCertificate,
+    HistoricalPurchaseReplay,
     StarsInvoice,
 )
 from src.domains.referrals import ReferralCabinet, ReferralRewardKey
@@ -103,6 +109,27 @@ APPROVED_GIFT_PAYMENT_TEXT = """💳 <b>Оплата подарка</b>
 <i>Оплачивая сертификат, вы принимаете <a href="https://mtprotokeys.com/terms">Условия использования</a> и <a href="https://mtprotokeys.com/privacy">Политику конфиденциальности</a>.</i>
 
 👇 <b>Выберите способ оплаты:</b>"""
+
+
+def apple_loyalty(
+    *,
+    apples_earned: int = 5,
+    rate_percent: int = 5,
+    balance: int = 20,
+    eligible_purchase_count: int = 4,
+    level: str = "Садовник",
+    level_up: bool = True,
+    next_purchase_rate_percent: int = 10,
+) -> ApplePurchaseOutcome:
+    return ApplePurchaseOutcome(
+        apples_earned=apples_earned,
+        rate_percent=rate_percent,
+        balance=balance,
+        eligible_purchase_count=eligible_purchase_count,
+        level=level,
+        level_up=level_up,
+        next_purchase_rate_percent=next_purchase_rate_percent,
+    )
 
 
 # --- domain fakes -----------------------------------------------------------
@@ -188,6 +215,7 @@ class FakePayments:
         self,
         *,
         stars=None,
+        purchase=None,
         gift=None,
         activation=None,
         confirm_error=None,
@@ -196,9 +224,30 @@ class FakePayments:
         crypto_error=None,
         platega=None,
         platega_error=None,
+        apple_status=None,
+        apple_preview=None,
+        apple_result=None,
+        apple_preview_error=None,
+        apple_confirm_error=None,
     ) -> None:
         self._stars = stars
-        self._gift = gift or GiftCertificate(code="KEY-ABCD-1234")
+        default_loyalty = ApplePurchaseOutcome(
+            apples_earned=5,
+            rate_percent=5,
+            balance=5,
+            eligible_purchase_count=1,
+            level="Новичок",
+            level_up=False,
+            next_purchase_rate_percent=5,
+        )
+        self._purchase = purchase or ConfirmedPurchase(
+            expired_date="2026-09-18",
+            loyalty=default_loyalty,
+        )
+        self._gift = gift or GiftCertificate(
+            code="KEY-ABCD-1234",
+            loyalty=default_loyalty,
+        )
         self._activation = activation or ActivatedGiftCertificate(
             expired_date="2026-08-08"
         )
@@ -208,6 +257,11 @@ class FakePayments:
         self._crypto_error = crypto_error
         self._platega = platega
         self._platega_error = platega_error
+        self._apple_status = apple_status
+        self._apple_preview = apple_preview
+        self._apple_result = apple_result
+        self._apple_preview_error = apple_preview_error
+        self._apple_confirm_error = apple_confirm_error
         self.confirmed: list[tuple] = []
         self.gift_confirmed: list[tuple] = []
         self.activated: list[tuple] = []
@@ -215,6 +269,9 @@ class FakePayments:
         self.vpn_stars_invoice_calls = 0
         self.crypto_calls: list[tuple] = []
         self.platega_calls: list[tuple] = []
+        self.apple_status_calls: list[int] = []
+        self.apple_preview_calls: list[tuple[int, str]] = []
+        self.apple_confirm_calls: list[tuple[int, int]] = []
 
     async def get_stars_invoice(self):
         self.stars_invoice_calls += 1
@@ -228,6 +285,7 @@ class FakePayments:
         self.confirmed.append((telegram_id, charge_id, provider))
         if self._confirm_error is not None:
             raise self._confirm_error
+        return self._purchase
 
     async def confirm_gift_certificate_purchase(self, *, telegram_id, charge_id, provider):
         self.gift_confirmed.append((telegram_id, charge_id, provider))
@@ -252,6 +310,22 @@ class FakePayments:
         if self._platega_error is not None:
             raise self._platega_error
         return self._platega
+
+    async def get_apple_status(self, *, telegram_id):
+        self.apple_status_calls.append(telegram_id)
+        return self._apple_status
+
+    async def preview_apple_redemption(self, *, telegram_id, mode):
+        self.apple_preview_calls.append((telegram_id, mode))
+        if self._apple_preview_error is not None:
+            raise self._apple_preview_error
+        return self._apple_preview
+
+    async def confirm_apple_redemption(self, *, telegram_id, confirmation_id):
+        self.apple_confirm_calls.append((telegram_id, confirmation_id))
+        if self._apple_confirm_error is not None:
+            raise self._apple_confirm_error
+        return self._apple_result
 
 
 class FakeVPN:
@@ -426,10 +500,322 @@ async def test_mtproxy_navigation_matches_approved_hierarchy(
     ] == [
         [("⚡ Ускорить Telegram", boost_callback, None, "success")],
         [("📡 Мои серверы", "my_servers", None, "primary")],
+        [("🍏 Мои яблоки", "apples_status", None, None)],
         [("🎁 Подарить MTProxy", "gift_certificate", None, None)],
         [("❓ Вопросы о MTProxy", "info", None, None)],
         [("🔙 Главное меню", "show_start_screen", None, None)],
     ]
+
+
+async def test_apples_status_shows_progress_and_always_offers_spend_action():
+    from src.handlers.apples import process_apples_status
+
+    payments = FakePayments(
+        apple_status=AppleStatus(
+            balance=37,
+            eligible_purchase_count=4,
+            level="Садовник",
+            rate_percent=10,
+            next_level_purchase_count=7,
+            purchases_to_next_level=3,
+            is_max_level=False,
+            redeemable_days=2,
+            missing_apples=0,
+            has_existing_key=True,
+        )
+    )
+    callback = FakeCallback(user_id=42, data="apples_status")
+
+    await process_apples_status(callback, make_deps(payments=payments))
+
+    assert callback.answers == [((), {})]
+    assert payments.apple_status_calls == [42]
+    text, markup = callback.message.edits[0]
+    assert text == (
+        "🍏 <b>Мои яблоки</b>\n\n"
+        "Баланс: <b>37 🍏</b>\n"
+        "Покупок MTProxy: <b>4</b>\n"
+        "Уровень: <b>Садовник</b>\n"
+        "Кэшбэк: <b>10%</b>\n"
+        "До следующего уровня: <b>3</b>\n\n"
+        "Курс: <b>15 🍏 = 1 день</b>"
+    )
+    assert [
+        [(button.text, button.callback_data) for button in row]
+        for row in markup.inline_keyboard
+    ] == [
+        [("🍏 Потратить яблоки", "apples_spend")],
+        [("🔙 Назад", "show_mtproxy_menu")],
+    ]
+
+
+async def test_apples_status_shows_max_level_without_progress_count():
+    from src.handlers.apples import process_apples_status
+
+    payments = FakePayments(
+        apple_status=AppleStatus(
+            balance=7,
+            eligible_purchase_count=8,
+            level="Мастер сада",
+            rate_percent=15,
+            next_level_purchase_count=None,
+            purchases_to_next_level=None,
+            is_max_level=True,
+            redeemable_days=0,
+            missing_apples=8,
+            has_existing_key=False,
+        )
+    )
+    callback = FakeCallback(user_id=42, data="apples_status")
+
+    await process_apples_status(callback, make_deps(payments=payments))
+
+    text, markup = callback.message.edits[0]
+    assert "Максимальный уровень достигнут" in text
+    assert "До следующего уровня" not in text
+    assert markup.inline_keyboard[0][0].callback_data == "apples_spend"
+
+
+async def test_apples_spend_offers_one_day_and_all_saved_backend_modes():
+    from src.handlers.apples import process_apples_spend
+
+    payments = FakePayments(
+        apple_status=AppleStatus(
+            balance=37,
+            eligible_purchase_count=7,
+            level="Мастер сада",
+            rate_percent=15,
+            next_level_purchase_count=None,
+            purchases_to_next_level=None,
+            is_max_level=True,
+            redeemable_days=2,
+            missing_apples=0,
+            has_existing_key=True,
+        )
+    )
+    callback = FakeCallback(user_id=42, data="apples_spend")
+
+    await process_apples_spend(callback, make_deps(payments=payments))
+
+    assert payments.apple_status_calls == [42]
+    assert payments.apple_preview_calls == []
+    text, markup = callback.message.edits[0]
+    assert "Баланс: <b>37 🍏</b>" in text
+    assert "Доступно дней: <b>2</b>" in text
+    assert [
+        [(button.text, button.callback_data) for button in row]
+        for row in markup.inline_keyboard
+    ] == [
+        [("Обменять на 1 день — 15 🍏", "apples_redeem_one")],
+        [("Обменять все яблоки", "apples_redeem_all")],
+        [("🔙 Назад", "apples_status")],
+    ]
+
+
+async def test_apples_spend_below_rate_shows_exact_missing_count_without_preview():
+    from src.handlers.apples import process_apples_spend
+
+    payments = FakePayments(
+        apple_status=AppleStatus(
+            balance=7,
+            eligible_purchase_count=0,
+            level="Новичок",
+            rate_percent=5,
+            next_level_purchase_count=4,
+            purchases_to_next_level=4,
+            is_max_level=False,
+            redeemable_days=0,
+            missing_apples=8,
+            has_existing_key=True,
+        )
+    )
+    callback = FakeCallback(user_id=42, data="apples_spend")
+
+    await process_apples_spend(callback, make_deps(payments=payments))
+
+    text, markup = callback.message.edits[0]
+    assert text == (
+        "🍏 Для обмена не хватает <b>8 🍏</b>.\n"
+        "Курс: <b>15 🍏 = 1 день</b>"
+    )
+    assert payments.apple_preview_calls == []
+    assert [[button.callback_data for button in row] for row in markup.inline_keyboard] == [
+        ["apples_status"]
+    ]
+
+
+async def test_apples_spend_without_existing_key_stops_before_preview():
+    from src.handlers.apples import process_apples_spend
+
+    payments = FakePayments(
+        apple_status=AppleStatus(
+            balance=30,
+            eligible_purchase_count=1,
+            level="Новичок",
+            rate_percent=5,
+            next_level_purchase_count=4,
+            purchases_to_next_level=3,
+            is_max_level=False,
+            redeemable_days=2,
+            missing_apples=0,
+            has_existing_key=False,
+        )
+    )
+    callback = FakeCallback(user_id=42, data="apples_spend")
+
+    await process_apples_spend(callback, make_deps(payments=payments))
+
+    text, markup = callback.message.edits[0]
+    assert text == (
+        "🍏 Яблоки можно потратить только на продление "
+        "своего существующего MTProxy-ключа."
+    )
+    assert payments.apple_preview_calls == []
+    assert markup.inline_keyboard[0][0].callback_data == "apples_status"
+
+
+@pytest.mark.parametrize(
+    ("handler_name", "callback_data", "mode", "apples_spent", "days"),
+    [
+        ("process_apples_redeem_one", "apples_redeem_one", "one_day", 15, 1),
+        ("process_apples_redeem_all", "apples_redeem_all", "all", 30, 2),
+    ],
+)
+async def test_apples_preview_uses_only_saved_quote_and_requires_confirmation(
+    handler_name: str,
+    callback_data: str,
+    mode: str,
+    apples_spent: int,
+    days: int,
+):
+    from src.handlers import apples as apples_module
+
+    payments = FakePayments(
+        apple_preview=AppleRedemptionPreview(
+            confirmation_id=501,
+            mode=mode,
+            apples_spent=apples_spent,
+            days=days,
+            projected_expired_date="2026-08-21",
+        )
+    )
+    callback = FakeCallback(user_id=42, data=callback_data)
+
+    await getattr(apples_module, handler_name)(
+        callback,
+        make_deps(payments=payments),
+    )
+
+    assert payments.apple_preview_calls == [(42, mode)]
+    assert payments.apple_confirm_calls == []
+    text, markup = callback.message.edits[0]
+    assert f"Списать: <b>{apples_spent} 🍏</b>" in text
+    assert f"Добавить дней: <b>{days}</b>" in text
+    assert "Продление до: <b>2026-08-21</b>" in text
+    assert "Подтвердить обмен?" in text
+    assert [
+        [(button.text, button.callback_data) for button in row]
+        for row in markup.inline_keyboard
+    ] == [
+        [("✅ Подтвердить", "apples_confirm:501")],
+        [("🔙 Назад", "apples_spend")],
+    ]
+
+
+async def test_apples_confirm_renders_committed_37_to_30_two_days_and_7_balance():
+    from src.handlers.apples import process_apples_confirm
+
+    payments = FakePayments(
+        apple_result=AppleRedemptionResult(
+            apples_spent=30,
+            days=2,
+            expired_date="2026-08-22",
+            balance=7,
+        )
+    )
+    callback = FakeCallback(user_id=42, data="apples_confirm:501")
+
+    await process_apples_confirm(callback, make_deps(payments=payments))
+
+    assert payments.apple_confirm_calls == [(42, 501)]
+    text, markup = callback.message.edits[0]
+    assert text == (
+        "✅ <b>Яблоки обменены</b>\n\n"
+        "Списано: <b>30 🍏</b>\n"
+        "Добавлено дней: <b>2</b>\n"
+        "Продление до: <b>2026-08-22</b>\n"
+        "Баланс: <b>7 🍏</b>"
+    )
+    assert [[button.callback_data for button in row] for row in markup.inline_keyboard] == [
+        ["apples_status"],
+        ["show_mtproxy_menu"],
+    ]
+
+
+async def test_repeated_apples_confirmation_displays_same_committed_result():
+    from src.handlers.apples import process_apples_confirm
+
+    payments = FakePayments(
+        apple_result=AppleRedemptionResult(
+            apples_spent=15,
+            days=1,
+            expired_date="2026-08-21",
+            balance=0,
+        )
+    )
+    callbacks = [
+        FakeCallback(user_id=42, data="apples_confirm:777"),
+        FakeCallback(user_id=42, data="apples_confirm:777"),
+    ]
+
+    for callback in callbacks:
+        await process_apples_confirm(callback, make_deps(payments=payments))
+
+    assert payments.apple_confirm_calls == [(42, 777), (42, 777)]
+    assert callbacks[0].message.edits[0][0] == callbacks[1].message.edits[0][0]
+    assert "Продление до: <b>2026-08-21</b>" in (
+        callbacks[1].message.edits[0][0]
+    )
+
+
+async def test_apples_preview_and_stale_confirm_preserve_backend_safe_errors():
+    from src.handlers.apples import (
+        process_apples_confirm,
+        process_apples_redeem_one,
+    )
+
+    no_key = APIError(
+        42,
+        message="Для обмена яблок нужен существующий MTProxy-ключ.",
+    )
+    preview_payments = FakePayments(apple_preview_error=no_key)
+    preview_callback = FakeCallback(user_id=42, data="apples_redeem_one")
+
+    with pytest.raises(APIError) as preview_exc:
+        await process_apples_redeem_one(
+            preview_callback,
+            make_deps(payments=preview_payments),
+        )
+
+    assert preview_exc.value is no_key
+    assert preview_callback.message.edits == []
+
+    stale = APIError(
+        42,
+        message="Условия обмена изменились. Создайте новый предпросмотр.",
+    )
+    confirm_payments = FakePayments(apple_confirm_error=stale)
+    confirm_callback = FakeCallback(user_id=42, data="apples_confirm:501")
+
+    with pytest.raises(APIError) as confirm_exc:
+        await process_apples_confirm(
+            confirm_callback,
+            make_deps(payments=confirm_payments),
+        )
+
+    assert confirm_exc.value is stale
+    assert confirm_payments.apple_confirm_calls == [(42, 501)]
+    assert confirm_callback.message.edits == []
 
 
 async def test_cmd_start_passes_none_username_as_none_not_string():
@@ -1677,8 +2063,147 @@ async def test_successful_payment_preserves_provider_and_charge_id(
     assert payments.confirmed == [(42, expected_charge_id, expected_provider)]
 
 
+async def test_successful_mtproxy_payment_sends_one_combined_saved_result():
+    outcome = apple_loyalty()
+    payments = FakePayments(
+        purchase=ConfirmedPurchase(
+            expired_date="2026-09-18",
+            loyalty=outcome,
+        )
+    )
+    message = FakeMessage(user_id=42)
+    message.successful_payment = SimpleNamespace(
+        currency="XTR",
+        invoice_payload="payment_stars",
+        telegram_payment_charge_id="subscription_charge",
+        provider_payment_charge_id="unused",
+    )
+
+    await process_successful_payment(message, make_deps(payments=payments))
+
+    assert payments.confirmed == [(42, "subscription_charge", "stars")]
+    assert len(message.answers) == 1
+    text, markup = message.answers[0]
+    assert "Подписка активна до: <b>2026-09-18</b>" in text
+    assert "Начислено: <b>5 🍏</b>" in text
+    assert "Ставка: <b>5%</b>" in text
+    assert "Баланс: <b>20 🍏</b>" in text
+    assert "Уровень: <b>Садовник</b>" in text
+    assert "🎉 Новый уровень: <b>Садовник</b>" in text
+    assert "Кэшбэк следующей покупки: <b>10%</b>" in text
+    assert [button.callback_data for row in markup.inline_keyboard for button in row] == [
+        "my_servers",
+        "show_mtproxy_menu",
+    ]
+
+
+async def test_successful_gift_payment_keeps_code_and_adds_same_loyalty_result():
+    payments = FakePayments(
+        gift=GiftCertificate(
+            code="KEY-ABCD-1234",
+            loyalty=apple_loyalty(),
+        )
+    )
+    message = FakeMessage(user_id=42)
+    message.successful_payment = SimpleNamespace(
+        currency="RUB",
+        invoice_payload="gift_certificate_yukassa",
+        telegram_payment_charge_id="unused",
+        provider_payment_charge_id="gift_charge",
+    )
+
+    await process_successful_payment(message, make_deps(payments=payments))
+
+    assert payments.gift_confirmed == [(42, "gift_charge", "yukassa")]
+    assert len(message.answers) == 1
+    text, _ = message.answers[0]
+    assert "<code>KEY-ABCD-1234</code>" in text
+    assert "Начислено: <b>5 🍏</b>" in text
+    assert "Ставка: <b>5%</b>" in text
+    assert "Баланс: <b>20 🍏</b>" in text
+    assert "Уровень: <b>Садовник</b>" in text
+    assert "Кэшбэк следующей покупки: <b>10%</b>" in text
+
+
+@pytest.mark.parametrize(
+    ("invoice_payload", "purchase_kind"),
+    [
+        ("payment_stars", "subscription"),
+        ("gift_certificate_stars", "gift"),
+    ],
+)
+async def test_historical_sync_purchase_replay_is_silent(
+    invoice_payload: str,
+    purchase_kind: str,
+):
+    replay = HistoricalPurchaseReplay()
+    payments = FakePayments(
+        purchase=replay if purchase_kind == "subscription" else None,
+        gift=replay if purchase_kind == "gift" else None,
+    )
+    message = FakeMessage(user_id=42)
+    message.successful_payment = SimpleNamespace(
+        currency="XTR",
+        invoice_payload=invoice_payload,
+        telegram_payment_charge_id="historical_charge",
+        provider_payment_charge_id="unused",
+    )
+
+    await process_successful_payment(message, make_deps(payments=payments))
+
+    assert message.answers == []
+
+
+@pytest.mark.parametrize("purchase_kind", ["subscription", "gift"])
+async def test_post_launch_duplicate_keeps_ordinary_combined_message(
+    purchase_kind: str,
+):
+    outcome = apple_loyalty(
+        apples_earned=15,
+        rate_percent=15,
+        balance=52,
+        eligible_purchase_count=8,
+        level="Мастер сада",
+        level_up=False,
+        next_purchase_rate_percent=15,
+    )
+    payments = FakePayments(
+        purchase=ConfirmedPurchase(
+            expired_date="2026-10-18",
+            loyalty=outcome,
+        ),
+        gift=GiftCertificate(
+            code="KEY-DUPL-0001",
+            loyalty=outcome,
+        ),
+    )
+    payload = "payment_stars" if purchase_kind == "subscription" else "gift_certificate_stars"
+    messages = []
+
+    for _ in range(2):
+        message = FakeMessage(user_id=42)
+        message.successful_payment = SimpleNamespace(
+            currency="XTR",
+            invoice_payload=payload,
+            telegram_payment_charge_id="same_post_launch_charge",
+            provider_payment_charge_id="unused",
+        )
+        await process_successful_payment(message, make_deps(payments=payments))
+        messages.append(message.answers[0][0])
+
+    assert messages[0] == messages[1]
+    assert "Начислено: <b>15 🍏</b>" in messages[1]
+    assert "Баланс: <b>52 🍏</b>" in messages[1]
+    assert "🎉 Новый уровень" not in messages[1]
+
+
 async def test_successful_gift_payment_returns_code_to_forward():
-    payments = FakePayments(gift=GiftCertificate(code="KEY-ABCD-1234"))
+    payments = FakePayments(
+        gift=GiftCertificate(
+            code="KEY-ABCD-1234",
+            loyalty=apple_loyalty(),
+        )
+    )
     message = FakeMessage(user_id=42)
     message.successful_payment = SimpleNamespace(
         currency="RUB",

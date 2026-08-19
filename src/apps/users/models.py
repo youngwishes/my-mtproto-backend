@@ -6,6 +6,7 @@ from django.conf import settings
 
 
 class SystemUser(AbstractUser):
+    apple_balance = models.PositiveIntegerField("баланс яблок", default=0)
     first_month_free_used = models.BooleanField(
         "бесплатный месяц использован", default=False
     )
@@ -38,3 +39,13 @@ class SystemUser(AbstractUser):
 
     def __str__(self) -> str:
         return self.telegram_username or "-"
+
+    class Meta:
+        verbose_name = "user"
+        verbose_name_plural = "users"
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(apple_balance__gte=0),
+                name="system_user_apple_balance_non_negative",
+            ),
+        ]

@@ -1,12 +1,22 @@
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from unittest import mock
 
 from django.test import TestCase
 from django.utils import timezone
 
 from apps.notifications.services import get_notify_before_removing_daily_service
+from apps.payments.enums import AppleRedemptionModeEnum
+from apps.payments.services import (
+    ConfirmAppleRedemptionService,
+    PreviewAppleRedemptionService,
+    get_extend_key_service,
+)
+from apps.payments.services.dtos import (
+    AppleRedemptionConfirmIn,
+    AppleRedemptionPreviewIn,
+)
 from apps.users.tests.factories import SystemUserFactory
 from apps.vds.tests.factories import MTPRotoKeyFactory, VDSInstanceFactory
 
@@ -44,6 +54,101 @@ class TestNotifyBeforeRemovingDailyService(TestCase):
             text=mock_rendered.text,
             markup=mock_rendered.markup,
         )
+
+    @mock.patch(f"{_SERVICE_MODULE}.time")
+    @mock.patch(f"{_SERVICE_MODULE}.get_template")
+    @mock.patch(f"{_SERVICE_MODULE}.send_telegram_message")
+    def test_conditional_mark_succeeds_when_expiry_is_unchanged(
+        self,
+        mock_send,
+        mock_get_template,
+        _time,
+    ) -> None:
+        now = datetime(2026, 8, 19, 12, 0, tzinfo=UTC)
+        selected_expiry = now + timedelta(days=1)
+        self.key.expired_date = selected_expiry
+        self.key.user_notified = False
+        self.key.save(update_fields=["expired_date", "user_notified"])
+
+        with mock.patch(f"{_SERVICE_MODULE}.timezone.now", return_value=now):
+            get_notify_before_removing_daily_service()()
+
+        self.key.refresh_from_db()
+        mock_send.assert_called_once()
+        self.assertEqual(self.key.expired_date, selected_expiry)
+        self.assertTrue(self.key.user_notified)
+
+    @mock.patch(f"{_SERVICE_MODULE}.time")
+    @mock.patch(f"{_SERVICE_MODULE}.get_template")
+    @mock.patch(f"{_SERVICE_MODULE}.send_telegram_message")
+    def test_stale_mark_is_noop_after_paid_extension_during_send(
+        self,
+        mock_send,
+        mock_get_template,
+        _time,
+    ) -> None:
+        now = datetime(2026, 8, 19, 12, 0, tzinfo=UTC)
+        selected_expiry = now + timedelta(days=1)
+        self.key.expired_date = selected_expiry
+        self.key.user_notified = False
+        self.key.save(update_fields=["expired_date", "user_notified"])
+        mock_send.side_effect = lambda **_kwargs: get_extend_key_service()(
+            key=self.key,
+            reset_user_notified=True,
+        )
+
+        with mock.patch(f"{_SERVICE_MODULE}.timezone.now", return_value=now):
+            get_notify_before_removing_daily_service()()
+
+        expected_expiry = selected_expiry + timedelta(days=30)
+        self.key.refresh_from_db()
+        mock_send.assert_called_once()
+        self.assertEqual(self.key.expired_date, expected_expiry)
+        self.assertFalse(self.key.user_notified)
+
+    @mock.patch(f"{_SERVICE_MODULE}.time")
+    @mock.patch(f"{_SERVICE_MODULE}.get_template")
+    @mock.patch(f"{_SERVICE_MODULE}.send_telegram_message")
+    def test_stale_mark_is_noop_after_apple_redemption_during_send(
+        self,
+        mock_send,
+        mock_get_template,
+        _time,
+    ) -> None:
+        now = datetime(2026, 8, 19, 12, 0, tzinfo=UTC)
+        selected_expiry = now + timedelta(days=1)
+        self.user.apple_balance = 15
+        self.user.save(update_fields=["apple_balance"])
+        self.key.expired_date = selected_expiry
+        self.key.user_notified = False
+        self.key.save(update_fields=["expired_date", "user_notified"])
+        preview = PreviewAppleRedemptionService(clock=lambda: now)(
+            request=AppleRedemptionPreviewIn(
+                username=self.user.username,
+                mode=AppleRedemptionModeEnum.ONE_DAY,
+            )
+        )
+        confirm = ConfirmAppleRedemptionService(
+            clock=lambda: now,
+            enqueue_push=mock.Mock(),
+        )
+        mock_send.side_effect = lambda **_kwargs: confirm(
+            request=AppleRedemptionConfirmIn(
+                username=self.user.username,
+                confirmation_id=preview.confirmation_id,
+            )
+        )
+
+        with mock.patch(f"{_SERVICE_MODULE}.timezone.now", return_value=now):
+            get_notify_before_removing_daily_service()()
+
+        expected_expiry = selected_expiry + timedelta(days=1)
+        self.key.refresh_from_db()
+        self.user.refresh_from_db()
+        mock_send.assert_called_once()
+        self.assertEqual(self.key.expired_date, expected_expiry)
+        self.assertEqual(self.user.apple_balance, 0)
+        self.assertFalse(self.key.user_notified)
 
     @mock.patch(f"{_SERVICE_MODULE}.time")
     @mock.patch(f"{_SERVICE_MODULE}.get_template")

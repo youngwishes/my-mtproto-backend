@@ -7,6 +7,7 @@ from rest_framework.views import APIView
 
 from apps.payments.api.v1.serializers import (
     ActivateGiftCertificateSerializer,
+    CreateGiftCertificateResponseSerializer,
     CreateGiftCertificateSerializer,
 )
 from apps.payments.services import (
@@ -16,6 +17,7 @@ from apps.payments.services import (
 from apps.payments.services.dtos import (
     ActivateGiftCertificateIn,
     CreateGiftCertificateIn,
+    HistoricalPurchaseReplayDTO,
 )
 from apps.users.permissions import BotAuthToken
 
@@ -32,7 +34,10 @@ class CreateGiftCertificateView(APIView):
             certificate=CreateGiftCertificateIn(**serializer.validated_data),
         )
 
-        return Response(data={"code": result.code}, status=status.HTTP_200_OK)
+        if isinstance(result, HistoricalPurchaseReplayDTO):
+            return Response(data=result.asdict(), status=status.HTTP_200_OK)
+        outgoing = CreateGiftCertificateResponseSerializer(instance=result)
+        return Response(data=outgoing.data, status=status.HTTP_200_OK)
 
 
 class ActivateGiftCertificateView(APIView):

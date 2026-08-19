@@ -2,13 +2,15 @@ from __future__ import annotations
 
 from html import escape
 import logging
+from typing import TYPE_CHECKING
 
 from celery import shared_task
 from django.conf import settings
 from django.utils import timezone
 
 from apps.core.telegram.transport import send_telegram_message
-from apps.notifications.services import SendNotificationService
+from apps.notifications.selectors import get_template
+from apps.payments.apple_cashback import get_apple_level
 from apps.payments.enums import PaymentKindEnum
 from apps.payments.exceptions import CryptoPayClientError
 from apps.payments.selectors import (
@@ -18,10 +20,91 @@ from apps.payments.selectors import (
     mark_platega_notification_sent,
 )
 from apps.payments.services import get_reconcile_crypto_payments_service
-from apps.vds.selectors import get_active_key
 
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from apps.payments.models import (
+        AppleCashbackPurchase,
+        CryptoPaymentIntent,
+        PlategaPaymentIntent,
+    )
+
+
+def _render_apple_cashback_block(*, purchase: AppleCashbackPurchase) -> str:
+    assert purchase.rate_percent is not None
+    resulting_level = get_apple_level(
+        eligible_purchase_count=purchase.eligible_purchase_count_after,
+    )
+    previous_level = get_apple_level(
+        eligible_purchase_count=purchase.eligible_purchase_count_after - 1,
+    )
+    lines = [
+        "",
+        "",
+        "🍏 <b>Кэшбэк</b>",
+        f"Начислено: <b>{purchase.apples_earned} 🍏</b>",
+        f"Ставка: <b>{purchase.rate_percent}%</b>",
+        f"Баланс: <b>{purchase.balance_after} 🍏</b>",
+        f"Уровень: <b>{resulting_level.name}</b>",
+    ]
+    if resulting_level.name != previous_level.name:
+        lines.extend(
+            (
+                "",
+                f"🎉 Новый уровень: <b>{resulting_level.name}</b>",
+                "Кэшбэк следующей покупки: "
+                f"<b>{resulting_level.rate_percent}%</b>",
+            )
+        )
+    return "\n".join(lines)
+
+
+def _send_purchase_result(
+    *,
+    intent: CryptoPaymentIntent | PlategaPaymentIntent,
+) -> bool:
+    loyalty_block = ""
+    if intent.purchase_kind == PaymentKindEnum.SUBSCRIPTION:
+        purchase = intent.payment.apple_cashback_purchase
+        if purchase.rate_percent is None:
+            return False
+        if purchase.result_expired_at is None:
+            raise RuntimeError("subscription_result_missing")
+        slug = "proxy_purchased"
+        context = {
+            "expired_date": purchase.result_expired_at.date().strftime("%d.%m.%y")
+        }
+        loyalty_block = _render_apple_cashback_block(purchase=purchase)
+    elif intent.purchase_kind == PaymentKindEnum.VPN_SUBSCRIPTION:
+        subscription = intent.payment.user.vpn_subscription
+        slug = "crypto_vpn_purchased"
+        context = {
+            "expired_at": subscription.expired_at.strftime(
+                "%d.%m.%Y %H:%M UTC"
+            ),
+            "subscription_url": (
+                f"{settings.VPN_SUBSCRIPTION_BASE_URL.rstrip('/')}"
+                "/api/v1/vpn/subscriptions/"
+                f"{subscription.token}/"
+            ),
+        }
+    else:
+        purchase = intent.payment.apple_cashback_purchase
+        if purchase.rate_percent is None:
+            return False
+        slug = "crypto_gift_certificate_purchased"
+        context = {"code": intent.payment.gift_certificate.code}
+        loyalty_block = _render_apple_cashback_block(purchase=purchase)
+
+    message = get_template(slug=slug).render(context=context)
+    send_telegram_message(
+        chat_id=int(intent.initiator.username),
+        text=f"{message.text}{loyalty_block}",
+        markup=message.markup,
+    )
+    return True
 
 
 @shared_task(
@@ -46,34 +129,12 @@ def notify_crypto_purchase_task(self, intent_id: int) -> None:
         return
 
     try:
-        if intent.purchase_kind == PaymentKindEnum.SUBSCRIPTION:
-            key = get_active_key(user=intent.initiator)
-            slug = "proxy_purchased"
-            context = {
-                "expired_date": key.expired_date.date().strftime("%d.%m.%y")
-            }
-        elif intent.purchase_kind == PaymentKindEnum.VPN_SUBSCRIPTION:
-            subscription = intent.payment.user.vpn_subscription
-            slug = "crypto_vpn_purchased"
-            context = {
-                "expired_at": subscription.expired_at.strftime(
-                    "%d.%m.%Y %H:%M UTC"
-                ),
-                "subscription_url": (
-                    f"{settings.VPN_SUBSCRIPTION_BASE_URL.rstrip('/')}"
-                    "/api/v1/vpn/subscriptions/"
-                    f"{subscription.token}/"
-                ),
-            }
-        else:
-            slug = "crypto_gift_certificate_purchased"
-            context = {"code": intent.payment.gift_certificate.code}
-
-        SendNotificationService(slug=slug, context=context)(
-            chat_id=int(intent.initiator.username),
-        )
+        delivered = _send_purchase_result(intent=intent)
     except Exception as exc:
         raise self.retry(exc=exc, countdown=30)
+
+    if not delivered:
+        return
 
     mark_crypto_notification_sent(
         intent_id=intent.pk,
@@ -89,33 +150,9 @@ def notify_platega_purchase_task(self, intent_id: int) -> None:
         return
 
     delivery_failed = False
+    delivered = False
     try:
-        if intent.purchase_kind == PaymentKindEnum.SUBSCRIPTION:
-            key = get_active_key(user=intent.initiator)
-            slug = "proxy_purchased"
-            context = {
-                "expired_date": key.expired_date.date().strftime("%d.%m.%y")
-            }
-        elif intent.purchase_kind == PaymentKindEnum.VPN_SUBSCRIPTION:
-            subscription = intent.payment.user.vpn_subscription
-            slug = "crypto_vpn_purchased"
-            context = {
-                "expired_at": subscription.expired_at.strftime(
-                    "%d.%m.%Y %H:%M UTC"
-                ),
-                "subscription_url": (
-                    f"{settings.VPN_SUBSCRIPTION_BASE_URL.rstrip('/')}"
-                    "/api/v1/vpn/subscriptions/"
-                    f"{subscription.token}/"
-                ),
-            }
-        else:
-            slug = "crypto_gift_certificate_purchased"
-            context = {"code": intent.payment.gift_certificate.code}
-
-        SendNotificationService(slug=slug, context=context)(
-            chat_id=int(intent.initiator.username),
-        )
+        delivered = _send_purchase_result(intent=intent)
     except Exception:
         delivery_failed = True
 
@@ -124,6 +161,9 @@ def notify_platega_purchase_task(self, intent_id: int) -> None:
             exc=RuntimeError("platega_notification_delivery_failed"),
             countdown=30,
         ) from None
+
+    if not delivered:
+        return
 
     mark_platega_notification_sent(
         intent_id=intent.pk,

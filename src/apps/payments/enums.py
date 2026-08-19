@@ -52,6 +52,11 @@ class PaymentKindEnum(enum.StrEnum):
         ]
 
 
+class AppleRedemptionModeEnum(enum.StrEnum):
+    ONE_DAY = "one_day"
+    ALL = "all"
+
+
 class CryptoPaymentIntentStatusEnum(enum.StrEnum):
     CREATING = "creating"
     ACTIVE = "active"

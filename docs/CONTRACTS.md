@@ -230,6 +230,128 @@ referrer.
 упорядоченную подпоследовательность активных приоритетных способов
 `priority_payment_methods` и точную decimal-строку `rub_amount`.
 
+Все три apple endpoint ниже принимают только перечисленные поля, защищены
+`Bot-Auth-Token` и при отсутствующем или неверном токене возвращают `403`.
+Клиент не может передать цену, ставку, баланс, дни, срок или ID ключа.
+
+### POST /api/v1/payments/apples/status/
+
+Возвращает вычисленный backend loyalty-статус и готовность к обмену.
+
+**Запрос:**
+
+```json
+{
+  "username": "1487189460"
+}
+```
+
+**Ответ:** `200 OK`
+
+```json
+{
+  "balance": 37,
+  "eligible_purchase_count": 4,
+  "level": "Садовник",
+  "rate_percent": 10,
+  "next_level_purchase_count": 7,
+  "purchases_to_next_level": 3,
+  "is_max_level": false,
+  "redeemable_days": 2,
+  "missing_apples": 0,
+  "has_existing_key": true
+}
+```
+
+Для `Мастер сада` оба next-level поля равны `null`, а `is_max_level=true`.
+`redeemable_days` — число полных пакетов по 15; `missing_apples` — сколько не
+хватает до первого пакета, либо `0`. Ни token, key ID, proxy link, ни URL не
+возвращаются.
+
+### POST /api/v1/payments/apples/redemptions/preview/
+
+Создаёт неизменяемый, не списывающий яблоки предпросмотр. `mode` принимает
+только `one_day` или `all`.
+
+**Запрос:**
+
+```json
+{
+  "username": "1487189460",
+  "mode": "all"
+}
+```
+
+**Ответ:** `200 OK`
+
+```json
+{
+  "confirmation_id": 42,
+  "mode": "all",
+  "apples_spent": 30,
+  "days": 2,
+  "projected_expired_date": "21.08.26"
+}
+```
+
+`one_day` всегда фиксирует 15 яблок и один день; `all` фиксирует наибольший
+кратный 15 spend из текущего баланса и сохраняет остаток. Backend выбирает
+собственный существующий active или expired MTProxy-ключ и рассчитывает дату
+от `max(expired_date, preview_at)`. Preview не резервирует баланс и не меняет
+ключ.
+
+### POST /api/v1/payments/apples/redemptions/confirm/
+
+Подтверждает только сохранённый owner-scoped предпросмотр; bot не повторяет
+поля quote.
+
+**Запрос:**
+
+```json
+{
+  "username": "1487189460",
+  "confirmation_id": 42
+}
+```
+
+**Ответ:** `200 OK`
+
+```json
+{
+  "apples_spent": 30,
+  "days": 2,
+  "expired_date": "21.08.26",
+  "balance": 7
+}
+```
+
+Confirm сохраняет quoted `apples_spent` и `days`: новый credit после preview
+может увеличить баланс, но не размер обмена. Изменение expiry того же выбранного
+ключа также допустимо; committed дата заново вычисляется как
+`max(current_same_key_expiry, confirmation_at)+days` и поэтому может отличаться
+от `projected_expired_date` в preview. Операция атомарно списывает ровно quoted
+яблоки и продлевает этот же ключ. Повтор подтверждённого ID возвращает
+идентичный сохранённый `200` без нового списания или продления.
+
+Quote становится stale только если текущий selector выбирает другой ключ,
+выбранный ключ удалён/недоступен или balance стал ниже quoted spend; такой
+`400` не меняет баланс или срок и требует нового preview. Чужой, неизвестный
+или некорректный confirmation ID является invalid confirmation и также даёт
+`400` без mutation, но не классифицируется как stale.
+
+Ошибки exact-input validation, отсутствующий пользователь, invalid mode/ID,
+баланс меньше 15 (`InsufficientApples`, `detail.missing_apples`), отсутствие
+ключа (`AppleKeyRequired`) и stale quote (`StaleAppleRedemption`) используют
+стандартный user-safe `400` формат `{"error": "…", "detail": {…}}`.
+Временная DB/storage ошибка на любом из трёх маршрутов возвращает `503`:
+
+```json
+{
+  "error": "Не удалось завершить обмен яблок. Попробуйте ещё раз.",
+  "detail": {}
+}
+```
+
 ### POST /api/v1/payments/crypto/invoices/
 
 Защищён `Bot-Auth-Token`. Принимает `username` (Telegram ID) и `purchase_kind`
@@ -533,9 +655,47 @@ Stars. Все прежние product-поля сохраняют свой JSON-�
 |------|-----|----------|
 | `username` | string | Telegram ID |
 | `charge_id` | string | Идентификатор платежа от провайдера |
-| `provider` | string | `"yukassa"` или `"stars"` |
+| `provider` | string | `"yukassa"`, `"stars"`, `"crypto_pay"` или `"platega"` |
 
-**Ответ:** `200 OK` (без тела)
+`provider` принимает значения общего `PaymentProviderEnum`: `yukassa`, `stars`,
+`crypto_pay` или `platega`; штатные sync-вызовы бота используют первые два, а
+Crypto/Platega fulfilment вызывает ту же доменную границу из сохранённого
+intent. `charge_id` не может быть пустым; дополнительные клиентские поля,
+включая цену и ставку, отклоняются.
+
+**Ответ новой покупки или post-launch duplicate:** `200 OK`
+
+```json
+{
+  "expired_date": "18.09.26",
+  "loyalty": {
+    "apples_earned": 5,
+    "rate_percent": 5,
+    "balance": 20,
+    "eligible_purchase_count": 4,
+    "level": "Садовник",
+    "level_up": true,
+    "next_purchase_rate_percent": 10
+  }
+}
+```
+
+Ставка берётся по count до оплаты; `loyalty` и `expired_date` сохраняются как
+результат identity, поэтому повтор не продлевает ключ и не начисляет яблоки
+повторно. Sync success-message отправляет только bot handler.
+
+Identity подходящей оплаты, которая уже существовала при launch backfill,
+возвращает единственный успешный tag:
+
+```json
+{
+  "kind": "historical_replay"
+}
+```
+
+Это ровно одно поле: `expired_date` и `loyalty` отсутствуют. Replay не создаёт
+ключ, Payment или новую purchase-строку, не меняет count/balance и не вызывает
+sync success-message.
 
 ### POST /api/v1/payments/gift-certificates/buy/
 
@@ -557,15 +717,36 @@ Stars. Все прежние product-поля сохраняют свой JSON-�
 |------|-----|----------|
 | `username` | string | Telegram ID покупателя |
 | `charge_id` | string | Идентификатор платежа от провайдера |
-| `provider` | string | `"yukassa"` или `"stars"` |
+| `provider` | string | `"yukassa"`, `"stars"`, `"crypto_pay"` или `"platega"` |
 
 **Ответ:** `200 OK`
 
 ```json
 {
-  "code": "KEY-ABCD-1234"
+  "code": "KEY-ABCD-1234",
+  "loyalty": {
+    "apples_earned": 5,
+    "rate_percent": 5,
+    "balance": 5,
+    "eligible_purchase_count": 1,
+    "level": "Новичок",
+    "level_up": false,
+    "next_purchase_rate_percent": 5
+  }
 }
 ```
+
+Непустой `charge_id` и exact-input правила те же, что у subscription buy.
+Начисление, count и purchase принадлежат покупателю, не получателю сертификата;
+активация к loyalty не относится. Post-launch duplicate возвращает неизменные
+сохранённые `code` и `loyalty` без второго сертификата или начисления.
+
+Для pre-launch identity ответ — тот же единственный
+`{"kind":"historical_replay"}` без `code` и `loyalty`, product/payment/loyalty
+mutation и success-message. Для Crypto/Platega normal result доставляет одна
+post-commit provider notification task; она добавляет сохранённый loyalty-блок
+к прежнему expiry/code шаблону, а historical replay не ставится и не
+отправляется. Reconciliation не повторяет продуктовые или loyalty-эффекты.
 
 ### POST /api/v1/payments/gift-certificates/activate/
 

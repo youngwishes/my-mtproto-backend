@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+from .apple_views import (
+    AppleRedemptionConfirmView,
+    AppleRedemptionPreviewView,
+    AppleStatusView,
+)
 from .create_payment_view import CreatePaymentView
 from .crypto_pay_views import CreateCryptoInvoiceView, CryptoPayWebhookView
 from .get_product_view import ProductAPIView
@@ -11,6 +16,9 @@ from .platega_views import CreatePlategaInvoiceView, PlategaCallbackView
 
 __all__ = [
     "ActivateGiftCertificateView",
+    "AppleRedemptionConfirmView",
+    "AppleRedemptionPreviewView",
+    "AppleStatusView",
     "CreateCryptoInvoiceView",
     "CreateGiftCertificateView",
     "CreatePaymentView",

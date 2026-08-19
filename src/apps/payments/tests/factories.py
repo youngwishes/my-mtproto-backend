@@ -12,6 +12,8 @@ from apps.payments.enums import (
     ProductCodeEnum,
 )
 from apps.payments.models import (
+    AppleCashbackPurchase,
+    AppleRedemption,
     CryptoPaymentIntent,
     GiftCertificate,
     Payment,
@@ -42,6 +44,31 @@ class PaymentFactory(factory.django.DjangoModelFactory):
 
     class Meta:
         model = Payment
+
+
+class AppleCashbackPurchaseFactory(factory.django.DjangoModelFactory):
+    payment = factory.SubFactory(PaymentFactory)
+    identity_key = factory.Sequence(lambda n: f"stars:cashback-{n}:subscription")
+    rate_percent = 5
+    apples_earned = 5
+    balance_after = 5
+    eligible_purchase_count_after = 1
+    result_expired_at = None
+
+    class Meta:
+        model = AppleCashbackPurchase
+
+
+class AppleRedemptionFactory(factory.django.DjangoModelFactory):
+    user = factory.SubFactory("apps.users.tests.factories.SystemUserFactory")
+    key = factory.SubFactory("apps.vds.tests.factories.MTPRotoKeyFactory", user=factory.SelfAttribute("..user"))
+    apples_spent = 15
+    quoted_expired_at = factory.LazyFunction(timezone.now)
+    new_expired_at = None
+    balance_after = None
+
+    class Meta:
+        model = AppleRedemption
 
 
 class CryptoPaymentIntentFactory(factory.django.DjangoModelFactory):

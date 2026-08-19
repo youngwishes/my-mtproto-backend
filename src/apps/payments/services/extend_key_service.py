@@ -22,10 +22,19 @@ class ExtendKeyService:
     чтобы новый Payment стал единственным владельцем связи.
     """
 
-    def __call__(self, *, key: MTPRotoKey) -> None:
+    def __call__(
+        self,
+        *,
+        key: MTPRotoKey,
+        reset_user_notified: bool = False,
+    ) -> None:
         with transaction.atomic():
             key.expired_date += timedelta(days=settings.SUBSCRIPTION_PERIOD_DAYS)
-            key.save(update_fields=["expired_date"])
+            update_fields = ["expired_date"]
+            if reset_user_notified:
+                key.user_notified = False
+                update_fields.append("user_notified")
+            key.save(update_fields=update_fields)
             Payment.objects.filter(key=key).update(key=None)
 
 

@@ -5,7 +5,9 @@
 Обработка новых платежей через one-time Platega SBP, Telegram Stars и Crypto
 Pay, а также fulfilment ранее созданных не-XTR счетов. Фиксирует факт оплаты,
 определяет стратегию (продлить существующий ключ или выдать новый), создаёт
-подарочные сертификаты и уведомляет пользователя.
+подарочные сертификаты, начисляет apple cashback за подходящие MTProxy-покупки,
+обменивает яблоки на продление существующего ключа и координирует единственного
+владельца результата для каждого payment path.
 
 ## Ключевые модели
 
@@ -22,6 +24,13 @@ Pay, а также fulfilment ранее созданных не-XTR счето�
 - **Payment** — запись об оплате. Связывает пользователя, ключ, charge_id,
   провайдер и тип платежа: `SUBSCRIPTION`, `VPN_SUBSCRIPTION` или
   `GIFT_CERTIFICATE`; это покрывает соответственно MTProto, VPN и подарок.
+- **AppleCashbackPurchase** — one-to-one loyalty snapshot подходящего `Payment`
+  с unique `identity_key`, применённой ставкой, начислением, balance/count after
+  и nullable MTProxy expiry. Historical строки имеют nullable rate, нулевые
+  apples/balance и участвуют только в count/level.
+- **AppleRedemption** — owner/key-scoped сохранённый quote и подтверждённый
+  результат обмена: spend, показанный expiry, nullable committed expiry и
+  balance. Model PK является `confirmation_id`.
 - **GiftCertificate** — одноразовый код `KEY-XXXX-XXXX` на 30 дней подписки. Покупается отдельно от подписки, действует 1 год до активации, после активации хранит получателя и дату активации.
 - **CryptoPaymentIntent** — backend-owned lifecycle счёта Crypto Pay. Один
   активный или создаваемый intent доступен для пары инициатор/вид покупки;
@@ -68,12 +77,90 @@ fulfilment не меняются. Миграция
 Общий экран счёта Platega СБП для MTProxy, VPN и подарочного сертификата
 показывает `Срок действия счета: 15 минут` без технического ISO timestamp.
 
+## Apple cashback
+
+Правила фиксированы в коде. Completed eligible purchase count `0..3`, `4..6`,
+`7+` соответствует уровням `Новичок`, `Садовник`, `Мастер сада` и ставкам
+5%, 10%, 15%. Для текущей оплаты ставка выбирается до увеличения count, поэтому
+покупки 1–4 получают 5%, 5–7 — 10%, 8+ — 15%. `calculate_apples` умножает
+номинальную RUB-сумму на ставку и округляет целые яблоки через
+`ROUND_HALF_UP`; 1 RUB cashback = 1 яблоко. Sync MTProxy/gift берёт активный
+`Product(mtproto_30d).price`, Crypto — `CryptoPaymentIntent.rub_amount`,
+Platega — полный `PlategaPaymentIntent.rub_amount`, а не provider amount после
+комиссии.
+
+Подходящие `Payment.kind` — только `SUBSCRIPTION` и `GIFT_CERTIFICATE`;
+владельцем gift cashback остаётся `Payment.user`. VPN, free/referral grants,
+certificate activation и redemption count/balance не увеличивают. Additive
+backfill создаёт дедуплицированные historical `AppleCashbackPurchase` по
+`(created_at, pk)`, присваивает пустым charge ID `legacy:<payment.pk>` и
+оставляет `SystemUser.apple_balance=0`. Такой purchase распознаётся по
+`rate_percent IS NULL`: повтор возвращает только
+`{"kind":"historical_replay"}`, не выполняет product/payment/loyalty mutation
+и не ставит success notification. Post-launch duplicate возвращает сохранённый
+полный expiry/code + loyalty outcome.
+
+Subscription/gift fulfilment, purchase snapshot и update `apple_balance`
+составляют одну `transaction.atomic()` с user row lock; unique identity остаётся
+второй exactly-once границей. Sync Stars/Yukassa result отправляет только bot
+handler. Crypto/Platega notification task после commit читает связанный
+purchase snapshot, добавляет к прежнему шаблону начисление, ставку, баланс,
+уровень и level-up, сохраняет прежний markup и отмечает delivery только после
+успешного Telegram transport. Historical row отфильтровывается из enqueue/
+reconciliation и безопасно прекращает task до transport.
+
+`GetAppleStatusService` выводит balance/count/level/progress, полные пакеты и
+наличие ключа. `PreviewAppleRedemptionService` принимает `one_day|all`, выбирает
+сначала лучший active ключ пользователя, иначе лучший датированный existing
+key, и сохраняет quote `max(expired_date, preview_at)+days` без debit или key
+mutation. Курс `APPLES_PER_DAY=15`; `all` списывает только полные пакеты.
+`ConfirmAppleRedemptionService` по owner + `confirmation_id` блокирует quote,
+user и выбранный key, отклоняет stale key/balance без mutation, атомарно
+списывает apples, сохраняет `max(current_expiry, confirmation_at)+days` и
+`user_notified=False`. Повтор завершённого confirmation возвращает stored
+outcome без повторного сброса флага. Реактивация expired/cleaned key после commit
+ставит существующий `push_key_to_servers_task`; active-key extension не делает
+синхронных VDS-вызовов, а first-key issue не вызывается.
+
+Daily one-day notifier отмечает успешную отправку одним conditional update по
+ID ключа, точному выбранному `expired_date` и текущему
+`user_notified=False`. Поэтому платное продление или подтверждённый обмен яблок,
+которые во время отправки сохраняют новый срок и сбрасывают флаг, не
+перезаписываются устаревшей отметкой старого срока; при неизменном сроке отметка
+обычно устанавливается в `True`.
+
+Bot-facing POST routes `/api/v1/payments/apples/status/`,
+`/api/v1/payments/apples/redemptions/preview/` и
+`/api/v1/payments/apples/redemptions/confirm/` защищены `Bot-Auth-Token` и
+принимают только backend-authoritative identifiers/mode. Eligibility и
+validation дают `400`, storage retryable — `503`, повтор подтверждённого
+redemption — сохранённый `200`. Бот показывает `🍏 Мои яблоки`, всегда видимое
+`🍏 Потратить яблоки`, сохранённый `Продление до: <дата>` и committed balance;
+rate, spend и expiry он не вычисляет.
+
+После появления post-launch purchase/redemption state rollback приложения
+выполняется только roll-forward с сохранением аддитивного user field и обеих
+таблиц: старый SHA не должен принимать новые подходящие оплаты. Нет admin-
+настроек, clawback, expiry/transfer/cash яблок, отдельной очереди/cache/service,
+общего lock/retry framework или generic loyalty engine. Provider availability,
+VPN, referrals/free periods, certificate activation и fleet reconcile
+инварианты не меняются.
+
 ## Сервисы
 
-- **CreatePaymentService** — оркестратор платежа. Ищет пользователя, определяет стратегию (extend/issue), создаёт Payment, отправляет уведомление через SendNotificationService.
-- **ExtendKeyService** — продлевает срок действия существующего ключа на SUBSCRIPTION_PERIOD_DAYS.
-- **CreateGiftCertificateService** — фиксирует успешную оплату подарочного сертификата и создаёт одноразовый код без продления подписки покупателя. Повторная обработка того же платежа идемпотентно возвращает существующий код.
+- **CreatePaymentService** — атомарно оркестрирует MTProxy-платёж, стратегию
+  extend/issue, `Payment`, `AppleCashbackPurchase` и баланс; Telegram success
+  сам не отправляет и для повторной identity возвращает сохранённый результат.
+- **ExtendKeyService** — продлевает срок действия существующего ключа на
+  SUBSCRIPTION_PERIOD_DAYS и вместе с новой датой сохраняет
+  `user_notified=False`, возвращая ключ в цикл one-day reminder.
+- **CreateGiftCertificateService** — атомарно фиксирует оплату, создаёт
+  одноразовый код и buyer-owned cashback без продления подписки покупателя;
+  повторная обработка возвращает сохранённые code и loyalty.
 - **ActivateGiftCertificateService** — активирует валидный сертификат: продлевает активный ключ получателя на 30 дней или выдаёт новый ключ на 30 дней.
+- **GetAppleStatusService**, **PreviewAppleRedemptionService** и
+  **ConfirmAppleRedemptionService** — backend-authoritative status, immutable
+  quote и атомарный idempotent debit/extension существующего MTProxy-ключа.
 - **CreateOrReuseCryptoInvoiceService** — создаёт либо возвращает 30-минутный
   RUB-счёт для USDT/TON без PII в provider payload.
 - **CreateOrReusePlategaInvoiceService** — для `subscription` и
@@ -126,10 +213,11 @@ fulfilment не меняются. Миграция
 - **notify_platega_purchase_task** — bound Celery-задача с максимум тремя
   retry. Selector допускает только `fulfilled` intent с непустым
   `notification_queued_at` и пустым `notification_sent_at`, заранее загружая
-  initiator, Payment и связи сохранённого результата. MTProto получает текущую
-  дату окончания ключа через `proxy_purchased`, VPN — дату и постоянный
+  initiator, Payment и связи сохранённого результата. MTProto получает
+  сохранённую дату исходного результата через `proxy_purchased`, VPN — дату и постоянный
   subscription URL через `crypto_vpn_purchased`, подарок — сохранённый code
-  через `crypto_gift_certificate_purchased`. Sent marker ставится условно
+  через `crypto_gift_certificate_purchased`. Для MTProxy/gift добавляется
+  сохранённый loyalty-блок; historical row не доставляется. Sent marker ставится условно
   только после успешного Telegram transport; ошибка сохраняет unsent и
   повторяется с безопасным exception context. Все slugs уже существуют,
   поэтому notifications migration не добавляется.
@@ -160,8 +248,10 @@ payload или payment URL не логируются. Callback использу�
 
 ## Зависимости
 
-Зависит от: core (декораторы, исключения), users (поиск пользователя), vds
-(выдача/продление ключей), vpn (выдача подписки), notifications (уведомление об
-оплате), Crypto Pay HTTP API и Platega create API. От него зависят: бот (Stars,
-создание Crypto/Platega-счёта и активация сертификата). Provider credentials
-остаются только в Django/Celery environment.
+Зависит от: core (декораторы, исключения), users (`SystemUser`, поиск и
+блокировка пользователя, `apple_balance`), vds (выдача/продление/реактивация
+ключей и async push), vpn (выдача подписки), notifications (шаблоны результата
+оплаты), Crypto Pay HTTP API и Platega create API. От него зависят: бот (Stars,
+создание Crypto/Platega-счёта, apple status/redemption и активация
+сертификата). Provider credentials остаются только в Django/Celery environment;
+бот не получает key token, provider secret или авторитетные loyalty inputs.

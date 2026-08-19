@@ -32,7 +32,11 @@ from apps.payments.selectors import (
     mark_crypto_notification_sent,
     reserve_crypto_intent_or_read_winner,
 )
-from apps.payments.tests.factories import CryptoPaymentIntentFactory, PaymentFactory
+from apps.payments.tests.factories import (
+    AppleCashbackPurchaseFactory,
+    CryptoPaymentIntentFactory,
+    PaymentFactory,
+)
 from apps.users.tests.factories import SystemUserFactory
 from apps.vds.tests.factories import MTPRotoKeyFactory
 
@@ -85,9 +89,43 @@ class TestCryptoSelectors(TestCase):
             initiator=SystemUserFactory(),
             status=CryptoPaymentIntentStatusEnum.RETRYABLE,
         )
+        fulfilled_user = SystemUserFactory()
+        fulfilled_payment = PaymentFactory(
+            user=fulfilled_user,
+            provider=PaymentProviderEnum.CRYPTO_PAY,
+            kind=PaymentKindEnum.SUBSCRIPTION,
+        )
+        AppleCashbackPurchaseFactory(
+            payment=fulfilled_payment,
+            identity_key=(
+                f"crypto_pay:{fulfilled_payment.charge_id}:subscription"
+            ),
+        )
         fulfilled = CryptoPaymentIntentFactory(
-            initiator=SystemUserFactory(),
+            initiator=fulfilled_user,
             status=CryptoPaymentIntentStatusEnum.FULFILLED,
+            payment=fulfilled_payment,
+        )
+        historical_user = SystemUserFactory()
+        historical_payment = PaymentFactory(
+            user=historical_user,
+            provider=PaymentProviderEnum.CRYPTO_PAY,
+            kind=PaymentKindEnum.SUBSCRIPTION,
+        )
+        AppleCashbackPurchaseFactory(
+            payment=historical_payment,
+            identity_key=(
+                f"crypto_pay:{historical_payment.charge_id}:subscription"
+            ),
+            rate_percent=None,
+            apples_earned=0,
+            balance_after=0,
+            eligible_purchase_count_after=1,
+        )
+        CryptoPaymentIntentFactory(
+            initiator=historical_user,
+            status=CryptoPaymentIntentStatusEnum.FULFILLED,
+            payment=historical_payment,
         )
         CryptoPaymentIntentFactory(
             initiator=SystemUserFactory(),

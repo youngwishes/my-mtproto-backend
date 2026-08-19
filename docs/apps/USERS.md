@@ -7,7 +7,10 @@
 ## Ключевые модели
 
 - **SystemUser** — расширяет `AbstractUser`. Хранит флаги юридического согласия
-  и использования бесплатного периода, Telegram-username и данные о реферале.
+  и использования бесплатного периода, Telegram-username, данные о реферале и
+  non-negative `apple_balance` с default `0`. Уровень, ставка и completed
+  eligible purchase count в users не хранятся: их выводит `apps.payments` из
+  `AppleCashbackPurchase`.
 
 ## Сервисы
 
@@ -28,4 +31,7 @@
 ## Зависимости
 
 Зависит от: core (исключения, декораторы), vds (выдача ключей).
-От него зависят: payments (поиск пользователя по username).
+От него зависят: payments (поиск и row lock пользователя по username,
+атомарные credit/debit `apple_balance`). Поле баланса принадлежит модели
+пользователя, но все cashback/redemption правила, ledgers и API принадлежат
+`apps.payments`; users не начисляет яблоки за free/referral flows.

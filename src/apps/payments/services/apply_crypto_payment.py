@@ -26,6 +26,7 @@ from apps.payments.services.dtos import (
     ApplyCryptoPaymentOut,
     CreateGiftCertificateIn,
     CreatePaymentIn,
+    HistoricalPurchaseReplayDTO,
 )
 from apps.payments.services.gift_certificates import (
     get_create_gift_certificate_service,
@@ -88,14 +89,19 @@ class ApplyCryptoPaymentService:
                     )
 
                 charge_id = str(payment.invoice.invoice_id)
+                historical_replay = False
                 if intent.purchase_kind == PaymentKindEnum.SUBSCRIPTION:
-                    self.create_payment_service(
+                    result = self.create_payment_service(
                         payment=CreatePaymentIn(
                             username=intent.initiator.username,
                             charge_id=charge_id,
                             provider=PaymentProviderEnum.CRYPTO_PAY,
+                            nominal_rub_amount=intent.rub_amount,
                         ),
-                        send_success_notification=False,
+                    )
+                    historical_replay = isinstance(
+                        result,
+                        HistoricalPurchaseReplayDTO,
                     )
                 elif intent.purchase_kind == PaymentKindEnum.VPN_SUBSCRIPTION:
                     self.fulfill_vpn_purchase_service(
@@ -107,12 +113,17 @@ class ApplyCryptoPaymentService:
                         )
                     )
                 else:
-                    self.create_gift_certificate_service(
+                    result = self.create_gift_certificate_service(
                         certificate=CreateGiftCertificateIn(
                             username=intent.initiator.username,
                             charge_id=charge_id,
                             provider=PaymentProviderEnum.CRYPTO_PAY,
+                            nominal_rub_amount=intent.rub_amount,
                         )
+                    )
+                    historical_replay = isinstance(
+                        result,
+                        HistoricalPurchaseReplayDTO,
                     )
 
                 stored = get_payment_by_identity(
@@ -149,11 +160,12 @@ class ApplyCryptoPaymentService:
                         reason_code="finalize_conflict",
                     )
 
-                transaction.on_commit(
-                    lambda intent_id=intent.pk: self.enqueue_notification(
-                        intent_id=intent_id,
+                if not historical_replay:
+                    transaction.on_commit(
+                        lambda intent_id=intent.pk: self.enqueue_notification(
+                            intent_id=intent_id,
+                        )
                     )
-                )
                 return ApplyCryptoPaymentOut(
                     fulfilled=True,
                     already_fulfilled=False,

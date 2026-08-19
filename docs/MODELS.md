@@ -26,6 +26,7 @@
 | `invited_from_username` | str? | Telegram ID пригласившего |
 | `referral_activated` | bool | Активировал ли свой бесплатный период (для подсчёта рефералов пригласившего) |
 | `referral_link_activated_count` | SmallInt | Сколько раз забирал бесплатную реферальную ссылку |
+| `apple_balance` | PositiveInt | Текущий бессрочный баланс яблок, default `0`; DB constraint запрещает отрицательное значение |
 
 **Свойство:** `referral_link` — формирует ссылку `{BOT_LINK}/?start={username}`.
 
@@ -171,6 +172,52 @@ migration задаёт `platega_sbp` ставку `8.00`, не меняя сох
 Для `CRYPTO_PAY` partial constraint
 `(provider, charge_id, kind)` защищает идентичность провайдерской оплаты без
 изменения legacy строк.
+
+---
+
+## AppleCashbackPurchase (apps/payments)
+
+Неизменяемый loyalty-result одной подходящей MTProxy-подписки или покупки
+подарочного сертификата. Наследует `BaseDjangoModel`; число строк пользователя,
+включая launch history, является completed eligible purchase count. Уровень и
+ставка выводятся из count и отдельно не хранятся.
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `payment` | OneToOne → Payment | Успешный платёж и владелец результата; reverse name `apple_cashback_purchase` |
+| `identity_key` | str (unique) | Детерминированная identity `provider:charge_id:kind`; для пустого legacy charge — `legacy:<payment.pk>` |
+| `rate_percent` | PositiveSmallInt? | Применённая ставка; `NULL` отличает historical launch row |
+| `apples_earned` | PositiveInt | Начисленные яблоки; у historical row `0` |
+| `balance_after` | PositiveInt | Сохранённый баланс после покупки; у historical row `0` |
+| `eligible_purchase_count_after` | PositiveInt | Порядковый count пользователя после этой покупки |
+| `result_expired_at` | DateTimeField? | Сохранённый срок MTProxy результата; `NULL` у gift и historical row |
+
+Уникальные `payment` и `identity_key` образуют exactly-once границу. Normal
+post-launch row хранит данные для повторного полного API/Telegram результата.
+Historical row имеет `rate_percent=NULL`, `apples_earned=0`,
+`balance_after=0`, `result_expired_at=NULL`: она влияет только на count/level и
+не означает ретроактивное начисление.
+
+---
+
+## AppleRedemption (apps/payments)
+
+Сохранённый предпросмотр обмена и, после подтверждения, его идемпотентный
+результат. Наследует `BaseDjangoModel`; обычный PK используется как
+`confirmation_id`.
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| `user` | FK → SystemUser | Владелец quote и яблок |
+| `key` | FK → MTPRotoKey? | Выбранный собственный существующий ключ; `SET_NULL` делает удалённый quote stale |
+| `apples_spent` | PositiveInt | Зафиксированный spend, кратный курсу 15; days выводятся как `apples_spent // 15` |
+| `quoted_expired_at` | DateTimeField | Дата, показанная в предпросмотре |
+| `new_expired_at` | DateTimeField? | Зафиксированный срок после confirm; `NULL` означает pending |
+| `balance_after` | PositiveInt? | Зафиксированный остаток после confirm; `NULL` у pending |
+
+Preview не резервирует баланс и не меняет ключ. Подтверждение заполняет оба
+nullable outcome-поля в той же транзакции, что debit и key expiry; повторный
+confirm читает их и не применяет эффект второй раз.
 
 ---
 

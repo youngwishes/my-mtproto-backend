@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
+from decimal import Decimal
 from threading import Event
 from unittest import mock
 
@@ -15,13 +16,16 @@ from apps.payments.enums import (
     ProductCodeEnum,
 )
 from apps.payments.exceptions import CryptoPaymentRetryable
-from apps.payments.models import GiftCertificate, Payment
+from apps.payments.models import AppleCashbackPurchase, GiftCertificate, Payment
 from apps.payments.services import CreatePaymentService
 from apps.payments.services.apply_crypto_payment import ApplyCryptoPaymentService
 from apps.payments.services.extend_key_service import get_extend_key_service
 from apps.payments.services.gift_certificates import get_create_gift_certificate_service
 from apps.payments.tests.factories import (
+    AppleCashbackPurchaseFactory,
     CryptoPaymentIntentFactory,
+    GiftCertificateFactory,
+    PaymentFactory,
     make_crypto_invoice,
 )
 from apps.users.tests.factories import SystemUserFactory
@@ -44,14 +48,12 @@ class ApplyCryptoPaymentServiceMixin:
     now = datetime(2026, 8, 2, 12, 25, tzinfo=UTC)
 
     def build_service(self) -> ApplyCryptoPaymentService:
-        self.notify_success = mock.Mock()
         self.schedule_profiles = mock.Mock()
         self.enqueue_notification = mock.Mock()
         return ApplyCryptoPaymentService(
             create_payment_service=CreatePaymentService(
                 extend_key_service=get_extend_key_service(),
                 issue_key_service=get_issue_key_on_commit_service(),
-                notify_success=self.notify_success,
             ),
             fulfill_vpn_purchase_service=FulfillVPNPurchaseService(
                 schedule_profiles=self.schedule_profiles,
@@ -62,13 +64,21 @@ class ApplyCryptoPaymentServiceMixin:
             clock=lambda: self.now,
         )
 
-    def make_payment(self, *, intent_id: int, invoice_id: int, paid: bool = True):
+    def make_payment(
+        self,
+        *,
+        intent_id: int,
+        invoice_id: int,
+        paid: bool = True,
+        provider_amount: Decimal = Decimal("1.00"),
+    ):
         from apps.payments.services.dtos import ValidatedCryptoPaymentDTO
 
         return ValidatedCryptoPaymentDTO(
             intent_id=intent_id,
             invoice=make_crypto_invoice(
                 invoice_id=invoice_id,
+                amount=provider_amount,
                 payload="provider-payer-data-must-not-select-owner",
                 paid_at=self.now if paid else None,
             ),
@@ -99,6 +109,7 @@ class TestApplyCryptoPaymentService(ApplyCryptoPaymentServiceMixin, TestCase):
                     status=CryptoPaymentIntentStatusEnum.LOCAL_EXPIRED,
                     provider_invoice_id=730 + offset,
                     provider_expires_at=self.now,
+                    rub_amount=Decimal("99.00"),
                 )
                 validated = self.make_payment(
                     intent_id=intent.pk,
@@ -117,7 +128,6 @@ class TestApplyCryptoPaymentService(ApplyCryptoPaymentServiceMixin, TestCase):
                 self.assertEqual(stored.user, self.initiator)
                 if kind == PaymentKindEnum.SUBSCRIPTION:
                     self.assertEqual(MTPRotoKey.objects.get().user, self.initiator)
-                    self.notify_success.assert_not_called()
                 elif kind == PaymentKindEnum.VPN_SUBSCRIPTION:
                     self.assertEqual(
                         VPNSubscription.objects.get().user,
@@ -129,6 +139,11 @@ class TestApplyCryptoPaymentService(ApplyCryptoPaymentServiceMixin, TestCase):
                         self.initiator,
                     )
 
+                if kind != PaymentKindEnum.VPN_SUBSCRIPTION:
+                    purchase = AppleCashbackPurchase.objects.get(payment=stored)
+                    self.assertEqual(purchase.apples_earned, 5)
+                    self.assertEqual(purchase.rate_percent, 5)
+
                 duplicate = self.service(payment=validated)
                 self.assertTrue(duplicate.already_fulfilled)
                 self.assertEqual(
@@ -137,7 +152,75 @@ class TestApplyCryptoPaymentService(ApplyCryptoPaymentServiceMixin, TestCase):
                 )
 
         self.assertEqual(self.enqueue_notification.call_count, 3)
+        self.initiator.refresh_from_db()
+        self.assertEqual(self.initiator.apple_balance, 10)
+        self.assertEqual(AppleCashbackPurchase.objects.count(), 2)
         push_key.assert_called_once()
+
+    def test_historical_subscription_and_gift_replays_finalize_without_delivery(
+        self,
+    ) -> None:
+        cases = (
+            PaymentKindEnum.SUBSCRIPTION,
+            PaymentKindEnum.GIFT_CERTIFICATE,
+        )
+
+        for offset, kind in enumerate(cases, start=1):
+            with self.subTest(kind=kind):
+                user = SystemUserFactory(username=f"historical-crypto-{offset}")
+                invoice_id = 760 + offset
+                payment = PaymentFactory(
+                    user=user,
+                    provider=PaymentProviderEnum.CRYPTO_PAY,
+                    charge_id=str(invoice_id),
+                    kind=kind,
+                )
+                if kind == PaymentKindEnum.GIFT_CERTIFICATE:
+                    GiftCertificateFactory(buyer=user, payment=payment)
+                AppleCashbackPurchaseFactory(
+                    payment=payment,
+                    identity_key=f"crypto_pay:{invoice_id}:{kind}",
+                    rate_percent=None,
+                    apples_earned=0,
+                    balance_after=0,
+                    eligible_purchase_count_after=1,
+                    result_expired_at=None,
+                )
+                intent = CryptoPaymentIntentFactory(
+                    initiator=user,
+                    purchase_kind=kind,
+                    status=CryptoPaymentIntentStatusEnum.ACTIVE,
+                    provider_invoice_id=invoice_id,
+                    rub_amount=Decimal("99.00"),
+                )
+                validated = self.make_payment(
+                    intent_id=intent.pk,
+                    invoice_id=invoice_id,
+                )
+
+                with self.captureOnCommitCallbacks(execute=True) as callbacks:
+                    applied = self.service(payment=validated)
+                duplicate = self.service(payment=validated)
+
+                intent.refresh_from_db()
+                user.refresh_from_db()
+                self.assertTrue(applied.fulfilled)
+                self.assertTrue(duplicate.already_fulfilled)
+                self.assertEqual(intent.status, CryptoPaymentIntentStatusEnum.FULFILLED)
+                self.assertEqual(intent.payment, payment)
+                self.assertEqual(callbacks, [])
+                self.assertEqual(user.apple_balance, 0)
+                self.assertFalse(MTPRotoKey.objects.filter(user=user).exists())
+                self.assertEqual(
+                    Payment.objects.filter(user=user).count(),
+                    1,
+                )
+                self.assertEqual(
+                    AppleCashbackPurchase.objects.filter(payment__user=user).count(),
+                    1,
+                )
+
+        self.enqueue_notification.assert_not_called()
 
     def test_active_and_retryable_intents_are_claimed(self) -> None:
         for offset, status in enumerate(

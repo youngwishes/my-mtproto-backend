@@ -8,13 +8,13 @@ from django.conf import settings
 from django.test import TestCase
 from django.utils import timezone
 
-from apps.payments.enums import PaymentProviderEnum
+from apps.payments.enums import PaymentProviderEnum, ProductCodeEnum
 from apps.payments.exceptions import (
     GiftCertificateAlreadyActivated,
     GiftCertificateExpired,
     GiftCertificateNotFound,
 )
-from apps.payments.models import GiftCertificate, Payment
+from apps.payments.models import AppleCashbackPurchase, GiftCertificate, Payment
 from apps.payments.services import (
     get_activate_gift_certificate_service,
     get_create_gift_certificate_service,
@@ -23,7 +23,7 @@ from apps.payments.services.dtos import (
     ActivateGiftCertificateIn,
     CreateGiftCertificateIn,
 )
-from apps.payments.tests.factories import GiftCertificateFactory
+from apps.payments.tests.factories import GiftCertificateFactory, ProductFactory
 from apps.users.tests.factories import SystemUserFactory
 from apps.vds.models import MTPRotoKey
 from apps.vds.tests.factories import MTPRotoKeyFactory
@@ -32,6 +32,11 @@ from apps.vds.tests.factories import MTPRotoKeyFactory
 class TestCreateGiftCertificateService(TestCase):
     def setUp(self) -> None:
         self.buyer = SystemUserFactory(username="111111")
+        ProductFactory(
+            code=ProductCodeEnum.MTPROTO_30D,
+            price=9900,
+            currency="RUB",
+        )
         self.service = get_create_gift_certificate_service()
 
     def _make_certificate(
@@ -77,6 +82,8 @@ class TestCreateGiftCertificateService(TestCase):
         self.assertEqual(payment.provider, PaymentProviderEnum.YUKASSA)
         self.assertEqual(payment.kind, Payment.Kind.GIFT_CERTIFICATE)
         self.assertEqual(certificate.payment, payment)
+        self.assertEqual(result.loyalty.apples_earned, 5)
+        self.assertEqual(result.loyalty.balance, 5)
 
     def test_supports_stars_certificate_payment(self) -> None:
         self.service(certificate=self._make_certificate(
@@ -94,6 +101,7 @@ class TestCreateGiftCertificateService(TestCase):
         second = self.service(certificate=self._make_certificate(charge_id="same_charge"))
 
         self.assertEqual(second.code, first.code)
+        self.assertEqual(second.loyalty, first.loyalty)
         self.assertEqual(Payment.objects.count(), 1)
         self.assertEqual(GiftCertificate.objects.count(), 1)
 
@@ -147,6 +155,12 @@ class TestActivateGiftCertificateService(TestCase):
         self.assertEqual(result.expired_date, key.expired_date.date().strftime("%d.%m.%y"))
         self.assertFalse(self.recipient.first_month_free_used)
         self.assertFalse(self.recipient.referral_activated)
+        self.assertEqual(self.recipient.apple_balance, 0)
+        self.assertFalse(
+            AppleCashbackPurchase.objects.filter(
+                payment__user=self.recipient
+            ).exists()
+        )
         mock_push.assert_called_once_with(key_id=key.pk)
 
         certificate.refresh_from_db()
@@ -170,7 +184,11 @@ class TestActivateGiftCertificateService(TestCase):
 
     def test_extends_existing_active_key(self) -> None:
         original_expired = timezone.now() + timedelta(days=8)
-        key = MTPRotoKeyFactory(user=self.recipient, expired_date=original_expired)
+        key = MTPRotoKeyFactory(
+            user=self.recipient,
+            expired_date=original_expired,
+            user_notified=True,
+        )
         certificate = GiftCertificateFactory(code="KEY-TEST-1234")
 
         result = self.service(activation=self._activate())
@@ -181,6 +199,7 @@ class TestActivateGiftCertificateService(TestCase):
             original_expired + timedelta(days=settings.SUBSCRIPTION_PERIOD_DAYS),
             delta=timedelta(seconds=5),
         )
+        self.assertTrue(key.user_notified)
         self.assertEqual(result.expired_date, key.expired_date.date().strftime("%d.%m.%y"))
         certificate.refresh_from_db()
         self.assertEqual(certificate.activated_by, self.recipient)
