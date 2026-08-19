@@ -122,6 +122,13 @@ outcome без повторного сброса флага. Реактивац�
 ставит существующий `push_key_to_servers_task`; active-key extension не делает
 синхронных VDS-вызовов, а first-key issue не вызывается.
 
+Daily one-day notifier отмечает успешную отправку одним conditional update по
+ID ключа, точному выбранному `expired_date` и текущему
+`user_notified=False`. Поэтому платное продление или подтверждённый обмен яблок,
+которые во время отправки сохраняют новый срок и сбрасывают флаг, не
+перезаписываются устаревшей отметкой старого срока; при неизменном сроке отметка
+обычно устанавливается в `True`.
+
 Bot-facing POST routes `/api/v1/payments/apples/status/`,
 `/api/v1/payments/apples/redemptions/preview/` и
 `/api/v1/payments/apples/redemptions/confirm/` защищены `Bot-Auth-Token` и

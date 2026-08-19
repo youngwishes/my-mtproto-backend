@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from django.db.models import QuerySet
 
 from apps.notifications.enums import FilterType
 from apps.notifications.models import Mailing, NotificationTemplate
+from apps.vds.models import MTPRotoKey
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 
 def get_template(*, slug: str) -> NotificationTemplate:
@@ -14,6 +20,18 @@ def get_template(*, slug: str) -> NotificationTemplate:
 def get_mailing_by_id(*, mailing_id: int) -> Mailing:
     """Возвращает рассылку по ID с подгруженным шаблоном."""
     return Mailing.objects.select_related("template").get(id=mailing_id)
+
+
+def mark_key_notified_for_expiry(*, key_id: int, expired_date: datetime) -> bool:
+    """Отмечает уведомление, только пока выбранный срок ключа не изменился."""
+    return (
+        MTPRotoKey.objects.filter(
+            pk=key_id,
+            expired_date=expired_date,
+            user_notified=False,
+        ).update(user_notified=True)
+        == 1
+    )
 
 
 def get_users_by_filter(*, filter_type: int, params: dict) -> QuerySet:

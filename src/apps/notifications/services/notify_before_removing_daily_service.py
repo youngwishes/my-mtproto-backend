@@ -10,7 +10,7 @@ from django.utils import timezone
 from apps.core.exceptions import BaseServiceError
 from apps.core.telegram.error_logger import log_service_error
 from apps.core.telegram.transport import send_telegram_message
-from apps.notifications.selectors import get_template
+from apps.notifications.selectors import get_template, mark_key_notified_for_expiry
 from apps.vds.selectors import get_unnotified_keys_expiring_on_date
 
 
@@ -24,10 +24,14 @@ class NotifyBeforeRemovingDailyService:
         template = get_template(slug="before_expiry_1day")
         for key in queryset:
             try:
+                key_id = key.pk
+                selected_expired_date = key.expired_date
                 message = template.render()
                 send_telegram_message(chat_id=int(key.user.username), text=message.text, markup=message.markup)
-                key.user_notified = True
-                key.save(update_fields=["user_notified"])
+                mark_key_notified_for_expiry(
+                    key_id=key_id,
+                    expired_date=selected_expired_date,
+                )
                 time.sleep(0.5)
             except Exception as exc:
                 log_service_error(
