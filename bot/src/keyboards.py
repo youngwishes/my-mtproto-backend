@@ -198,12 +198,91 @@ def mtproxy_menu(boost_callback_data: str) -> InlineKeyboardMarkup:
             [_MY_SERVERS],
             [
                 InlineKeyboardButton(
+                    text="🍏 Мои яблоки",
+                    callback_data="apples_status",
+                )
+            ],
+            [
+                InlineKeyboardButton(
                     text="🎁 Подарить MTProxy",
                     callback_data="gift_certificate",
                 )
             ],
             [InlineKeyboardButton(text="❓ Вопросы о MTProxy", callback_data="info")],
             [_ROOT_BACK],
+        ]
+    )
+
+
+def apples_status() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🍏 Потратить яблоки",
+                    callback_data="apples_spend",
+                    style="success",
+                )
+            ],
+            [_MTPROXY_BACK],
+        ]
+    )
+
+
+def apples_spend() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="Обменять на 1 день — 15 🍏",
+                    callback_data="apples_redeem_one",
+                    style="success",
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="Обменять все яблоки",
+                    callback_data="apples_redeem_all",
+                )
+            ],
+            [InlineKeyboardButton(text="🔙 Назад", callback_data="apples_status")],
+        ]
+    )
+
+
+def apples_back_to_status() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🔙 Назад", callback_data="apples_status")]
+        ]
+    )
+
+
+def apples_redemption_confirmation(*, confirmation_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="✅ Подтвердить",
+                    callback_data=f"apples_confirm:{confirmation_id}",
+                    style="success",
+                )
+            ],
+            [InlineKeyboardButton(text="🔙 Назад", callback_data="apples_spend")],
+        ]
+    )
+
+
+def apples_redemption_done() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🍏 Мои яблоки",
+                    callback_data="apples_status",
+                )
+            ],
+            [_MTPROXY_BACK],
         ]
     )
 

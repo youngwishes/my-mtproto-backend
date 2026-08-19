@@ -14,16 +14,19 @@ from aiogram.types import (
 from src import keyboards
 from src.bot import bot
 from src.exceptions import APIError
+from src.domains.payments import HistoricalPurchaseReplay
 from src.messages import (
     CRYPTO_INVOICE_ERROR_TEXT,
     CRYPTO_INVOICE_TEXT,
     GIFT_CERTIFICATE_ACTIVATED_TEXT,
     GIFT_CERTIFICATE_PURCHASED_TEXT,
     GIFT_CERTIFICATE_TEXT,
+    MTPROXY_PURCHASED_TEXT,
     PAYMENT_METHODS_TEXT,
     PLATEGA_INVOICE_ERROR_TEXT,
     PLATEGA_INVOICE_TEXT,
     VPN_PURCHASED_TEXT,
+    render_apple_purchase_outcome,
 )
 
 if TYPE_CHECKING:
@@ -268,14 +271,24 @@ async def process_successful_payment(message: Message, deps: Dependencies):
                 charge_id=charge_id,
                 provider=provider,
             )
+            if isinstance(certificate, HistoricalPurchaseReplay):
+                return
             await message.answer(
                 GIFT_CERTIFICATE_PURCHASED_TEXT.format(code=certificate.code)
+                + render_apple_purchase_outcome(outcome=certificate.loyalty)
             )
             return
-        await deps.payments.confirm_purchase(
+        purchase = await deps.payments.confirm_purchase(
             telegram_id=message.from_user.id,
             charge_id=charge_id,
             provider=provider,
+        )
+        if isinstance(purchase, HistoricalPurchaseReplay):
+            return
+        await message.answer(
+            MTPROXY_PURCHASED_TEXT.format(expired_date=purchase.expired_date)
+            + render_apple_purchase_outcome(outcome=purchase.loyalty),
+            reply_markup=keyboards.key_generated(),
         )
     except Exception:
         purchase_item = (

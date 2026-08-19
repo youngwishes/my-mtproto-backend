@@ -1,10 +1,11 @@
 from aiogram import Router
 
-from src.handlers import free_trial, links, payments, referrals, start, vpn
+from src.handlers import apples, free_trial, links, payments, referrals, start, vpn
 
 router = Router()
 router.include_routers(
     start.router,
+    apples.router,
     free_trial.router,
     links.router,
     referrals.router,
