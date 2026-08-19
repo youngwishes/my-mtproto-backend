@@ -120,6 +120,19 @@ class TestCreatePaymentService(TestCase):
 
         mock_send.assert_not_called()
 
+    def test_paid_extension_resets_one_day_reminder(self) -> None:
+        existing_key = MTPRotoKeyFactory(
+            user=self.user,
+            expired_date=timezone.now() + timedelta(days=15),
+            user_notified=True,
+            was_deleted=False,
+        )
+
+        self.service(payment=self._make_payment(charge_id="charge-reminder"))
+
+        existing_key.refresh_from_db()
+        self.assertFalse(existing_key.user_notified)
+
     @mock.patch("apps.vds.tasks.push_key_to_servers_task.delay")
     @mock.patch("apps.notifications.services.send_notification_service.send_telegram_message")
     def test_creates_new_key_when_existing_key_is_expired(self, mock_send: mock.Mock, mock_push: mock.Mock) -> None:

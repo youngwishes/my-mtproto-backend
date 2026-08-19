@@ -147,7 +147,10 @@ class CreatePaymentService:
 
                 active_key = get_active_key(user=user)
                 if active_key:
-                    self.extend_key_service(key=active_key)
+                    self.extend_key_service(
+                        key=active_key,
+                        reset_user_notified=True,
+                    )
                     key = active_key
                 else:
                     key = self.issue_key_service(

@@ -46,7 +46,7 @@ class TestExtendKeyService(TestCase):
         )
         original_expired = key.expired_date
 
-        self.service(key=key)
+        self.service(key=key, reset_user_notified=True)
 
         key.refresh_from_db()
         self.assertAlmostEqual(
@@ -56,6 +56,23 @@ class TestExtendKeyService(TestCase):
         )
         self.assertFalse(key.user_notified)
         self.assertIn(
+            key,
+            get_unnotified_keys_expiring_on_date(date=key.expired_date.date()),
+        )
+
+    def test_default_extension_preserves_one_day_reminder(self) -> None:
+        key = MTPRotoKeyFactory(
+            user=self.user,
+            expired_date=timezone.now() + timedelta(days=10),
+            user_notified=True,
+            was_deleted=False,
+        )
+
+        self.service(key=key)
+
+        key.refresh_from_db()
+        self.assertTrue(key.user_notified)
+        self.assertNotIn(
             key,
             get_unnotified_keys_expiring_on_date(date=key.expired_date.date()),
         )

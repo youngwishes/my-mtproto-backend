@@ -184,7 +184,11 @@ class TestActivateGiftCertificateService(TestCase):
 
     def test_extends_existing_active_key(self) -> None:
         original_expired = timezone.now() + timedelta(days=8)
-        key = MTPRotoKeyFactory(user=self.recipient, expired_date=original_expired)
+        key = MTPRotoKeyFactory(
+            user=self.recipient,
+            expired_date=original_expired,
+            user_notified=True,
+        )
         certificate = GiftCertificateFactory(code="KEY-TEST-1234")
 
         result = self.service(activation=self._activate())
@@ -195,6 +199,7 @@ class TestActivateGiftCertificateService(TestCase):
             original_expired + timedelta(days=settings.SUBSCRIPTION_PERIOD_DAYS),
             delta=timedelta(seconds=5),
         )
+        self.assertTrue(key.user_notified)
         self.assertEqual(result.expired_date, key.expired_date.date().strftime("%d.%m.%y"))
         certificate.refresh_from_db()
         self.assertEqual(certificate.activated_by, self.recipient)
