@@ -2,20 +2,25 @@
 
 ## Зона ответственности
 
-Инфраструктурное ядро проекта. Предоставляет базовые модели, исключения, декораторы и транспортный слой для отправки сообщений в Telegram. Не содержит бизнес-логики.
+Общие Django-примитивы, базовые модели, исключения, декораторы и Telegram
+transport. Архитектурное место приложения описано в
+[ARCHITECTURE.md](../ARCHITECTURE.md), общие модели — в
+[MODELS.md](../MODELS.md).
 
-## Ключевые модули
+## Карта компонентов
 
-- **models.py** — `BaseDjangoModel` (is_active, created_at, updated_at)
-- **dtos.py** — `BaseServiceDTO` для передачи данных между слоями
-- **exceptions.py** — `BaseError`, `BaseServiceError`, `BaseInfraError` — базовые классы исключений для всех приложений
-- **decorators.py** — `@log_service_error`, `@log_infra_error` — обёртки для `__call__` сервисов, логирующие ошибки в Telegram
-- **protocols.py** — `IService` — протокол, описывающий контракт сервиса
-- **handle_error.py** — DRF exception handler, преобразующий `BaseServiceError` в HTTP-ответ
-- **telegram/transport.py** — `send_telegram_message()`, `is_channel_member()` — отправка сообщений через pyTelegramBotAPI с lazy-инициализацией бота
-- **telegram/error_logger.py** — форматирование и отправка ошибок администратору
+- models.py — BaseDjangoModel и active queryset.
+- decorators.py — общие инфраструктурные декораторы.
+- exceptions.py — базовые service/infra exceptions.
+- **dtos.py** — общие transport-neutral DTO.
+- telegram/transport.py — низкоуровневая отправка Telegram-сообщений.
 
 ## Зависимости
 
-Зависит от: Django, pyTelegramBotAPI.
-От него зависят: все остальные приложения (модели, исключения, декораторы, транспорт).
+Core не зависит от доменных приложений; остальные Django-приложения используют
+его базовые типы и transport.
+
+## Границы
+
+Core не содержит продуктовых правил, orchestration платежей, ключей или
+подписок. Доменные исключения и DTO остаются в приложении-владельце.

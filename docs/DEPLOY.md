@@ -19,18 +19,18 @@ ansible -i ansible/inventory/production.ini mtproto_keys -m ansible.builtin.ping
   --private-key ~/.ssh/id_ed25519_deploy
 ```
 
+До release разрешена только read-only диагностика production через хост из
+Ansible inventory: SHA, состояние сервисов, логи, health checks и свободное
+место. Не изменяй файлы, БД, контейнеры или конфигурацию и не выводи секреты.
+
 ## Новый релиз
 
-1. Выполни repository checks:
+1. Убедись, что для точного PR head зелёные repository gates из
+   [DEVELOPMENT_WORKFLOW.md](DEVELOPMENT_WORKFLOW.md#5-проверка), а локальный
+   checkout не содержит незапланированных изменений.
 
-   ```bash
-   git status --short
-   make test
-   docker compose -f docker-compose.yml config --quiet
-   ```
-
-2. Убедись, что изменения прошли workflow из `docs/DEVELOPMENT_WORKFLOW.md`, Pull
-   Request одобрен и merged в `main`. Прямой push релиза в `main` запрещён.
+2. Убедись, что Pull Request одобрен и merged в `main`. Прямой push релиза в
+   `main` запрещён.
    Получи SHA merge commit через GitHub CLI и сверь его с `origin/main`:
 
    ```bash
@@ -101,6 +101,13 @@ component-level rollback. Не удалять и не откатывать ре�
 `CryptoPaymentIntent` строки и не менять продукты. Merge и production deploy
 требуют отдельных явных разрешений.
 
+## Apple cashback: rollback
+
+До первого post-launch начисления или обмена допустим совместимый application и
+schema rollback. После появления loyalty state нужен roll-forward: аддитивные
+поля и ledger-строки сохраняются, а старый SHA нельзя возвращать в обработку
+новых подходящих оплат.
+
 ## Platega SBP: production-конфигурация и rollback
 
 Platega использует только Django/Celery backend `.env`:
@@ -150,3 +157,8 @@ rollout node-agent, transport, `VPNInstance` и товара `vpn_30d`.
 В текущем MVP `VPNInstance.management_url` указывает на публичный plaintext HTTP
 management proxy ноды. Host firewall отсутствует; bearer token и route allowlist
 остаются. Риск перехвата token/profile payload принят пользователем.
+
+Application rollback на предыдущий SHA не восстанавливает уже ротированные
+subscription token, VLESS UUID и Hysteria secret. После отката асинхронная
+доставка должна довести до нод актуальные credentials из БД; вручную возвращать
+старые credentials нельзя.

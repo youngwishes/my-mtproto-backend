@@ -2,36 +2,24 @@
 
 ## Зона ответственности
 
-Управление пользователями, бесплатными ключами и реферальной программой. Пользователь идентифицируется по Telegram ID, хранящемуся в поле `username` модели `SystemUser`.
+Telegram-пользователи, юридическое согласие, бесплатный период и реферальная
+программа. Пользовательские правила находятся в [BUSINESS.md](../BUSINESS.md),
+поля SystemUser — в [MODELS.md](../MODELS.md).
 
-## Ключевые модели
+## Карта компонентов
 
-- **SystemUser** — расширяет `AbstractUser`. Хранит флаги юридического согласия
-  и использования бесплатного периода, Telegram-username, данные о реферале и
-  non-negative `apple_balance` с default `0`. Уровень, ставка и completed
-  eligible purchase count в users не хранятся: их выводит `apps.payments` из
-  `AppleCashbackPurchase`.
-
-## Сервисы
-
-- **CheckFirstFreeLinkService** — проверяет доступность бесплатного периода и определяет его длительность (MONTH / TWO_WEEK / WEEK / NOT_AVAILABLE)
-- **GetLegalConsentStatusService** — read-only проверяет сохранённое согласие
-- **AcceptLegalConsentService** — создаёт пользователя только после согласия
-- **FirstFreeLinkService** — выдаёт бесплатный ключ новому пользователю
-- **ReferralCabinetService** — статистика реферальной программы
-- **GetFreeLinkViaReferralsService** — выдаёт бесплатный ключ за 5+ активных рефералов
-
-## Celery-задачи
-
-- **grant_daily_free_trials_task** — ежедневная выдача бесплатного периода не
-  более чем десяти пользователям в порядке регистрации
-- **send_invite_to_chat_task** — рассылка приглашений на Telegram-канал
-- **send_free_link_to_user_task** — отправка бесплатных ссылок пользователям
+- SystemUser — пользователь и принадлежащее ему mutable-состояние.
+- consent services — чтение и принятие юридического согласия.
+- free-link services — проверка и выдача бесплатного периода.
+- referral services — кабинет и выдача бонуса за рефералов.
+- tasks.py — ежедневная выдача и Telegram-доставка результатов.
 
 ## Зависимости
 
-Зависит от: core (исключения, декораторы), vds (выдача ключей).
-От него зависят: payments (поиск и row lock пользователя по username,
-атомарные credit/debit `apple_balance`). Поле баланса принадлежит модели
-пользователя, но все cashback/redemption правила, ledgers и API принадлежат
-`apps.payments`; users не начисляет яблоки за free/referral flows.
+Использует core и VDS issue boundary. Payments блокирует пользователя при
+атомарном изменении принадлежащего ему apple balance.
+
+## Границы
+
+Users хранит баланс, но не вычисляет cashback, уровень или redemption: эта
+логика принадлежит payments.

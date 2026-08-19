@@ -10,6 +10,19 @@ permissions:
   contents: read
 
 jobs:
+  docs-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Check documentation boundaries
+        run: make docs-check
+
   django-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 15

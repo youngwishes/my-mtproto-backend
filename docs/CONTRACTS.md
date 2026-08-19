@@ -566,6 +566,10 @@ secret, сохраняя `expired_at` и active-state. Успешный отве
 `profile-title: mtprotokeys.com`; новый заголовок не изменяет существующие
 subscription URL или Base64 payload.
 
+При каждом успешном refresh backend заново перемешивает блоки активных VPN-нод.
+Внутри блока одной ноды профили остаются соседними в порядке `VLESS`, затем
+`Hysteria2`; стабильный порядок нод для пользователя не гарантируется.
+
 ### POST /api/v1/vpn/payments/buy/
 
 Защищён `Bot-Auth-Token`. Фиксирует только VPN-платёж и принимает:
@@ -786,7 +790,14 @@ post-commit provider notification task; она добавляет сохранё
 
 | Действие | Метод | URL | Тело |
 |----------|-------|-----|------|
+| Проверить доступность VDS | GET | `{server.internal_url}` | — |
 | Доставить ключ (POST, на `409` → PATCH-ротация) | POST/PATCH | `{server.internal_url}/api/users` | `{username, secret}` |
+| Проверить ключ в integration harness | GET | `{server.internal_url}/api/users/{username}` | — |
 | Удалить | DELETE | `{server.internal_url}/api/users` | `{usernames: [...]}` |
 
-Таймаут: `VDS_REQUEST_TIMEOUT` секунд. При исчерпании ретраев сервер помечается `is_healthy=False`; восстановление и бэкфилл ключей — через health-check + `sync_keys_to_vds_task`.
+Health probe использует отдельный таймаут 5 секунд и считает VDS доступной при
+любом полученном HTTP-ответе; transport exception означает недоступность.
+Verification GET возвращает `200` с полем `link` либо `404`, если пользователя
+нет. Для остальных запросов таймаут равен `VDS_REQUEST_TIMEOUT`. При исчерпании
+ретраев сервер помечается `is_healthy=False`; восстановление и бэкфилл ключей —
+через health-check + `sync_keys_to_vds_task`.

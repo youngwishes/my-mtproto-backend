@@ -3,7 +3,8 @@
 Чёрнобоксовый e2e-слой: реальные domain-клиенты бота (`bot/src/domains/*`) →
 живой Django-бэкенд → Celery (`push_key_to_servers_task`) → выделенный тестовый
 VDS API. Проверяется не только HTTP-ответ, но и **фактическое состояние секрета
-на VDS** (через `GET /api/users/{username}`).
+на VDS** через verification-вызов из раздела
+[«Исходящие запросы к VDS»](../docs/CONTRACTS.md#исходящие-запросы-к-vds).
 
 > ⚠️ ТОЛЬКО против локального backend-стека с тестовой БД. В прод (~1500 живых
 > пользователей) — НЕЛЬЗЯ. Тестовые пользователи — синтетические telegram_id
@@ -15,7 +16,7 @@ VDS API. Проверяется не только HTTP-ответ, но и **ф�
   **тот же sqlite**, что и контейнеры: `<repo>/data/db.sqlite3`.
 - `arrange`/`assert` состояния бэкенда — через ORM (`db.py`).
 - `act` — через реальные async domain-клиенты бота (`helpers.make_clients()`).
-- `verify` на VDS — через `GET/DELETE /api/users` (`helpers.py`).
+- `verify` на VDS — через методы канонического VDS-контракта (`helpers.py`).
 
 ## Предусловия
 
@@ -37,7 +38,7 @@ VDS API. Проверяется не только HTTP-ответ, но и **ф�
 | env | дефолт | назначение |
 |---|---|---|
 | `INTEG_BACKEND_URL` | `http://localhost:8000` | живой Django |
-| `INTEG_VDS_VERIFY_URLS` | `http://31.77.148.123:8080` | VDS API для GET/DELETE из харнесса |
+| `INTEG_VDS_VERIFY_URLS` | `http://31.77.148.123:8080` | VDS API для verification из харнесса |
 | `INTEG_VDS_INTERNAL_IP` | `31.77.148.123` | как Celery видит тестовый VDS API |
 | `INTEG_VDS_PORT` | `8080` | порт VDS |
 | `INTEG_VDS_REQUEST_TIMEOUT` | `10` | timeout Django/Celery до удалённого VDS API |

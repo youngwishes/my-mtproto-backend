@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import subprocess
+import sys
 import tomllib
 from pathlib import Path
 
@@ -86,26 +87,42 @@ class TestCodexAgents(SimpleTestCase):
         self.assertEqual(config["agents"]["max_threads"], 6)
         self.assertEqual(config["agents"]["max_depth"], 1)
 
-    def test_repository_instructions_define_adaptive_agent_routing(self) -> None:
+    def test_repository_instructions_route_to_adaptive_delivery_workflow(self) -> None:
         instructions = (self.repo_root / "AGENTS.md").read_text(encoding="utf-8")
+        workflow = (self.repo_root / "docs" / "DEVELOPMENT_WORKFLOW.md").read_text(
+            encoding="utf-8"
+        )
 
-        self.assertIn("## Адаптивная продуктовая команда", instructions)
-        short_route = instructions.split("- небольшая локальная фича:", maxsplit=1)[1].split(
-            ";", maxsplit=1
-        )[0]
-        self.assertIn("plan-maker", short_route)
-        self.assertIn("не более двух пунктов плана", instructions)
-        self.assertIn("без незавершённых зависимостей", instructions)
-        self.assertIn("отдельный `code-reviewer`", instructions)
-        self.assertIn("новый экземпляр `code-reviewer`", instructions)
-        self.assertIn("финальное интеграционное ревью", instructions)
-        self.assertIn("runtime permissions", instructions)
-        self.assertIn("не запускает reviewer параллельно с write-сессиями", instructions)
-        self.assertIn("git status", instructions)
-        self.assertIn("Pull Request в `main`", instructions)
-        self.assertIn("Прямой push в `main`", instructions)
-        self.assertIn("gh pr review --comment", instructions)
-        self.assertIn("оставляет PR открытым", instructions)
+        self.assertIn(
+            "[DEVELOPMENT_WORKFLOW.md](docs/DEVELOPMENT_WORKFLOW.md)",
+            instructions,
+        )
+        self.assertNotIn("scope_revision", instructions)
+        self.assertIn("## 2. Маршрут задачи", workflow)
+        for role in (
+            "product-agent",
+            "product-architect",
+            "plan-maker",
+            "plan-implementer",
+            "code-reviewer",
+            "product-reviewer",
+        ):
+            with self.subTest(role=role):
+                self.assertIn(role, workflow)
+        self.assertIn("не более двух пунктов", workflow)
+        self.assertIn("незавершённых зависимостей", workflow)
+        self.assertIn("все write-сессии должны завершиться", workflow)
+        self.assertIn("gh pr review --comment", workflow)
+        self.assertIn("оставляет PR открытым", workflow)
+
+        result = subprocess.run(
+            (sys.executable, "scripts/check_docs_boundaries.py"),
+            cwd=self.repo_root,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_agent_working_artifacts_are_ignored_and_untracked(self) -> None:
         ignored_examples = (
