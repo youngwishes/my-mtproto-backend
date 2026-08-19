@@ -30,9 +30,11 @@ class ExtendKeyService:
     ) -> None:
         with transaction.atomic():
             key.expired_date += timedelta(days=settings.SUBSCRIPTION_PERIOD_DAYS)
+            update_fields = ["expired_date"]
             if reset_user_notified:
                 key.user_notified = False
-            key.save(update_fields=["expired_date", "user_notified"])
+                update_fields.append("user_notified")
+            key.save(update_fields=update_fields)
             Payment.objects.filter(key=key).update(key=None)
 
 

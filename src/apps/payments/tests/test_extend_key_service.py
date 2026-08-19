@@ -77,6 +77,26 @@ class TestExtendKeyService(TestCase):
             get_unnotified_keys_expiring_on_date(date=key.expired_date.date()),
         )
 
+    def test_default_extension_does_not_overwrite_newer_reminder(self) -> None:
+        key = MTPRotoKeyFactory(
+            user=self.user,
+            expired_date=timezone.now() + timedelta(days=10),
+            user_notified=False,
+            was_deleted=False,
+        )
+        original_expired = key.expired_date
+        key.__class__.objects.filter(pk=key.pk).update(user_notified=True)
+
+        self.service(key=key)
+
+        key.refresh_from_db()
+        self.assertAlmostEqual(
+            key.expired_date,
+            original_expired + timedelta(days=settings.SUBSCRIPTION_PERIOD_DAYS),
+            delta=timedelta(seconds=5),
+        )
+        self.assertTrue(key.user_notified)
+
     def test_detaches_old_payments_from_key(self) -> None:
         key = MTPRotoKeyFactory(
             user=self.user,
