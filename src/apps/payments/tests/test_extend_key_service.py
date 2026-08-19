@@ -10,6 +10,7 @@ from apps.payments.models import Payment
 from apps.payments.services.extend_key_service import get_extend_key_service
 from apps.payments.tests.factories import PaymentFactory
 from apps.users.tests.factories import SystemUserFactory
+from apps.vds.selectors import get_unnotified_keys_expiring_on_date
 from apps.vds.tests.factories import MTPRotoKeyFactory, VDSInstanceFactory
 
 
@@ -34,6 +35,29 @@ class TestExtendKeyService(TestCase):
             key.expired_date,
             original_expired + timedelta(days=settings.SUBSCRIPTION_PERIOD_DAYS),
             delta=timedelta(seconds=5),
+        )
+
+    def test_paid_extension_resets_one_day_reminder(self) -> None:
+        key = MTPRotoKeyFactory(
+            user=self.user,
+            expired_date=timezone.now() + timedelta(days=10),
+            user_notified=True,
+            was_deleted=False,
+        )
+        original_expired = key.expired_date
+
+        self.service(key=key)
+
+        key.refresh_from_db()
+        self.assertAlmostEqual(
+            key.expired_date,
+            original_expired + timedelta(days=settings.SUBSCRIPTION_PERIOD_DAYS),
+            delta=timedelta(seconds=5),
+        )
+        self.assertFalse(key.user_notified)
+        self.assertIn(
+            key,
+            get_unnotified_keys_expiring_on_date(date=key.expired_date.date()),
         )
 
     def test_detaches_old_payments_from_key(self) -> None:

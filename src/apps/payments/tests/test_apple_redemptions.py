@@ -358,6 +358,57 @@ class TestConfirmAppleRedemptionService(TestCase):
         self.assertEqual(redemption.balance_after, 22)
         enqueue_push.assert_not_called()
 
+    def test_confirmation_resets_reminder_once_and_repeat_preserves_later_true(
+        self,
+    ) -> None:
+        now = datetime(2026, 8, 19, 12, 0, tzinfo=UTC)
+        user = SystemUserFactory(username="confirm-reminder", apple_balance=15)
+        key = MTPRotoKeyFactory(
+            user=user,
+            expired_date=now - timedelta(days=7),
+            is_active=False,
+            was_deleted=True,
+            user_notified=True,
+        )
+        preview = PreviewAppleRedemptionService(clock=lambda: now)(
+            request=AppleRedemptionPreviewIn(
+                username=user.username,
+                mode=AppleRedemptionModeEnum.ONE_DAY,
+            )
+        )
+        enqueue_push = mock.Mock()
+        service = ConfirmAppleRedemptionService(
+            clock=lambda: now,
+            enqueue_push=enqueue_push,
+        )
+        request = AppleRedemptionConfirmIn(
+            username=user.username,
+            confirmation_id=preview.confirmation_id,
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            first = service(request=request)
+
+        key.refresh_from_db()
+        user.refresh_from_db()
+        first_expiry = key.expired_date
+        first_balance = user.apple_balance
+        self.assertEqual(first_expiry, now + timedelta(days=1))
+        self.assertFalse(key.user_notified)
+
+        key.user_notified = True
+        key.save(update_fields=["user_notified"])
+
+        second = service(request=request)
+
+        key.refresh_from_db()
+        user.refresh_from_db()
+        self.assertEqual(second, first)
+        self.assertEqual(key.expired_date, first_expiry)
+        self.assertEqual(user.apple_balance, first_balance)
+        self.assertTrue(key.user_notified)
+        enqueue_push.assert_called_once_with(key_id=key.pk)
+
     def test_reduced_balance_makes_quote_stale_without_mutation(self) -> None:
         now = datetime(2026, 8, 19, 12, 0, tzinfo=UTC)
         user = SystemUserFactory(username="confirm-stale-balance", apple_balance=37)

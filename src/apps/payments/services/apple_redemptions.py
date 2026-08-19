@@ -216,9 +216,17 @@ class ConfirmAppleRedemptionService:
                 user.apple_balance = balance_after
                 user.save(update_fields=["apple_balance"])
                 key.expired_date = new_expiry
+                key.user_notified = False
                 key.is_active = True
                 key.was_deleted = False
-                key.save(update_fields=["expired_date", "is_active", "was_deleted"])
+                key.save(
+                    update_fields=[
+                        "expired_date",
+                        "user_notified",
+                        "is_active",
+                        "was_deleted",
+                    ]
+                )
                 redemption.new_expired_at = new_expiry
                 redemption.balance_after = balance_after
                 redemption.save(update_fields=["new_expired_at", "balance_after"])

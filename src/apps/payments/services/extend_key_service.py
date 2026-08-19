@@ -25,7 +25,8 @@ class ExtendKeyService:
     def __call__(self, *, key: MTPRotoKey) -> None:
         with transaction.atomic():
             key.expired_date += timedelta(days=settings.SUBSCRIPTION_PERIOD_DAYS)
-            key.save(update_fields=["expired_date"])
+            key.user_notified = False
+            key.save(update_fields=["expired_date", "user_notified"])
             Payment.objects.filter(key=key).update(key=None)
 
 

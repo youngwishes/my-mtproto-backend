@@ -116,8 +116,9 @@ key, и сохраняет quote `max(expired_date, preview_at)+days` без deb
 mutation. Курс `APPLES_PER_DAY=15`; `all` списывает только полные пакеты.
 `ConfirmAppleRedemptionService` по owner + `confirmation_id` блокирует quote,
 user и выбранный key, отклоняет stale key/balance без mutation, атомарно
-списывает apples и сохраняет `max(current_expiry, confirmation_at)+days`.
-Повтор возвращает stored outcome. Реактивация expired/cleaned key после commit
+списывает apples, сохраняет `max(current_expiry, confirmation_at)+days` и
+`user_notified=False`. Повтор завершённого confirmation возвращает stored
+outcome без повторного сброса флага. Реактивация expired/cleaned key после commit
 ставит существующий `push_key_to_servers_task`; active-key extension не делает
 синхронных VDS-вызовов, а first-key issue не вызывается.
 
@@ -143,7 +144,9 @@ VPN, referrals/free periods, certificate activation и fleet reconcile
 - **CreatePaymentService** — атомарно оркестрирует MTProxy-платёж, стратегию
   extend/issue, `Payment`, `AppleCashbackPurchase` и баланс; Telegram success
   сам не отправляет и для повторной identity возвращает сохранённый результат.
-- **ExtendKeyService** — продлевает срок действия существующего ключа на SUBSCRIPTION_PERIOD_DAYS.
+- **ExtendKeyService** — продлевает срок действия существующего ключа на
+  SUBSCRIPTION_PERIOD_DAYS и вместе с новой датой сохраняет
+  `user_notified=False`, возвращая ключ в цикл one-day reminder.
 - **CreateGiftCertificateService** — атомарно фиксирует оплату, создаёт
   одноразовый код и buyer-owned cashback без продления подписки покупателя;
   повторная обработка возвращает сохранённые code и loyalty.
