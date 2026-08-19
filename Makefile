@@ -1,4 +1,4 @@
-.PHONY: test docs-check test-e2e
+.PHONY: test docs-check agent-work-check test-e2e
 
 test:
 	cd src && python manage.py test --settings=config.test_settings $(ARGS)
@@ -6,6 +6,9 @@ test:
 docs-check:
 	python scripts/check_docs_boundaries.py
 	python -m unittest scripts.tests.test_check_docs_boundaries
+
+agent-work-check:
+	python scripts/check_agent_work.py
 
 # e2e (бот → бэкенд → VDS). Требует локального backend-стека и тестового VDS API.
 # Контейнеры НЕ поднимает — см. integration_tests/README.md.

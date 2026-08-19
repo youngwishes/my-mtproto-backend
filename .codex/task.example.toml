@@ -1,0 +1,34 @@
+# Initial product work may start with status = "draft", no previous_status,
+# empty requirement_ids/batches, and a not-yet-created business.md.
+schema_version = 1
+feature_slug = "example-feature"
+scope_revision = 1
+# Required and retained in every lifecycle state when scope_revision > 1:
+# previous_scope_revision = 1
+previous_status = "approved"
+status = "implementing"
+# For verifying/accepted -> implementing only:
+# blocking_reference = "review finding R-1"
+requirements_source = "scope.md"
+requirement_ids = ["BR-001", "AC-001"]
+allowed_files = ["src/apps/example/service.py", "src/apps/example/tests/test_service.py"]
+non_goals = ["No unrelated behavior or refactor"]
+budget = "Two files and one behavior"
+completion = "Approved outcome and required checks pass"
+max_artifact_lines = 300
+max_total_artifact_lines = 600
+
+[artifacts]
+scope = "scope.md"
+
+# An approved pre-plan manifest may omit batches. Implementing and later
+# lifecycle states require at least one complete batch packet.
+[[batches]]
+id = "B1"
+items = ["EX-001"]
+requirements = ["BR-001", "AC-001"]
+allowed_files = ["src/apps/example/service.py", "src/apps/example/tests/test_service.py"]
+dependencies = []
+non_goals = ["No unrelated refactor"]
+budget = "Two files and one behavior"
+completion = "Focused RED/GREEN evidence and scoped checks pass"

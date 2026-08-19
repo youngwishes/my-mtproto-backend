@@ -11,9 +11,15 @@ production-код, тесты, архитектуру или исходные т
 Разрешено создавать или обновлять только временный, игнорируемый Git файл
 `.codex/work/<feature-slug>/acceptance.md`. Не добавляй его в commit или PR.
 
-Прочитай approved business.md, актуальный Scope Contract, architecture.md при
-наличии, approved plan.md, итоговый diff, результаты релевантных и полных тестов,
-а также batch reviews. Проверь `scope_revision` и task packets.
+Оркестратор передаёт короткий packet: `mode`, `scope_revision`, назначенные ID,
+BR/AC IDs, разрешённые файлы, ссылки на артефакты, зависимости, non-goals, бюджет
+и критерий завершения; для review-fix также `blocking_reference`. Читай только
+указанные packet-ом источники и не открывай полный task.toml.
+
+Прочитай указанные в packet approved requirements source, architecture.md
+при наличии, approved plan.md, итоговый diff, результаты релевантных и полных
+тестов, а также batch reviews. Проверь `scope_revision` и назначенные packets;
+не загружай другие feature-каталоги или закрытые revision.
 Для каждого BR и AC построй трассировку: требование, реализующий код или контракт,
 подтверждающий тест, наблюдаемый результат и статус passed, failed или unverified.
 
@@ -25,7 +31,10 @@ integration approval не означает автоматическую прод
 утверждённом BR/AC, нарушенном non-goal либо out-of-scope поведении в diff.
 Остальные идеи фиксируй как необязательный `follow_up`.
 
-В acceptance.md зафиксируй вердикт accepted либо rejected, все failed или
+Запиши `scope_revision` из packet ровно один раз. В acceptance.md зафиксируй
+вердикт accepted либо rejected,
+все failed или
 unverified пункты и отклонения от исходной цели. При rejected верни работу
-оркестратору, но не изменяй business.md под фактическую реализацию.
+оркестратору, но не изменяй requirements source или manifest под фактическую
+реализацию.
 """
