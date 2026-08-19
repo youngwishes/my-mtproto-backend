@@ -76,12 +76,13 @@ ansible -i ansible/inventory/production.ini mtproto_keys -m ansible.builtin.ping
      -a 'git -C /root/my-mtproto-backend rev-parse HEAD && cd /root/my-mtproto-backend && docker compose ps && docker exec nginx nginx -t'
    ```
 
-Проверь, что HTTP каждого Django-host перенаправляется на свой HTTPS-host.
-Playbook сам запускает миграции через entrypoint Django, проверяет HTTP-ответ и
-состояние всех Compose-сервисов. При ошибке он автоматически возвращает
-предыдущий SHA/Compose stack. Уже применённые миграции БД автоматически не
-откатываются; перед ручным откатом проверь их совместимость и состояние backup
-в Litestream.
+Проверь, что HTTP каждого Django-host перенаправляется на свой HTTPS-host, а
+`flower.mtprotokeys.com` по HTTPS без credentials отвечает `401` и с credentials
+из защищённого окружения отвечает успешно. Playbook сам запускает миграции через
+entrypoint Django, проверяет HTTP-ответ и состояние всех Compose-сервисов. При
+ошибке он автоматически возвращает предыдущий SHA/Compose stack. Уже
+применённые миграции БД автоматически не откатываются; перед ручным откатом
+проверь их совместимость и состояние backup в Litestream.
 
 ## Crypto Pay: production-конфигурация и rollback
 

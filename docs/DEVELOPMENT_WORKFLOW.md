@@ -222,9 +222,10 @@ ansible -i ansible/inventory/production.ini mtproto_keys \
 ```
 
 Сверить production SHA с `RELEASE_SHA`, состояние всех сервисов, HTTPS и
-HTTP-to-HTTPS redirect для dash и transition alias. При rollback playbook
-автоматически возвращает предыдущий SHA/Compose stack. В итоговом отчёте
-указать commit, результаты проверок и deploy.
+HTTP-to-HTTPS redirect для dash и transition alias; Flower должен вернуть `401`
+без credentials и успешный ответ с credentials из защищённого окружения. При
+rollback playbook автоматически возвращает предыдущий SHA/Compose stack. В
+итоговом отчёте указать commit, результаты проверок и deploy.
 
 При ошибке не выполнять импровизированные ручные исправления. Сохранить вывод,
 проверить автоматический rollback playbook и согласовать дальнейшие действия.
