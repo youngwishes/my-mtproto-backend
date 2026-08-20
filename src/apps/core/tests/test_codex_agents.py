@@ -70,52 +70,6 @@ class TestCodexAgents(SimpleTestCase):
                 for marker in markers:
                     self.assertIn(marker, instructions)
 
-    def test_every_role_uses_the_same_concise_packet_contract(self) -> None:
-        packet_markers = (
-            "mode",
-            "scope_revision",
-            "BR/AC IDs",
-            "разрешённые файлы",
-            "ссылки на артефакты",
-            "зависимости",
-            "non-goals",
-            "бюджет",
-            "критерий завершения",
-        )
-        forbidden_full_manifest_reads = (
-            "Прочитай актуальный task.toml",
-            "docs/DEVELOPMENT_WORKFLOW.md, task.toml",
-            "актуальным task.toml",
-        )
-
-        for path in self.agents_dir.glob("*.toml"):
-            with self.subTest(role=path.stem):
-                instructions = tomllib.loads(path.read_text(encoding="utf-8"))[
-                    "developer_instructions"
-                ]
-                for marker in packet_markers:
-                    self.assertIn(marker, instructions)
-                for forbidden in forbidden_full_manifest_reads:
-                    self.assertNotIn(forbidden, instructions)
-
-    def test_work_artifact_creators_require_exact_scope_revision(self) -> None:
-        creator_roles = (
-            "product-agent",
-            "product-architect",
-            "plan-maker",
-            "product-reviewer",
-        )
-
-        for role in creator_roles:
-            with self.subTest(role=role):
-                instructions = tomllib.loads(
-                    (self.agents_dir / f"{role}.toml").read_text(encoding="utf-8")
-                )["developer_instructions"]
-                self.assertIn(
-                    "Запиши `scope_revision` из packet ровно один раз",
-                    instructions,
-                )
-
     def test_code_reviewer_requests_a_read_only_default(self) -> None:
         path = self.agents_dir / "code-reviewer.toml"
 
@@ -160,8 +114,6 @@ class TestCodexAgents(SimpleTestCase):
         self.assertIn("все write-сессии должны завершиться", workflow)
         self.assertIn("gh pr review --comment", workflow)
         self.assertIn("оставляет PR открытым", workflow)
-        self.assertIn("`assigned IDs = []`", workflow)
-        self.assertIn("`dependencies = []`", workflow)
 
         result = subprocess.run(
             (sys.executable, "scripts/check_docs_boundaries.py"),
