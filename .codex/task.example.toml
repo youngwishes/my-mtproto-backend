@@ -1,0 +1,16 @@
+# Draft product work may start with empty requirement_ids and no batches.
+feature_slug = "example-feature"
+scope_revision = 1
+status = "implementing"
+requirements_source = "scope.md"
+requirement_ids = ["BR-001", "AC-001"]
+allowed_files = ["src/apps/example/service.py", "src/apps/example/tests/test_service.py"]
+non_goals = ["No unrelated behavior or refactor"]
+done_when = "Focused and repository checks pass"
+
+[[batches]]
+id = "B1"
+items = ["EX-001"]
+requirements = ["BR-001", "AC-001"]
+allowed_files = ["src/apps/example/service.py", "src/apps/example/tests/test_service.py"]
+dependencies = []

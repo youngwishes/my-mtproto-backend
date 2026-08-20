@@ -40,6 +40,12 @@ make test ARGS="apps.users.tests.test_first_free_link.TestFirstFreeLink.test_fir
 make docs-check
 ```
 
+Проверка активного рабочего контракта в feature-ветке:
+
+```bash
+make agent-work-check
+```
+
 Локальный стек:
 
 ```bash

@@ -2,6 +2,11 @@
 
 <!-- Keep this brief. It is the final reviewer's source of task context. -->
 
+### Task contract
+
+- Scope revision:
+- Requirement IDs:
+
 ### Goal
 
 <!-- What outcome is this change intended to achieve? -->
@@ -37,6 +42,7 @@
 ## Checklist
 
 - [ ] Relevant tests pass
+- [ ] `make agent-work-check` passes
 - [ ] Full `make test` passes
 - [ ] `make docs-check` passes
 - [ ] Production Compose configuration is valid
