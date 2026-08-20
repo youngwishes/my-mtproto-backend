@@ -167,6 +167,27 @@ class TestCheckAgentWork(unittest.TestCase):
                 self.assertEqual(result.returncode, 1)
                 self.assertIn(field, result.stdout)
 
+    def test_unknown_manifest_fields_are_rejected(self) -> None:
+        cases = (
+            ("feature_slug =", "legacy = true\nfeature_slug =", "unknown task fields"),
+            ("dependencies = []", "dependencies = []\nlegacy = true", "unknown fields"),
+        )
+        for old, new, expected in cases:
+            with (
+                self.subTest(expected=expected),
+                tempfile.TemporaryDirectory() as tmp_dir,
+            ):
+                work_dir = self.write_work(Path(tmp_dir))
+                manifest = work_dir / "task.toml"
+                manifest.write_text(
+                    manifest.read_text(encoding="utf-8").replace(old, new, 1),
+                    encoding="utf-8",
+                )
+                result = self.run_checker(work_dir=work_dir)
+
+                self.assertEqual(result.returncode, 1)
+                self.assertIn(expected, result.stdout)
+
     def test_status_and_revision_are_validated(self) -> None:
         cases = (
             ('status = "implementing"', 'status = "unknown"', "status"),
@@ -239,15 +260,27 @@ class TestCheckAgentWork(unittest.TestCase):
                 work_dir = self.write_work(Path(tmp_dir))
                 manifest = work_dir / "task.toml"
                 lines = manifest.read_text(encoding="utf-8").splitlines()
+                in_batch = False
+                filtered_lines = []
+                for line in lines:
+                    if line == "[[batches]]":
+                        in_batch = True
+                    if line.startswith(f"{field} =") and (
+                        field != "allowed_files" or in_batch
+                    ):
+                        continue
+                    filtered_lines.append(line)
                 manifest.write_text(
-                    "\n".join(line for line in lines if not line.startswith(f"{field} ="))
-                    + "\n",
+                    "\n".join(filtered_lines) + "\n",
                     encoding="utf-8",
                 )
                 result = self.run_checker(work_dir=work_dir)
 
                 self.assertEqual(result.returncode, 1)
-                self.assertIn(field, result.stdout)
+                if field == "allowed_files":
+                    self.assertIn("batch B1 is missing allowed_files", result.stdout)
+                else:
+                    self.assertIn(field, result.stdout)
 
     def test_batch_scope_is_a_subset_of_task_scope(self) -> None:
         cases = (
@@ -332,6 +365,24 @@ class TestCheckAgentWork(unittest.TestCase):
 
         self.assertEqual(result.returncode, 1)
         self.assertIn("codex/<feature-slug>", result.stdout)
+
+    def test_cli_rejects_nested_feature_slug(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_root = Path(tmp_dir) / "repo"
+            repo_root.mkdir()
+            self.initialize_git_repo(repo_root)
+            subprocess.run(
+                ("git", "branch", "-m", "codex/team/test-feature"),
+                cwd=repo_root,
+                check=True,
+            )
+            work_parent = repo_root / ".codex" / "work" / "team"
+            work_parent.mkdir(parents=True)
+            self.write_work(work_parent)
+            result = self.run_checker(repo_root=repo_root)
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("feature slug must not contain '/'", result.stdout)
 
     def test_cli_rejects_changed_files_outside_task_scope(self) -> None:
         for committed in (False, True):

@@ -11,6 +11,22 @@ REQUIREMENT_ID = re.compile(r"(?:BR|AC)-\d{3}")
 VALID_STATUSES = frozenset(
     {"draft", "approved", "implementing", "verifying", "accepted", "published"}
 )
+TASK_FIELDS = frozenset(
+    {
+        "feature_slug",
+        "scope_revision",
+        "status",
+        "requirements_source",
+        "requirement_ids",
+        "allowed_files",
+        "non_goals",
+        "done_when",
+        "batches",
+    }
+)
+BATCH_FIELDS = frozenset(
+    {"id", "items", "requirements", "allowed_files", "dependencies"}
+)
 
 
 def is_string_list(value: object, *, allow_empty: bool = False) -> bool:
@@ -33,6 +49,10 @@ def duplicates(values: list[str]) -> list[str]:
 
 def validate_manifest(task: dict[str, object], manifest: Path) -> list[str]:
     violations: list[str] = []
+    if unknown_fields := sorted(task.keys() - TASK_FIELDS):
+        violations.append(
+            f"{manifest}: unknown task fields: {', '.join(unknown_fields)}"
+        )
     if not isinstance(task.get("feature_slug"), str) or not task["feature_slug"]:
         violations.append(f"{manifest}: feature_slug must be a non-empty string")
     revision = task.get("scope_revision")
@@ -95,6 +115,11 @@ def validate_manifest(task: dict[str, object], manifest: Path) -> list[str]:
     for index, batch in enumerate(batches, start=1):
         batch_id = batch.get("id")
         label = batch_id if isinstance(batch_id, str) and batch_id else str(index)
+        if unknown_fields := sorted(batch.keys() - BATCH_FIELDS):
+            violations.append(
+                f"{manifest}: batch {label} has unknown fields: "
+                f"{', '.join(unknown_fields)}"
+            )
         if not isinstance(batch_id, str) or not batch_id:
             violations.append(f"{manifest}: batch {index} is missing id")
         items = batch.get("items")
@@ -178,7 +203,10 @@ def resolve_work_dir(repo_root: Path) -> Path:
     prefix = "codex/"
     if not branch.startswith(prefix) or branch == prefix:
         raise ValueError("current branch must use codex/<feature-slug>")
-    return repo_root / ".codex" / "work" / branch.removeprefix(prefix)
+    feature_slug = branch.removeprefix(prefix)
+    if "/" in feature_slug:
+        raise ValueError("feature slug must not contain '/'")
+    return repo_root / ".codex" / "work" / feature_slug
 
 
 def git_changed_files(repo_root: Path, work_dir: Path) -> set[str]:
