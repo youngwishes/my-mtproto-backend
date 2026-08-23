@@ -84,33 +84,33 @@ APPROVED_MTPROXY_PAYMENT_TEXT = """💳 <b>Оплата подписки</b>
 ⚡ <b>Продукт:</b> MTProxy
 📅 <b>Период:</b> 30 дней
 
-После оплаты новый ключ будет выдан автоматически. Если у вас уже есть активный ключ, подписка продлится на 30 дней.
+После оплаты новый ключ будет выдан автоматически. Если у тебя уже есть активный ключ, подписка продлится на 30 дней.
 
-<i>Оплачивая подписку, вы принимаете <a href="https://mtprotokeys.com/terms">Условия использования</a> и <a href="https://mtprotokeys.com/privacy">Политику конфиденциальности</a>.</i>
+<i>Оплата подписки означает принятие <a href="https://mtprotokeys.com/terms">Условий использования</a> и <a href="https://mtprotokeys.com/privacy">Политики конфиденциальности</a>.</i>
 
-👇 <b>Выберите способ оплаты:</b>"""
+👇 <b>Выбери способ оплаты:</b>"""
 
 APPROVED_VPN_PAYMENT_TEXT = """💳 <b>Оплата подписки</b>
 
 🔐 <b>Продукт:</b> VPN
 📅 <b>Период:</b> 30 дней
 
-После оплаты VPN-подписка будет активирована автоматически. При продлении ваша постоянная subscription-ссылка не изменится.
+После оплаты VPN-подписка будет активирована автоматически. При продлении твоя постоянная subscription-ссылка не изменится.
 
-<i>Оплачивая подписку, вы принимаете <a href="https://mtprotokeys.com/terms">Условия использования</a> и <a href="https://mtprotokeys.com/privacy">Политику конфиденциальности</a>.</i>
+<i>Оплата подписки означает принятие <a href="https://mtprotokeys.com/terms">Условий использования</a> и <a href="https://mtprotokeys.com/privacy">Политики конфиденциальности</a>.</i>
 
-👇 <b>Выберите способ оплаты:</b>"""
+👇 <b>Выбери способ оплаты:</b>"""
 
 APPROVED_GIFT_PAYMENT_TEXT = """💳 <b>Оплата подарка</b>
 
 🎁 <b>Продукт:</b> сертификат MTProxy
 📅 <b>Период:</b> 30 дней
 
-После оплаты вы получите одноразовый код, который можно переслать другому человеку. Код создаст новый ключ или продлит действующий на 30 дней.
+После оплаты ты получишь одноразовый код, который можно переслать другому человеку. Код создаст новый ключ или продлит действующий на 30 дней.
 
-<i>Оплачивая сертификат, вы принимаете <a href="https://mtprotokeys.com/terms">Условия использования</a> и <a href="https://mtprotokeys.com/privacy">Политику конфиденциальности</a>.</i>
+<i>Оплата сертификата означает принятие <a href="https://mtprotokeys.com/terms">Условий использования</a> и <a href="https://mtprotokeys.com/privacy">Политики конфиденциальности</a>.</i>
 
-👇 <b>Выберите способ оплаты:</b>"""
+👇 <b>Выбери способ оплаты:</b>"""
 
 
 def apple_loyalty(
@@ -417,7 +417,7 @@ async def test_root_navigation_matches_approved_hierarchy():
     assert text == PRODUCT_MENU_TEXT == (
         "👋 Добро пожаловать в MTProto Keys!\n\n"
         "MTProxy, VPN, бонусы и полезные ссылки — всё здесь.\n"
-        "Выберите, что вас интересует:"
+        "Выбери, что тебе интересно:"
     )
     expected_rows = [
         [("⚡ MTProxy", "show_mtproxy_menu", None, "success")],
@@ -495,6 +495,9 @@ async def test_mtproxy_navigation_matches_approved_hierarchy(
     text, markup = callback.message.edits[-1]
     assert text == expected_text
     assert text.rstrip().endswith("👇 Жми «Мои серверы» и подключайся!")
+    if period == "TWO_WEEK":
+        assert "По приглашению первые две недели — бесплатно." in text
+        assert "Вы пришли" not in text
     assert markup.inline_keyboard[0][0].callback_data == boost_callback
     assert [
         [
@@ -607,6 +610,7 @@ async def test_apples_spend_offers_one_day_and_all_saved_backend_modes():
     text, markup = callback.message.edits[0]
     assert "Баланс: <b>37 🍏</b>" in text
     assert "Доступно дней: <b>2</b>" in text
+    assert text.rstrip().endswith("Выбери вариант продления:")
     assert [
         [(button.text, button.callback_data) for button in row]
         for row in markup.inline_keyboard
@@ -852,6 +856,8 @@ async def test_cmd_start_shows_consent_without_registering_new_user():
     assert fake.status_checked == ["42"]
     assert fake.checked == []
     text, markup = message.answers[0]
+    assert "Для использования сервиса необходимо принять" in text
+    assert "вы принимаете" not in text
     assert TERMS_URL in text
     assert PRIVACY_URL in text
     assert len(markup.inline_keyboard) == 1
@@ -1537,7 +1543,7 @@ async def test_vpn_navigation_matches_approved_hierarchy():
 🔗 Постоянная subscription-ссылка
 ⚙️ Подключение через приложение HAPP
 
-👇 Выберите действие:"""
+👇 Выбери действие:"""
     assert [
         [
             (
@@ -1683,8 +1689,8 @@ async def test_vpn_subscription_without_subscription_keeps_menu_and_raises_error
     assert callback.message.edits == []
     assert exc_info.value.telegram_id == "42"
     assert exc_info.value.message == (
-        "🔒 У вас нет активной VPN-подписки. Если вы думаете, что это ошибка, "
-        "пожалуйста, напишите в поддержку: @mtprotokeys_support."
+        "🔒 У тебя нет активной VPN-подписки. Если думаешь, что это ошибка, "
+        "пожалуйста, напиши в поддержку: @mtprotokeys_support."
     )
     assert "@mtproto_keys" not in exc_info.value.message
 
@@ -1749,8 +1755,8 @@ async def test_vpn_reissue_without_subscription_keeps_menu_and_raises_error():
     assert callback.message.edits == []
     assert exc_info.value.telegram_id == "42"
     assert exc_info.value.message == (
-        "🔒 У вас нет активной VPN-подписки. Если вы думаете, что это ошибка, "
-        "пожалуйста, напишите в поддержку: @mtprotokeys_support."
+        "🔒 У тебя нет активной VPN-подписки. Если думаешь, что это ошибка, "
+        "пожалуйста, напиши в поддержку: @mtprotokeys_support."
     )
 
 
@@ -1943,6 +1949,7 @@ async def test_crypto_callback_uses_kind_and_shows_url(
     assert "02.08.2026, 15:30 МСК" in text
     assert "99.00" not in text
     assert "2026-08-02T12:30:00.123456Z" not in text
+    assert text.rstrip().endswith("Нажми кнопку ниже, чтобы открыть CryptoBot.")
     assert markup.inline_keyboard[0][0].url == "https://t.me/CryptoBot?start=x"
     assert markup.inline_keyboard[1][0].callback_data == back_callback
 
@@ -1957,6 +1964,7 @@ async def test_crypto_error_keeps_current_keyboard_retryable() -> None:
     assert payments.crypto_calls == [(42, "subscription")]
     assert callback.message.edits == []
     assert callback.message.answers == [(CRYPTO_INVOICE_ERROR_TEXT, None)]
+    assert "Попробуй нажать кнопку ещё раз." in CRYPTO_INVOICE_ERROR_TEXT
 
 
 @pytest.mark.parametrize(
@@ -2016,7 +2024,7 @@ async def test_platega_callback_uses_kind_and_shows_url_with_correct_back_target
         in text
     )
     assert text.rstrip().endswith(
-        "Нажмите кнопку ниже, чтобы перейти к оплате."
+        "Нажми кнопку ниже, чтобы перейти к оплате."
     )
     assert markup.inline_keyboard[0][0].text == "Оплатить через СБП"
     assert markup.inline_keyboard[0][0].url == (
@@ -2056,6 +2064,9 @@ async def test_platega_backend_error_shows_retryable_error_without_editing_scree
     assert callback.message.answers == [
         (messages_module.PLATEGA_INVOICE_ERROR_TEXT, None)
     ]
+    assert "Попробуй нажать кнопку ещё раз." in (
+        messages_module.PLATEGA_INVOICE_ERROR_TEXT
+    )
 
 
 @pytest.mark.parametrize(
@@ -2327,6 +2338,7 @@ async def test_gift_certificate_activation_failure_uses_support_contact():
 
     text, _ = message.answers[0]
     assert "@mtprotokeys_support" in text
+    assert "Напиши в поддержку" in text
     assert "@mtproto_keys" not in text
 
 
@@ -2342,7 +2354,7 @@ async def test_successful_payment_warns_user_on_failure():
     await process_successful_payment(message, make_deps(payments=payments))
 
     text, _ = message.answers[0]
-    assert "обратитесь в поддержку" in text
+    assert "обратись в поддержку" in text
     assert "@mtprotokeys_support" in text
     assert "@mtproto_keys" not in text
 
