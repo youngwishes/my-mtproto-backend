@@ -265,7 +265,7 @@ async def process_successful_payment(message: Message, deps: Dependencies):
             )
             await message.answer(
                 VPN_PURCHASED_TEXT.format(
-                    expired_at=format_user_datetime(purchase.expired_at),
+                    expired_at=format_user_date(purchase.expired_at),
                     subscription_url=purchase.subscription_url,
                 ),
                 reply_markup=keyboards.vpn_purchased(),

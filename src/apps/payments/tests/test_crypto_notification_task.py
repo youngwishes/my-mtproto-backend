@@ -70,6 +70,8 @@ class TestNotifyCryptoPurchaseTask(TestCase):
         self.assertIn("Баланс: <b>5 🍏</b>", text)
         self.assertIn("Уровень: <b>Садовник</b>", text)
         self.assertIn("Кэшбэк следующей покупки: <b>10%</b>", text)
+        self.assertLess(text.index("🍏 <b>Кэшбэк</b>"), text.rindex("👇"))
+        self.assertTrue(text.rstrip().rsplit("\n\n", 1)[-1].startswith("👇"))
         self.assertIsNotNone(send.call_args.kwargs["markup"])
         intent.refresh_from_db()
         self.assertIsNotNone(intent.notification_sent_at)
@@ -137,7 +139,7 @@ class TestNotifyCryptoPurchaseTask(TestCase):
         user = SystemUserFactory(username="100002")
         subscription = VPNSubscriptionFactory(
             user=user,
-            expired_at=datetime(2026, 8, 31, 12, 0, tzinfo=UTC),
+            expired_at=datetime(2026, 8, 31, 22, 30, tzinfo=UTC),
         )
         payment = PaymentFactory(
             user=subscription.user,
@@ -155,10 +157,9 @@ class TestNotifyCryptoPurchaseTask(TestCase):
         notify_crypto_purchase_task.run(intent.pk)
 
         text = send.call_args.kwargs["text"]
-        self.assertIn(
-            "31.08.2026, 15:00 МСК",
-            text,
-        )
+        self.assertIn("01.09.2026", text)
+        self.assertNotIn("22:30", text)
+        self.assertNotIn("МСК", text)
         self.assertIn(
             "https://vpn.example/api/v1/vpn/subscriptions/"
             f"{subscription.token}/",
