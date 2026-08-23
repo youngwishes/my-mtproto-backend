@@ -28,6 +28,11 @@ from src.messages import (
     VPN_PURCHASED_TEXT,
     render_apple_purchase_outcome,
 )
+from src.presentation import (
+    format_rub_amount,
+    format_user_date,
+    format_user_datetime,
+)
 
 if TYPE_CHECKING:
     from src.dependencies import Dependencies
@@ -64,8 +69,8 @@ async def show_crypto_invoice(
     )
     await callback.message.edit_text(
         text=CRYPTO_INVOICE_TEXT.format(
-            rub_amount=invoice.rub_amount,
-            expires_at=invoice.expires_at,
+            rub_amount=format_rub_amount(invoice.rub_amount),
+            expires_at=format_user_datetime(invoice.expires_at),
         ),
         reply_markup=markup,
     )
@@ -100,7 +105,7 @@ async def show_platega_invoice(
     )
     await callback.message.edit_text(
         text=PLATEGA_INVOICE_TEXT.format(
-            rub_amount=invoice.rub_amount,
+            rub_amount=format_rub_amount(invoice.rub_amount),
         ),
         reply_markup=markup,
     )
@@ -259,7 +264,7 @@ async def process_successful_payment(message: Message, deps: Dependencies):
             )
             await message.answer(
                 VPN_PURCHASED_TEXT.format(
-                    expired_at=purchase.expired_at,
+                    expired_at=format_user_datetime(purchase.expired_at),
                     subscription_url=purchase.subscription_url,
                 ),
                 reply_markup=keyboards.vpn_purchased(),
@@ -286,7 +291,9 @@ async def process_successful_payment(message: Message, deps: Dependencies):
         if isinstance(purchase, HistoricalPurchaseReplay):
             return
         await message.answer(
-            MTPROXY_PURCHASED_TEXT.format(expired_date=purchase.expired_date)
+            MTPROXY_PURCHASED_TEXT.format(
+                expired_date=format_user_date(purchase.expired_date),
+            )
             + render_apple_purchase_outcome(outcome=purchase.loyalty),
             reply_markup=keyboards.key_generated(),
         )
@@ -318,6 +325,8 @@ async def process_gift_certificate_activation(message: Message, deps: Dependenci
         await message.answer(error_message)
         return
     await message.answer(
-        GIFT_CERTIFICATE_ACTIVATED_TEXT.format(expired_date=result.expired_date),
+        GIFT_CERTIFICATE_ACTIVATED_TEXT.format(
+            expired_date=format_user_date(result.expired_date),
+        ),
         reply_markup=keyboards.key_generated(),
     )

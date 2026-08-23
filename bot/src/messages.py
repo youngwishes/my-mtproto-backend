@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from src.enums import FreeAvailable
+from src.presentation import format_user_date
 
 if TYPE_CHECKING:
     from src.domains.payments import (
@@ -68,7 +69,7 @@ def render_apple_redemption_preview(*, preview: AppleRedemptionPreview) -> str:
         f"Списать: <b>{preview.apples_spent} 🍏</b>\n"
         f"Добавить дней: <b>{preview.days}</b>\n"
         "Продление до: "
-        f"<b>{preview.projected_expired_date}</b>\n\n"
+        f"<b>{format_user_date(preview.projected_expired_date)}</b>\n\n"
         "Подтвердить обмен?"
     )
 
@@ -78,7 +79,7 @@ def render_apple_redemption_result(*, result: AppleRedemptionResult) -> str:
         "✅ <b>Яблоки обменены</b>\n\n"
         f"Списано: <b>{result.apples_spent} 🍏</b>\n"
         f"Добавлено дней: <b>{result.days}</b>\n"
-        f"Продление до: <b>{result.expired_date}</b>\n"
+        f"Продление до: <b>{format_user_date(result.expired_date)}</b>\n"
         f"Баланс: <b>{result.balance} 🍏</b>"
     )
 
@@ -255,7 +256,7 @@ MTPROXY_PURCHASED_TEXT = """🎉 <b>Спасибо за покупку!</b>
 CRYPTO_PAY_BUTTON = "💎 Crypto Pay"
 CRYPTO_INVOICE_TEXT = (
     "💎 <b>Счёт Crypto Pay</b>\n\n"
-    "Сумма: <b>{rub_amount} RUB</b>\n"
+    "Сумма: <b>{rub_amount} ₽</b>\n"
     "Действует до: <b>{expires_at}</b>\n\n"
     "Нажмите кнопку ниже, чтобы открыть CryptoBot."
 )

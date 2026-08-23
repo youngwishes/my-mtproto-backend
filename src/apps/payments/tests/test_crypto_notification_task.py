@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from unittest import mock
 
@@ -61,7 +61,7 @@ class TestNotifyCryptoPurchaseTask(TestCase):
         notify_crypto_purchase_task.run(intent.pk)
 
         self.assertIn(
-            purchase.result_expired_at.date().strftime("%d.%m.%y"),
+            purchase.result_expired_at.date().strftime("%d.%m.%Y"),
             send.call_args.kwargs["text"],
         )
         text = send.call_args.kwargs["text"]
@@ -118,7 +118,7 @@ class TestNotifyCryptoPurchaseTask(TestCase):
         original_payment.refresh_from_db()
         self.assertIsNone(original_payment.key)
         self.assertIn(
-            original_result_expiry.date().strftime("%d.%m.%y"),
+            original_result_expiry.date().strftime("%d.%m.%Y"),
             send.call_args.kwargs["text"],
         )
         self.assertNotIn(
@@ -135,7 +135,10 @@ class TestNotifyCryptoPurchaseTask(TestCase):
         send: mock.Mock,
     ) -> None:
         user = SystemUserFactory(username="100002")
-        subscription = VPNSubscriptionFactory(user=user)
+        subscription = VPNSubscriptionFactory(
+            user=user,
+            expired_at=datetime(2026, 8, 31, 12, 0, tzinfo=UTC),
+        )
         payment = PaymentFactory(
             user=subscription.user,
             kind=PaymentKindEnum.VPN_SUBSCRIPTION,
@@ -153,7 +156,7 @@ class TestNotifyCryptoPurchaseTask(TestCase):
 
         text = send.call_args.kwargs["text"]
         self.assertIn(
-            subscription.expired_at.strftime("%d.%m.%Y %H:%M UTC"),
+            "31.08.2026, 15:00 МСК",
             text,
         )
         self.assertIn(

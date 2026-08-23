@@ -17,6 +17,7 @@ from src.messages import (
     VPN_REISSUE_CONFIRM_TEXT,
     VPN_REISSUE_DONE_BANNER,
 )
+from src.presentation import format_user_datetime
 
 if TYPE_CHECKING:
     from src.dependencies import Dependencies
@@ -111,12 +112,12 @@ async def _render_vpn_subscription(
 
     if menu.status == "active":
         text = VPN_ACTIVE_TEXT.format(
-            expired_at=menu.expired_at,
+            expired_at=format_user_datetime(menu.expired_at),
             subscription_url=menu.subscription_url,
         )
     else:
         text = VPN_EXPIRED_TEXT.format(
-            expired_at=menu.expired_at,
+            expired_at=format_user_datetime(menu.expired_at),
             subscription_url=menu.subscription_url,
         )
     if banner is not None:

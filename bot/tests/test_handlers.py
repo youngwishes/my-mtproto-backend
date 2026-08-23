@@ -711,7 +711,7 @@ async def test_apples_preview_uses_only_saved_quote_and_requires_confirmation(
     text, markup = callback.message.edits[0]
     assert f"Списать: <b>{apples_spent} 🍏</b>" in text
     assert f"Добавить дней: <b>{days}</b>" in text
-    assert "Продление до: <b>2026-08-21</b>" in text
+    assert "Продление до: <b>21.08.2026</b>" in text
     assert "Подтвердить обмен?" in text
     assert [
         [(button.text, button.callback_data) for button in row]
@@ -743,7 +743,7 @@ async def test_apples_confirm_renders_committed_37_to_30_two_days_and_7_balance(
         "✅ <b>Яблоки обменены</b>\n\n"
         "Списано: <b>30 🍏</b>\n"
         "Добавлено дней: <b>2</b>\n"
-        "Продление до: <b>2026-08-22</b>\n"
+        "Продление до: <b>22.08.2026</b>\n"
         "Баланс: <b>7 🍏</b>"
     )
     assert [[button.callback_data for button in row] for row in markup.inline_keyboard] == [
@@ -773,7 +773,7 @@ async def test_repeated_apples_confirmation_displays_same_committed_result():
 
     assert payments.apple_confirm_calls == [(42, 777), (42, 777)]
     assert callbacks[0].message.edits[0][0] == callbacks[1].message.edits[0][0]
-    assert "Продление до: <b>2026-08-21</b>" in (
+    assert "Продление до: <b>21.08.2026</b>" in (
         callbacks[1].message.edits[0][0]
     )
 
@@ -954,7 +954,8 @@ async def test_boost_free_claims_key_and_shows_expiry():
 
     assert fake.claimed == ["42"]
     text, _ = callback.message.edits[0]
-    assert "2026-08-01" in text
+    assert "01.08.2026" in text
+    assert "2026-08-01" not in text
 
 
 # --- legal documents --------------------------------------------------------
@@ -1167,7 +1168,8 @@ async def test_process_my_servers_renders_server_buttons(servers: MyServers):
 
     assert fake.get_calls == ["42"]
     text, markup = callback.message.edits[0]
-    assert "2026-07-14" in text
+    assert "14.07.2026" in text
+    assert "2026-07-14" not in text
     assert markup.inline_keyboard[0][0].text == "🇳🇱 Нидерланды"
     assert markup.inline_keyboard[0][0].url == "tg://proxy?a=1"
 
@@ -1295,7 +1297,8 @@ async def test_referral_reward_result_matches_domain_boundary():
     assert fake.reward_calls == ["42"]
     text, markup = callback.message.answers[0]
     assert "14 дней MTProxy" in text
-    assert "2026-06-30" in text
+    assert "30.06.2026" in text
+    assert "2026-06-30" not in text
     assert [
         [(button.text, button.callback_data, button.style) for button in row]
         for row in markup.inline_keyboard
@@ -1607,7 +1610,7 @@ async def test_vpn_purchase_fetches_stars_invoice_and_shows_stars_only_screen():
             ),
             """🔐 <b>Твоя VPN-подписка активна</b>
 
-Действует до: <b>2026-08-31T12:00:00+00:00</b>
+Действует до: <b>31.08.2026, 15:00 МСК</b>
 
 Subscription-ссылка:
 <code>https://vpn.example/subscriptions/active/</code>""",
@@ -1624,7 +1627,7 @@ Subscription-ссылка:
             ),
             """🔐 <b>VPN-подписка закончилась</b>
 
-Она действовала до: <b>2026-07-31T12:00:00+00:00</b>
+Она действовала до: <b>31.07.2026, 15:00 МСК</b>
 
 Subscription-ссылка:
 <code>https://vpn.example/subscriptions/expired/</code>""",
@@ -1918,7 +1921,7 @@ async def test_crypto_callback_uses_kind_and_shows_url(
         crypto=CryptoInvoice(
             invoice_url="https://t.me/CryptoBot?start=x",
             rub_amount="99.00",
-            expires_at="2026-08-02T12:30:00Z",
+            expires_at="2026-08-02T12:30:00.123456Z",
             reused=False,
         )
     )
@@ -1930,8 +1933,10 @@ async def test_crypto_callback_uses_kind_and_shows_url(
     assert payments.crypto_calls == [(42, purchase_kind)]
     assert fake_bot.invoices == []
     text, markup = callback.message.edits[0]
-    assert "99.00" in text
-    assert "2026-08-02T12:30:00Z" in text
+    assert "99 ₽" in text
+    assert "02.08.2026, 15:30 МСК" in text
+    assert "99.00" not in text
+    assert "2026-08-02T12:30:00.123456Z" not in text
     assert markup.inline_keyboard[0][0].url == "https://t.me/CryptoBot?start=x"
     assert markup.inline_keyboard[1][0].callback_data == back_callback
 
@@ -1995,7 +2000,8 @@ async def test_platega_callback_uses_kind_and_shows_url_with_correct_back_target
     assert callback.answers == [((), {})]
     assert payments.platega_calls == [(42, purchase_kind)]
     text, markup = callback.message.edits[0]
-    assert "99.50" in text
+    assert "99,50 ₽" in text
+    assert "99.50" not in text
     assert "Срок действия счета: 15 минут" in text
     assert "2026-08-08T12:15:00Z" not in text
     assert "Возврат в бот не подтверждает оплату" not in text
@@ -2084,7 +2090,7 @@ async def test_successful_mtproxy_payment_sends_one_combined_saved_result():
     assert payments.confirmed == [(42, "subscription_charge", "stars")]
     assert len(message.answers) == 1
     text, markup = message.answers[0]
-    assert "Подписка активна до: <b>2026-09-18</b>" in text
+    assert "Подписка активна до: <b>18.09.2026</b>" in text
     assert "Начислено: <b>5 🍏</b>" in text
     assert "Ставка: <b>5%</b>" in text
     assert "Баланс: <b>20 🍏</b>" in text
@@ -2267,7 +2273,8 @@ async def test_successful_vpn_payment_shows_approved_parent_actions(
     assert vpn.purchase_calls == [(42, expected_charge_id, expected_provider)]
     assert payments.confirmed == []
     text, markup = message.answers[0]
-    assert "2026-08-31T12:00:00+00:00" in text
+    assert "31.08.2026, 15:00 МСК" in text
+    assert "2026-08-31T12:00:00+00:00" not in text
     assert "https://vpn.example/subscriptions/token/" in text
     assert "Android" in text
     assert "iOS" in text
@@ -2293,7 +2300,8 @@ async def test_gift_certificate_code_message_activates_certificate():
 
     assert payments.activated == [(42, "KEY-ABCD-1234")]
     text, _ = message.answers[0]
-    assert "08.08.26" in text
+    assert "08.08.2026" in text
+    assert "08.08.26" not in text
 
 
 async def test_gift_certificate_activation_failure_uses_support_contact():

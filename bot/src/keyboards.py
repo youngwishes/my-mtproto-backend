@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
@@ -13,6 +12,7 @@ from src.messages import (
     TERMS_URL,
     VPN_SETUP_URL,
 )
+from src.presentation import format_rub_amount
 
 if TYPE_CHECKING:
     from src.domains.links import ServerItem
@@ -328,7 +328,7 @@ def payment_methods(
         keyboard.append(
             [
                 InlineKeyboardButton(
-                    text=f"⚡ СБП — {_format_rub_amount(rub_amount)} ₽",
+                    text=f"⚡ СБП — {format_rub_amount(rub_amount)} ₽",
                     callback_data="pay_platega_sbp",
                     style="primary" if "platega_sbp" in priority else None,
                 )
@@ -372,7 +372,7 @@ def vpn_payment_methods(
         keyboard.append(
             [
                 InlineKeyboardButton(
-                    text=f"⚡ СБП — {_format_rub_amount(rub_amount)} ₽",
+                    text=f"⚡ СБП — {format_rub_amount(rub_amount)} ₽",
                     callback_data="vpn_pay_platega_sbp",
                     style="primary" if "platega_sbp" in priority else None,
                 )
@@ -416,7 +416,7 @@ def gift_certificate_payment_methods(
         keyboard.append(
             [
                 InlineKeyboardButton(
-                    text=f"⚡ СБП — {_format_rub_amount(rub_amount)} ₽",
+                    text=f"⚡ СБП — {format_rub_amount(rub_amount)} ₽",
                     callback_data="gift_platega_sbp",
                     style="primary" if "platega_sbp" in priority else None,
                 )
@@ -496,10 +496,3 @@ def referral_reward() -> InlineKeyboardMarkup:
             ],
         ]
     )
-
-
-def _format_rub_amount(rub_amount: str) -> str:
-    amount = Decimal(rub_amount).quantize(Decimal("0.01"))
-    if amount == amount.to_integral_value():
-        return format(amount, ".0f")
-    return format(amount, ".2f").replace(".", ",")
