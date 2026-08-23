@@ -117,20 +117,21 @@ _WELCOME_BODY = """
 🌐 Не один сервер, а целая <b>сеть</b>
 🔁 Упал один — <b>всегда есть резерв</b>
 🌍 Серверы в <b>разных странах</b>
-📱 Одна ссылка на <b>3 устройства</b>
+📱 Одна ссылка на <b>3 устройства</b>"""
 
-👇 Жми «Мои серверы» и подключайся!
-"""
+_WELCOME_CTA = "\n\n👇 Жми «Мои серверы» и подключайся!"
 
-WELCOME_TEXT_MONTH = _WELCOME_BODY + "\nПервый месяц — бесплатно."
+WELCOME_TEXT_MONTH = _WELCOME_BODY + "\nПервый месяц — бесплатно." + _WELCOME_CTA
 
-WELCOME_TEXT_WEEK = _WELCOME_BODY + "\nПервая неделя — бесплатно."
+WELCOME_TEXT_WEEK = _WELCOME_BODY + "\nПервая неделя — бесплатно." + _WELCOME_CTA
 
 WELCOME_TEXT_TWO_WEEK = (
-    _WELCOME_BODY + "\nВы пришли по приглашению — первые две недели бесплатно."
+    _WELCOME_BODY
+    + "\nВы пришли по приглашению — первые две недели бесплатно."
+    + _WELCOME_CTA
 )
 
-WELCOME_TEXT_NOT_FREE = _WELCOME_BODY
+WELCOME_TEXT_NOT_FREE = _WELCOME_BODY + _WELCOME_CTA
 
 FREE_AVAILABLE_TEXT_MAPPING = {
     FreeAvailable.MONTH: WELCOME_TEXT_MONTH,
@@ -151,13 +152,13 @@ LEGAL_CONSENT_TEXT = f"""
 KEY_GENERATED_TEXT = """
 🎉 <b>Твой персональный ключ готов!</b>
 
-📝 <b>Как активировать:</b>
-1. Нажми «Мои серверы» ниже
-2. Подключи <b>все серверы</b> в Telegram — при падении одного он автоматически переключится на другой
+📝 Подключи <b>все серверы</b> в Telegram — при падении одного он автоматически переключится на другой.
 
 ⏳ Действительно до: <b>{expired_date}</b>
 
 <i>🤝 Подпишись на наш канал — там все новости: @mtproto_keys</i>
+
+👇 Нажми «Мои серверы» ниже
 """
 
 MY_SERVERS_TEXT = """
@@ -249,9 +250,11 @@ PAYMENT_METHODS_TEXT = f"""💳 <b>Оплата подписки</b>
 
 MTPROXY_PURCHASED_TEXT = """🎉 <b>Спасибо за покупку!</b>
 
-⏳ Подписка активна до: <b>{expired_date}</b>
+⏳ Подписка активна до: <b>{expired_date}</b>"""
 
-👇 Нажми «Мои серверы», чтобы подключиться ко всем серверам"""
+MTPROXY_PURCHASED_CTA = (
+    "\n\n👇 Нажми «Мои серверы», чтобы подключиться ко всем серверам"
+)
 
 CRYPTO_PAY_BUTTON = "💎 Crypto Pay"
 CRYPTO_INVOICE_TEXT = (
@@ -267,8 +270,8 @@ PLATEGA_INVOICE_TEXT = (
     "⚡ <b>Счёт СБП</b>\n\n"
     "Сумма: <b>{rub_amount} ₽</b>\n"
     "Срок действия счета: 15 минут\n\n"
-    "Нажмите кнопку ниже, чтобы перейти к оплате.\n\n"
     "<i>Результат будет выдан автоматически после подтверждения платежа.</i>"
+    "\n\nНажмите кнопку ниже, чтобы перейти к оплате."
 )
 PLATEGA_INVOICE_ERROR_TEXT = (
     "Не удалось создать счёт СБП. Попробуйте нажать кнопку ещё раз."

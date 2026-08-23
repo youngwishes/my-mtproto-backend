@@ -21,6 +21,7 @@ from src.messages import (
     GIFT_CERTIFICATE_ACTIVATED_TEXT,
     GIFT_CERTIFICATE_PURCHASED_TEXT,
     GIFT_CERTIFICATE_TEXT,
+    MTPROXY_PURCHASED_CTA,
     MTPROXY_PURCHASED_TEXT,
     PAYMENT_METHODS_TEXT,
     PLATEGA_INVOICE_ERROR_TEXT,
@@ -294,7 +295,8 @@ async def process_successful_payment(message: Message, deps: Dependencies):
             MTPROXY_PURCHASED_TEXT.format(
                 expired_date=format_user_date(purchase.expired_date),
             )
-            + render_apple_purchase_outcome(outcome=purchase.loyalty),
+            + render_apple_purchase_outcome(outcome=purchase.loyalty)
+            + MTPROXY_PURCHASED_CTA,
             reply_markup=keyboards.key_generated(),
         )
     except Exception:

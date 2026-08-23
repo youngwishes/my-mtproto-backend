@@ -57,6 +57,8 @@ from src.messages import (
     VPN_PRODUCT_MENU_TEXT,
     WELCOME_TEXT_MONTH,
     WELCOME_TEXT_NOT_FREE,
+    WELCOME_TEXT_TWO_WEEK,
+    WELCOME_TEXT_WEEK,
 )
 from src.domains.free_trial import FreeTrialKey
 from src.domains.links import MyServers, ReissuedKey, ServerItem
@@ -471,6 +473,8 @@ async def test_root_navigation_matches_approved_hierarchy():
     ("period", "expected_text", "boost_callback"),
     [
         ("MONTH", WELCOME_TEXT_MONTH, "boost_free"),
+        ("WEEK", WELCOME_TEXT_WEEK, "boost_free"),
+        ("TWO_WEEK", WELCOME_TEXT_TWO_WEEK, "boost_free"),
         ("NOT_AVAILABLE", WELCOME_TEXT_NOT_FREE, "boost_paid"),
     ],
 )
@@ -490,6 +494,7 @@ async def test_mtproxy_navigation_matches_approved_hierarchy(
     ]
     text, markup = callback.message.edits[-1]
     assert text == expected_text
+    assert text.rstrip().endswith("👇 Жми «Мои серверы» и подключайся!")
     assert markup.inline_keyboard[0][0].callback_data == boost_callback
     assert [
         [
@@ -956,6 +961,7 @@ async def test_boost_free_claims_key_and_shows_expiry():
     text, _ = callback.message.edits[0]
     assert "01.08.2026" in text
     assert "2026-08-01" not in text
+    assert text.rstrip().endswith("👇 Нажми «Мои серверы» ниже")
 
 
 # --- legal documents --------------------------------------------------------
@@ -2009,6 +2015,9 @@ async def test_platega_callback_uses_kind_and_shows_url_with_correct_back_target
         "Результат будет выдан автоматически после подтверждения платежа."
         in text
     )
+    assert text.rstrip().endswith(
+        "Нажмите кнопку ниже, чтобы перейти к оплате."
+    )
     assert markup.inline_keyboard[0][0].text == "Оплатить через СБП"
     assert markup.inline_keyboard[0][0].url == (
         "https://pay.example/invoice/opaque"
@@ -2097,6 +2106,12 @@ async def test_successful_mtproxy_payment_sends_one_combined_saved_result():
     assert "Уровень: <b>Садовник</b>" in text
     assert "🎉 Новый уровень: <b>Садовник</b>" in text
     assert "Кэшбэк следующей покупки: <b>10%</b>" in text
+    assert text.index("🍏 <b>Кэшбэк</b>") < text.index(
+        "👇 Нажми «Мои серверы», чтобы подключиться ко всем серверам"
+    )
+    assert text.rstrip().endswith(
+        "👇 Нажми «Мои серверы», чтобы подключиться ко всем серверам"
+    )
     assert [button.callback_data for row in markup.inline_keyboard for button in row] == [
         "my_servers",
         "show_mtproxy_menu",
