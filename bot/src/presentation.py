@@ -15,7 +15,14 @@ def format_user_date(value: str) -> str:
         except ValueError:
             continue
         return parsed.strftime("%d.%m.%Y")
-    return value
+
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return value
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(_MOSCOW_TIMEZONE).strftime("%d.%m.%Y")
 
 
 def format_user_datetime(value: str) -> str:

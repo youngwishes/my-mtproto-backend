@@ -10,7 +10,7 @@ from django.utils import timezone
 
 from apps.core.telegram import (
     format_user_date,
-    format_user_datetime,
+    format_user_local_date,
     send_telegram_message,
 )
 from apps.notifications.selectors import get_template
@@ -65,6 +65,16 @@ def _render_apple_cashback_block(*, purchase: AppleCashbackPurchase) -> str:
     return "\n".join(lines)
 
 
+def _place_loyalty_block_before_cta(*, text: str, loyalty_block: str) -> str:
+    if not loyalty_block:
+        return text
+
+    body, separator, trailing_paragraph = text.rstrip().rpartition("\n\n")
+    if separator and trailing_paragraph.lstrip().startswith("👇"):
+        return f"{body}{loyalty_block}\n\n{trailing_paragraph}"
+    return f"{text}{loyalty_block}"
+
+
 def _send_purchase_result(
     *,
     intent: CryptoPaymentIntent | PlategaPaymentIntent,
@@ -85,7 +95,7 @@ def _send_purchase_result(
         subscription = intent.payment.user.vpn_subscription
         slug = "crypto_vpn_purchased"
         context = {
-            "expired_at": format_user_datetime(subscription.expired_at),
+            "expired_at": format_user_local_date(subscription.expired_at),
             "subscription_url": (
                 f"{settings.VPN_SUBSCRIPTION_BASE_URL.rstrip('/')}"
                 "/api/v1/vpn/subscriptions/"
@@ -103,7 +113,10 @@ def _send_purchase_result(
     message = get_template(slug=slug).render(context=context)
     send_telegram_message(
         chat_id=int(intent.initiator.username),
-        text=f"{message.text}{loyalty_block}",
+        text=_place_loyalty_block_before_cta(
+            text=message.text,
+            loyalty_block=loyalty_block,
+        ),
         markup=message.markup,
     )
     return True

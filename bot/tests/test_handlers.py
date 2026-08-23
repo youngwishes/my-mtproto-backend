@@ -1617,12 +1617,12 @@ async def test_vpn_purchase_fetches_stars_invoice_and_shows_stars_only_screen():
         (
             VPNMenu(
                 status="active",
-                expired_at="2026-08-31T12:00:00+00:00",
+                expired_at="2026-08-31T22:30:00+00:00",
                 subscription_url="https://vpn.example/subscriptions/active/",
             ),
             """🔐 <b>Твоя VPN-подписка активна</b>
 
-Действует до: <b>31.08.2026, 15:00 МСК</b>
+Действует до: <b>01.09.2026</b>
 
 Subscription-ссылка:
 <code>https://vpn.example/subscriptions/active/</code>""",
@@ -1639,7 +1639,7 @@ Subscription-ссылка:
             ),
             """🔐 <b>VPN-подписка закончилась</b>
 
-Она действовала до: <b>31.07.2026, 15:00 МСК</b>
+Она действовала до: <b>31.07.2026</b>
 
 Subscription-ссылка:
 <code>https://vpn.example/subscriptions/expired/</code>""",
@@ -2282,7 +2282,7 @@ async def test_successful_vpn_payment_shows_approved_parent_actions(
     vpn = FakeVPN(
         menu=VPNMenu(status="none", expired_at=None, subscription_url=None),
         purchase=VPNPurchase(
-            expired_at="2026-08-31T12:00:00+00:00",
+            expired_at="2026-08-31T22:30:00+00:00",
             subscription_url="https://vpn.example/subscriptions/token/",
         ),
     )
@@ -2299,8 +2299,10 @@ async def test_successful_vpn_payment_shows_approved_parent_actions(
     assert vpn.purchase_calls == [(42, expected_charge_id, expected_provider)]
     assert payments.confirmed == []
     text, markup = message.answers[0]
-    assert "31.08.2026, 15:00 МСК" in text
-    assert "2026-08-31T12:00:00+00:00" not in text
+    assert "01.09.2026" in text
+    assert "22:30" not in text
+    assert "МСК" not in text
+    assert "2026-08-31T22:30:00+00:00" not in text
     assert "https://vpn.example/subscriptions/token/" in text
     assert "Android" in text
     assert "iOS" in text

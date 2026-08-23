@@ -24,6 +24,12 @@ def format_user_date(value: str | date | datetime) -> str:
     return parsed.strftime("%d.%m.%Y")
 
 
+def format_user_local_date(value: datetime) -> str:
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=UTC)
+    return value.astimezone(_MOSCOW_TIMEZONE).strftime("%d.%m.%Y")
+
+
 def format_user_datetime(value: datetime) -> str:
     if value.tzinfo is None:
         value = value.replace(tzinfo=UTC)
