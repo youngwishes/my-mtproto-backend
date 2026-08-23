@@ -7,7 +7,11 @@ from celery import shared_task
 from django.conf import settings
 from django.db import transaction
 
-from apps.core.telegram.transport import is_channel_member, send_telegram_message
+from apps.core.telegram import (
+    format_user_date,
+    is_channel_member,
+    send_telegram_message,
+)
 from apps.notifications.selectors import get_template
 from apps.users.models import SystemUser
 from apps.users.services import get_first_free_link_service
@@ -60,7 +64,9 @@ def send_free_link_to_user_task(telegram_ids: list[str]) -> None:
                     "⚡️ Попробуй — с ним мессенджер работает быстрее!\n\n"
                     "👀 Пожалуйста, подпишись на канал @mtproto_keys — там вся информация по развитию проекта\n\n"
                     "👇 Нажми «📡 Мои серверы» чтобы подключиться ко всем серверам"
-                ).format(expired_date=response.expired_date)
+                ).format(
+                    expired_date=format_user_date(response.expired_date),
+                )
 
                 message = template.render(
                     context={"text": text},

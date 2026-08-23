@@ -7,6 +7,7 @@ from aiogram.types import CallbackQuery
 
 from src import keyboards
 from src.messages import KEY_GENERATED_TEXT
+from src.presentation import format_user_date
 
 if TYPE_CHECKING:
     from src.dependencies import Dependencies
@@ -19,6 +20,8 @@ async def process_boost_free(callback: CallbackQuery, deps: Dependencies):
     await callback.answer()
     key = await deps.free_trial.claim(telegram_id=str(callback.message.chat.id))
     await callback.message.edit_text(
-        text=KEY_GENERATED_TEXT.format(expired_date=key.expired_date),
+        text=KEY_GENERATED_TEXT.format(
+            expired_date=format_user_date(key.expired_date),
+        ),
         reply_markup=keyboards.key_generated(),
     )

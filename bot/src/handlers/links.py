@@ -7,6 +7,7 @@ from aiogram.types import CallbackQuery
 
 from src import keyboards
 from src.messages import MY_SERVERS_TEXT, REISSUE_CONFIRM_TEXT, REISSUE_DONE_BANNER
+from src.presentation import format_user_date
 
 if TYPE_CHECKING:
     from src.dependencies import Dependencies
@@ -19,7 +20,10 @@ async def _show_servers(
 ) -> None:
     servers = await deps.links.get_my_servers(telegram_id=str(callback.message.chat.id))
     await callback.message.edit_text(
-        text=banner + MY_SERVERS_TEXT.format(expired_date=servers.expired_date),
+        text=banner
+        + MY_SERVERS_TEXT.format(
+            expired_date=format_user_date(servers.expired_date),
+        ),
         reply_markup=keyboards.my_servers(servers.servers),
     )
 

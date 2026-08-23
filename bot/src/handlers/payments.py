@@ -21,12 +21,18 @@ from src.messages import (
     GIFT_CERTIFICATE_ACTIVATED_TEXT,
     GIFT_CERTIFICATE_PURCHASED_TEXT,
     GIFT_CERTIFICATE_TEXT,
+    MTPROXY_PURCHASED_CTA,
     MTPROXY_PURCHASED_TEXT,
     PAYMENT_METHODS_TEXT,
     PLATEGA_INVOICE_ERROR_TEXT,
     PLATEGA_INVOICE_TEXT,
     VPN_PURCHASED_TEXT,
     render_apple_purchase_outcome,
+)
+from src.presentation import (
+    format_rub_amount,
+    format_user_date,
+    format_user_datetime,
 )
 
 if TYPE_CHECKING:
@@ -64,8 +70,8 @@ async def show_crypto_invoice(
     )
     await callback.message.edit_text(
         text=CRYPTO_INVOICE_TEXT.format(
-            rub_amount=invoice.rub_amount,
-            expires_at=invoice.expires_at,
+            rub_amount=format_rub_amount(invoice.rub_amount),
+            expires_at=format_user_datetime(invoice.expires_at),
         ),
         reply_markup=markup,
     )
@@ -100,7 +106,7 @@ async def show_platega_invoice(
     )
     await callback.message.edit_text(
         text=PLATEGA_INVOICE_TEXT.format(
-            rub_amount=invoice.rub_amount,
+            rub_amount=format_rub_amount(invoice.rub_amount),
         ),
         reply_markup=markup,
     )
@@ -259,7 +265,7 @@ async def process_successful_payment(message: Message, deps: Dependencies):
             )
             await message.answer(
                 VPN_PURCHASED_TEXT.format(
-                    expired_at=purchase.expired_at,
+                    expired_at=format_user_datetime(purchase.expired_at),
                     subscription_url=purchase.subscription_url,
                 ),
                 reply_markup=keyboards.vpn_purchased(),
@@ -286,8 +292,11 @@ async def process_successful_payment(message: Message, deps: Dependencies):
         if isinstance(purchase, HistoricalPurchaseReplay):
             return
         await message.answer(
-            MTPROXY_PURCHASED_TEXT.format(expired_date=purchase.expired_date)
-            + render_apple_purchase_outcome(outcome=purchase.loyalty),
+            MTPROXY_PURCHASED_TEXT.format(
+                expired_date=format_user_date(purchase.expired_date),
+            )
+            + render_apple_purchase_outcome(outcome=purchase.loyalty)
+            + MTPROXY_PURCHASED_CTA,
             reply_markup=keyboards.key_generated(),
         )
     except Exception:
@@ -300,7 +309,7 @@ async def process_successful_payment(message: Message, deps: Dependencies):
         )
         await message.answer(
             f"⚠️ Оплата получена, но произошла ошибка при выдаче {purchase_item}.\n"
-            "Пожалуйста, обратитесь в поддержку: @mtprotokeys_support"
+            "Пожалуйста, обратись в поддержку: @mtprotokeys_support"
         )
 
 
@@ -313,11 +322,13 @@ async def process_gift_certificate_activation(message: Message, deps: Dependenci
         )
     except Exception as exc:
         error_message = getattr(exc, "message", None) or (
-            "Не удалось активировать сертификат. Напишите в поддержку: @mtprotokeys_support"
+            "Не удалось активировать сертификат. Напиши в поддержку: @mtprotokeys_support"
         )
         await message.answer(error_message)
         return
     await message.answer(
-        GIFT_CERTIFICATE_ACTIVATED_TEXT.format(expired_date=result.expired_date),
+        GIFT_CERTIFICATE_ACTIVATED_TEXT.format(
+            expired_date=format_user_date(result.expired_date),
+        ),
         reply_markup=keyboards.key_generated(),
     )

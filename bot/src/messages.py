@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from src.enums import FreeAvailable
+from src.presentation import format_user_date
 
 if TYPE_CHECKING:
     from src.domains.payments import (
@@ -45,7 +46,7 @@ def render_apple_spend(*, balance: int, redeemable_days: int) -> str:
         "🍏 <b>Потратить яблоки</b>\n\n"
         f"Баланс: <b>{balance} 🍏</b>\n"
         f"Доступно дней: <b>{redeemable_days}</b>\n\n"
-        "Выберите вариант продления:"
+        "Выбери вариант продления:"
     )
 
 
@@ -68,7 +69,7 @@ def render_apple_redemption_preview(*, preview: AppleRedemptionPreview) -> str:
         f"Списать: <b>{preview.apples_spent} 🍏</b>\n"
         f"Добавить дней: <b>{preview.days}</b>\n"
         "Продление до: "
-        f"<b>{preview.projected_expired_date}</b>\n\n"
+        f"<b>{format_user_date(preview.projected_expired_date)}</b>\n\n"
         "Подтвердить обмен?"
     )
 
@@ -78,7 +79,7 @@ def render_apple_redemption_result(*, result: AppleRedemptionResult) -> str:
         "✅ <b>Яблоки обменены</b>\n\n"
         f"Списано: <b>{result.apples_spent} 🍏</b>\n"
         f"Добавлено дней: <b>{result.days}</b>\n"
-        f"Продление до: <b>{result.expired_date}</b>\n"
+        f"Продление до: <b>{format_user_date(result.expired_date)}</b>\n"
         f"Баланс: <b>{result.balance} 🍏</b>"
     )
 
@@ -107,7 +108,7 @@ def render_apple_purchase_outcome(*, outcome: ApplePurchaseOutcome) -> str:
 PRODUCT_MENU_TEXT = (
     "👋 Добро пожаловать в MTProto Keys!\n\n"
     "MTProxy, VPN, бонусы и полезные ссылки — всё здесь.\n"
-    "Выберите, что вас интересует:"
+    "Выбери, что тебе интересно:"
 )
 
 _WELCOME_BODY = """
@@ -116,20 +117,21 @@ _WELCOME_BODY = """
 🌐 Не один сервер, а целая <b>сеть</b>
 🔁 Упал один — <b>всегда есть резерв</b>
 🌍 Серверы в <b>разных странах</b>
-📱 Одна ссылка на <b>3 устройства</b>
+📱 Одна ссылка на <b>3 устройства</b>"""
 
-👇 Жми «Мои серверы» и подключайся!
-"""
+_WELCOME_CTA = "\n\n👇 Жми «Мои серверы» и подключайся!"
 
-WELCOME_TEXT_MONTH = _WELCOME_BODY + "\nПервый месяц — бесплатно."
+WELCOME_TEXT_MONTH = _WELCOME_BODY + "\nПервый месяц — бесплатно." + _WELCOME_CTA
 
-WELCOME_TEXT_WEEK = _WELCOME_BODY + "\nПервая неделя — бесплатно."
+WELCOME_TEXT_WEEK = _WELCOME_BODY + "\nПервая неделя — бесплатно." + _WELCOME_CTA
 
 WELCOME_TEXT_TWO_WEEK = (
-    _WELCOME_BODY + "\nВы пришли по приглашению — первые две недели бесплатно."
+    _WELCOME_BODY
+    + "\nПо приглашению первые две недели — бесплатно."
+    + _WELCOME_CTA
 )
 
-WELCOME_TEXT_NOT_FREE = _WELCOME_BODY
+WELCOME_TEXT_NOT_FREE = _WELCOME_BODY + _WELCOME_CTA
 
 FREE_AVAILABLE_TEXT_MAPPING = {
     FreeAvailable.MONTH: WELCOME_TEXT_MONTH,
@@ -141,8 +143,8 @@ FREE_AVAILABLE_TEXT_MAPPING = {
 LEGAL_CONSENT_TEXT = f"""
 <b>Перед началом работы</b>
 
-Чтобы пользоваться сервисом, подтвердите, что вы принимаете
-<a href="{TERMS_URL}">Пользовательское соглашение</a> и даёте
+Для использования сервиса необходимо принять
+<a href="{TERMS_URL}">Пользовательское соглашение</a> и дать
 <a href="{PRIVACY_URL}">согласие на обработку персональных данных</a>.
 """
 
@@ -150,13 +152,13 @@ LEGAL_CONSENT_TEXT = f"""
 KEY_GENERATED_TEXT = """
 🎉 <b>Твой персональный ключ готов!</b>
 
-📝 <b>Как активировать:</b>
-1. Нажми «Мои серверы» ниже
-2. Подключи <b>все серверы</b> в Telegram — при падении одного он автоматически переключится на другой
+📝 Подключи <b>все серверы</b> в Telegram — при падении одного он автоматически переключится на другой.
 
 ⏳ Действительно до: <b>{expired_date}</b>
 
 <i>🤝 Подпишись на наш канал — там все новости: @mtproto_keys</i>
+
+👇 Нажми «Мои серверы» ниже
 """
 
 MY_SERVERS_TEXT = """
@@ -240,37 +242,39 @@ PAYMENT_METHODS_TEXT = f"""💳 <b>Оплата подписки</b>
 ⚡ <b>Продукт:</b> MTProxy
 📅 <b>Период:</b> 30 дней
 
-После оплаты новый ключ будет выдан автоматически. Если у вас уже есть активный ключ, подписка продлится на 30 дней.
+После оплаты новый ключ будет выдан автоматически. Если у тебя уже есть активный ключ, подписка продлится на 30 дней.
 
-<i>Оплачивая подписку, вы принимаете <a href="{TERMS_URL}">Условия использования</a> и <a href="{PRIVACY_URL}">Политику конфиденциальности</a>.</i>
+<i>Оплата подписки означает принятие <a href="{TERMS_URL}">Условий использования</a> и <a href="{PRIVACY_URL}">Политики конфиденциальности</a>.</i>
 
-👇 <b>Выберите способ оплаты:</b>"""
+👇 <b>Выбери способ оплаты:</b>"""
 
 MTPROXY_PURCHASED_TEXT = """🎉 <b>Спасибо за покупку!</b>
 
-⏳ Подписка активна до: <b>{expired_date}</b>
+⏳ Подписка активна до: <b>{expired_date}</b>"""
 
-👇 Нажми «Мои серверы», чтобы подключиться ко всем серверам"""
+MTPROXY_PURCHASED_CTA = (
+    "\n\n👇 Нажми «Мои серверы», чтобы подключиться ко всем серверам"
+)
 
 CRYPTO_PAY_BUTTON = "💎 Crypto Pay"
 CRYPTO_INVOICE_TEXT = (
     "💎 <b>Счёт Crypto Pay</b>\n\n"
-    "Сумма: <b>{rub_amount} RUB</b>\n"
+    "Сумма: <b>{rub_amount} ₽</b>\n"
     "Действует до: <b>{expires_at}</b>\n\n"
-    "Нажмите кнопку ниже, чтобы открыть CryptoBot."
+    "Нажми кнопку ниже, чтобы открыть CryptoBot."
 )
 CRYPTO_INVOICE_ERROR_TEXT = (
-    "Не удалось создать счёт Crypto Pay. Попробуйте нажать кнопку ещё раз."
+    "Не удалось создать счёт Crypto Pay. Попробуй нажать кнопку ещё раз."
 )
 PLATEGA_INVOICE_TEXT = (
     "⚡ <b>Счёт СБП</b>\n\n"
     "Сумма: <b>{rub_amount} ₽</b>\n"
     "Срок действия счета: 15 минут\n\n"
-    "Нажмите кнопку ниже, чтобы перейти к оплате.\n\n"
     "<i>Результат будет выдан автоматически после подтверждения платежа.</i>"
+    "\n\nНажми кнопку ниже, чтобы перейти к оплате."
 )
 PLATEGA_INVOICE_ERROR_TEXT = (
-    "Не удалось создать счёт СБП. Попробуйте нажать кнопку ещё раз."
+    "Не удалось создать счёт СБП. Попробуй нажать кнопку ещё раз."
 )
 
 GIFT_CERTIFICATE_TEXT = f"""💳 <b>Оплата подарка</b>
@@ -278,11 +282,11 @@ GIFT_CERTIFICATE_TEXT = f"""💳 <b>Оплата подарка</b>
 🎁 <b>Продукт:</b> сертификат MTProxy
 📅 <b>Период:</b> 30 дней
 
-После оплаты вы получите одноразовый код, который можно переслать другому человеку. Код создаст новый ключ или продлит действующий на 30 дней.
+После оплаты ты получишь одноразовый код, который можно переслать другому человеку. Код создаст новый ключ или продлит действующий на 30 дней.
 
-<i>Оплачивая сертификат, вы принимаете <a href="{TERMS_URL}">Условия использования</a> и <a href="{PRIVACY_URL}">Политику конфиденциальности</a>.</i>
+<i>Оплата сертификата означает принятие <a href="{TERMS_URL}">Условий использования</a> и <a href="{PRIVACY_URL}">Политики конфиденциальности</a>.</i>
 
-👇 <b>Выберите способ оплаты:</b>"""
+👇 <b>Выбери способ оплаты:</b>"""
 
 GIFT_CERTIFICATE_PURCHASED_TEXT = """🎁 <b>Подарочный сертификат готов</b>
 
@@ -305,18 +309,18 @@ VPN_PRODUCT_MENU_TEXT = """🔐 <b>VPN от MTProto Keys</b>
 🔗 Постоянная subscription-ссылка
 ⚙️ Подключение через приложение HAPP
 
-👇 Выберите действие:"""
+👇 Выбери действие:"""
 
 VPN_MENU_TEXT = f"""💳 <b>Оплата подписки</b>
 
 🔐 <b>Продукт:</b> VPN
 📅 <b>Период:</b> 30 дней
 
-После оплаты VPN-подписка будет активирована автоматически. При продлении ваша постоянная subscription-ссылка не изменится.
+После оплаты VPN-подписка будет активирована автоматически. При продлении твоя постоянная subscription-ссылка не изменится.
 
-<i>Оплачивая подписку, вы принимаете <a href="{TERMS_URL}">Условия использования</a> и <a href="{PRIVACY_URL}">Политику конфиденциальности</a>.</i>
+<i>Оплата подписки означает принятие <a href="{TERMS_URL}">Условий использования</a> и <a href="{PRIVACY_URL}">Политики конфиденциальности</a>.</i>
 
-👇 <b>Выберите способ оплаты:</b>"""
+👇 <b>Выбери способ оплаты:</b>"""
 
 VPN_EXPIRED_TEXT = """🔐 <b>VPN-подписка закончилась</b>
 

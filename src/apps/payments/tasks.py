@@ -8,7 +8,11 @@ from celery import shared_task
 from django.conf import settings
 from django.utils import timezone
 
-from apps.core.telegram.transport import send_telegram_message
+from apps.core.telegram import (
+    format_user_date,
+    format_user_datetime,
+    send_telegram_message,
+)
 from apps.notifications.selectors import get_template
 from apps.payments.apple_cashback import get_apple_level
 from apps.payments.enums import PaymentKindEnum
@@ -74,16 +78,14 @@ def _send_purchase_result(
             raise RuntimeError("subscription_result_missing")
         slug = "proxy_purchased"
         context = {
-            "expired_date": purchase.result_expired_at.date().strftime("%d.%m.%y")
+            "expired_date": format_user_date(purchase.result_expired_at)
         }
         loyalty_block = _render_apple_cashback_block(purchase=purchase)
     elif intent.purchase_kind == PaymentKindEnum.VPN_SUBSCRIPTION:
         subscription = intent.payment.user.vpn_subscription
         slug = "crypto_vpn_purchased"
         context = {
-            "expired_at": subscription.expired_at.strftime(
-                "%d.%m.%Y %H:%M UTC"
-            ),
+            "expired_at": format_user_datetime(subscription.expired_at),
             "subscription_url": (
                 f"{settings.VPN_SUBSCRIPTION_BASE_URL.rstrip('/')}"
                 "/api/v1/vpn/subscriptions/"
