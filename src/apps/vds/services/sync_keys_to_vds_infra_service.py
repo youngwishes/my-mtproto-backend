@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, final
-
+import time
 import requests
 from django.conf import settings
 from django.utils import html
@@ -35,6 +35,7 @@ class SyncKeysToVdsInfraService:
             response.raise_for_status()
         except Exception as exc:
             self._notify_admin(key=key, target=target, exc=exc)
+            time.sleep(0.5)
 
     @staticmethod
     def _notify_admin(*, key: MTPRotoKey, target: VDSInstance, exc: Exception) -> None:
