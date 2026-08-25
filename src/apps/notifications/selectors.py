@@ -3,9 +3,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from django.db.models import QuerySet
+from django.utils import timezone
 
 from apps.notifications.enums import FilterType
 from apps.notifications.models import Mailing, NotificationTemplate
+from apps.users.models import SystemUser
 from apps.vds.models import MTPRotoKey
 
 if TYPE_CHECKING:
@@ -32,6 +34,14 @@ def mark_key_notified_for_expiry(*, key_id: int, expired_date: datetime) -> bool
         ).update(user_notified=True)
         == 1
     )
+
+
+def get_mtproto_link_reissue_recipients() -> QuerySet[SystemUser]:
+    eligible_user_ids = MTPRotoKey.objects.active().filter(
+        was_deleted=False,
+        expired_date__gt=timezone.now(),
+    ).values("user_id")
+    return SystemUser.objects.filter(pk__in=eligible_user_ids).distinct()
 
 
 def get_users_by_filter(*, filter_type: int, params: dict) -> QuerySet:
