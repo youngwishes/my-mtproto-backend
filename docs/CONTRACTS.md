@@ -217,6 +217,11 @@ referrer.
 }
 ```
 
+Форма ответа не меняется. В каждом `servers[].proxy_link` хост остаётся
+`{vds.name}.mtprotokeys.com`, а FakeTLS-secret кодирует `tls_domain` именно этой
+VDS. При разных TLS-доменах ссылки одного пользовательского ключа получают
+разные клиентские secrets, сохраняя единый raw token пользователя.
+
 **Ошибки:** `KeyDoesNotExist` (нет активного ключа и бесплатный период уже израсходован).
 
 ---
@@ -786,12 +791,12 @@ post-commit provider notification task; она добавляет сохранё
 
 ## Исходящие запросы к VDS
 
-Бэкенд общается с FastAPI-сервисами на VDS через HTTP. Выдача/перевыпуск ключа — это запись в БД + Celery-таск `push_key_to_servers_task`, который фан-аутит секрет на **все здоровые** VDS. Доставка идемпотентна и поддерживает ротацию: POST `/api/users`; если пользователь уже есть (`409`) — секрет ротируется через PATCH (новый перевыпущенный токен замещает старый; PATCH тем же секретом — безопасный no-op).
+Бэкенд общается с FastAPI-сервисами на VDS через HTTP. Выдача/перевыпуск ключа — это запись в БД + Celery-таск `push_key_to_servers_task`, который фан-аутит единый raw token на **все здоровые** VDS. Доставка идемпотентна и поддерживает ротацию: POST `/api/users`; если пользователь уже есть (`409`) — token ротируется через PATCH (новый перевыпущенный token замещает старый; PATCH тем же token — безопасный no-op). TLS-домен VDS и вычисленный клиентский `ee...` secret в эти запросы не входят.
 
 | Действие | Метод | URL | Тело |
 |----------|-------|-----|------|
 | Проверить доступность VDS | GET | `{server.internal_url}` | — |
-| Доставить ключ (POST, на `409` → PATCH-ротация) | POST/PATCH | `{server.internal_url}/api/users` | `{username, secret}` |
+| Доставить ключ (POST, на `409` → PATCH-ротация) | POST/PATCH | `{server.internal_url}/api/users` | `{username, secret: key.token}` |
 | Проверить ключ в integration harness | GET | `{server.internal_url}/api/users/{username}` | — |
 | Удалить | DELETE | `{server.internal_url}/api/users` | `{usernames: [...]}` |
 

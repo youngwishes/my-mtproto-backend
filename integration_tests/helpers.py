@@ -48,7 +48,7 @@ def make_clients() -> BotClients:
         free_trial=FreeTrialClient(backend=backend),
         referrals=ReferralsClient(backend=backend),
         links=LinksClient(backend=backend),
-        payments=PaymentsClient(backend=backend, provider_token="test-provider"),
+        payments=PaymentsClient(backend=backend),
     )
 
 

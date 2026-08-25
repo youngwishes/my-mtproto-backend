@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, call, patch
 
 import httpx
@@ -36,11 +37,33 @@ def test_ensure_test_vds_creates_complete_healthy_record() -> None:
             "ip_address": "31.77.148.123",
             "internal_ip_address": "31.77.148.123",
             "port": 8080,
+            "tls_domain": "tls-it.example",
             "is_healthy": True,
             "is_active": True,
             "location": "🧪 Test",
         },
     )
+
+
+def test_key_secret_token_uses_requested_vds_tls_domain() -> None:
+    key = db.MTPRotoKey(token="abc123")
+    vds = SimpleNamespace(tls_domain="tls-it.example")
+
+    with (
+        patch.object(db, "get_active_key", return_value=key),
+        patch.object(db.VDSInstance.objects, "get", return_value=vds) as get_vds,
+    ):
+        secret = db.key_secret_token("999000001", vds_name="it-test")
+
+    assert secret == "eeabc123746c732d69742e6578616d706c65"
+    get_vds.assert_called_once_with(name="it-test")
+
+
+def test_key_raw_token_returns_active_key_token() -> None:
+    key = db.MTPRotoKey(token="raw-token")
+
+    with patch.object(db, "get_active_key", return_value=key):
+        assert db.key_raw_token("999000001") == "raw-token"
 
 
 async def test_vds_polling_tolerates_transient_http_error() -> None:

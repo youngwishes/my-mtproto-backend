@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from django.conf import settings
 from django.db import models
 from django.db.models.enums import IntegerChoices
 from apps.core import BaseDjangoModel, ActiveQuerySet
@@ -21,6 +20,7 @@ class Hosting(BaseDjangoModel):
 
 class VDSInstance(BaseDjangoModel):
     name = models.CharField("название сервера")
+    tls_domain = models.CharField("TLS-домен")
     number = models.PositiveSmallIntegerField("порядковый номер", unique=True)
     ip_address = models.CharField("IP-адрес", unique=True)
     internal_ip_address = models.CharField("внутренний IP-адрес", blank=True)
@@ -89,14 +89,12 @@ class MTPRotoKey(BaseDjangoModel):
     def __str__(self) -> str:
         return f"MTPRotoKey #{self.pk} — {self.user_id}"
 
-    def get_secret_token(self) -> str:
-        domain_hex = settings.TLS_DOMAIN.encode("utf-8").hex()
+    def get_secret_token(self, *, tls_domain: str) -> str:
+        domain_hex = tls_domain.encode("utf-8").hex()
         return f"ee{self.token}{domain_hex}"
 
-    def get_proxy_link(self, *, server_name: str) -> str:
-        """Единственный генератор proxy-ссылки: секрет валиден на всём флоте,
-        хост определяется именем конкретного сервера ({server_name}.mtprotokeys.com)."""
-        secret = self.get_secret_token()
+    def get_proxy_link(self, *, server_name: str, tls_domain: str) -> str:
+        secret = self.get_secret_token(tls_domain=tls_domain)
         return f"tg://proxy?server={server_name}.mtprotokeys.com&port=443&secret={secret}"
 
     class Meta:

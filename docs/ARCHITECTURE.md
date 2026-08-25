@@ -57,7 +57,8 @@ Flower защищён Basic Auth и не направляется в Django.
 
 Сертификат использует lineage `/etc/nginx/ssl/live/beatvault.ru/` с SAN
 `beatvault.ru`, `dash.mtprotokeys.com`, `flower.mtprotokeys.com`.
-MTProto-секреты используют `TLS_DOMAIN=mtprotokeys.com`, VPN subscription URL —
+TLS-домен клиентского MTProxy FakeTLS-secret задаётся отдельно для каждой VDS;
+глобальной настройки или runtime fallback для него нет. VPN subscription URL —
 `VPN_SUBSCRIPTION_BASE_URL=https://dash.mtprotokeys.com`.
 
 Операционные release-команды и проверки принадлежат только
@@ -97,8 +98,11 @@ generic retry framework не вводится без отдельной прод
 ## MTProxy fleet
 
 БД — source of truth для `MTPRotoKey`; VDS являются равноправными зеркалами.
-Один ключ содержит один secret для всей fleet, а ссылки формируются на лету для
-каждого активного server name.
+Один ключ содержит один raw token для всей fleet, и именно этот token
+реплицируется на VDS без изменений. Клиентские ссылки формируются на лету:
+хост берётся из имени активной VDS, а FakeTLS-secret сочетает общий raw token с
+TLS-доменом этой VDS. Поэтому разные домены дают разные клиентские secrets, не
+создавая per-VDS credentials в хранилище или delivery-потоке.
 
 Issue/reissue меняет только DB state и ставит асинхронную доставку. Fan-out
 идемпотентно создаёт пользователя на здоровой VDS либо ротирует secret. После
