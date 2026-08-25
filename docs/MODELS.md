@@ -45,6 +45,7 @@
 | `hosting` | FK → Hosting? | Хостинг-провайдер сервера. Nullable для постепенного заполнения существующих записей. |
 | `expired_at` | DateField? | Дата, до которой оплачен конкретный VDS-инстанс |
 | `name` | str (unique) | DNS-субдомен сервера в хосте proxy-URL (`{name}.mtprotokeys.com`), напр. `kz`, `nl` |
+| `tls_domain` | str | Обязательный TLS-домен для FakeTLS-secret ссылок этой VDS; без default и uniqueness constraint |
 | `number` | SmallInt (unique) | Порядковый номер. Задаёт порядок отображения серверов (`Meta.ordering = ["number"]`), в т.ч. порядок кнопок в «Мои серверы». Управляется через админку. |
 | `ip_address` | str (unique) | Внешний IP |
 | `internal_ip_address` | str | IP в Docker-сети |
@@ -54,6 +55,12 @@
 | `location` | str | Географический регион сервера (default: "") |
 
 **Менеджер:** `ActiveQuerySet.as_manager()` — метод `.active()`. Серверы равноправны (каждый ключ присутствует на всех), поэтому понятий «наименее нагруженный»/«домашний сервер» больше нет.
+
+Миграция добавления `tls_domain` заполняет существующие VDS значением
+`mtprotokeys.com`, создаёт DB-колонку `NOT NULL`, но не сохраняет model default.
+Стандартная admin/model form требует непустое значение; raw ORM save не
+запускает model validation автоматически. Одинаковые домены у нескольких VDS
+допустимы.
 
 **Методы:**
 - `internal_url` — `http://{internal_ip_address}:{port}`
@@ -92,11 +99,14 @@
 
 ## MTPRotoKey (apps/vds)
 
-Прокси-ключ пользователя. **Один секрет, валидный на всём флоте** — без привязки к «домашнему» серверу. БД — источник правды; присутствие секрета на серверах — производный кэш (доставляется асинхронным пушем).
+Прокси-ключ пользователя. **Один raw token, валидный на всём флоте** — без
+привязки к «домашнему» серверу. БД — источник правды; присутствие raw token на
+серверах — производный кэш (доставляется асинхронным пушем). Клиентский
+FakeTLS-secret вычисляется отдельно для конкретной VDS и в модели не хранится.
 
 | Поле | Тип | Описание |
 |------|-----|----------|
-| `token` | str (unique) | Секрет для подключения (32 hex) |
+| `token` | str (unique) | Единый raw token пользователя (32 hex), доставляемый на все VDS |
 | `user` | FK → SystemUser | Владелец |
 | `was_deleted` | bool | Удалён ли с VDS |
 | `user_notified` | bool | Уведомлён ли об истечении |
@@ -108,8 +118,8 @@
 **Менеджер:** `expired_today()` — ключи, которые истекли на сегодня.
 
 **Методы:**
-- `get_proxy_link(*, server_name)` — единственный генератор ссылки: `tg://proxy?server={server_name}.mtprotokeys.com&port=443&secret={secret}`. Хост зависит от имени конкретного сервера, секрет одинаков на всём флоте.
-- `get_secret_token()` — `ee{token}{hex(settings.TLS_DOMAIN)}`. Домен маскировки FakeTLS берётся из `settings.TLS_DOMAIN` (одинаков на всех VDS), а не из поля модели.
+- `get_proxy_link(*, server_name, tls_domain)` — единственный генератор ссылки: `tg://proxy?server={server_name}.mtprotokeys.com&port=443&secret={secret}`. Хост зависит только от имени сервера, а в client secret передаётся TLS-домен этой VDS.
+- `get_secret_token(*, tls_domain)` — `ee{token}{hex(tls_domain)}`, где домен кодируется в UTF-8. Метод не использует глобальную настройку или fallback.
 
 ---
 

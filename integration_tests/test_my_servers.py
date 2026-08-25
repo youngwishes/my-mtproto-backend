@@ -12,16 +12,24 @@ from . import db, helpers
 async def test_my_servers_lists_active_vds_with_proxy_links(username):
     clients = helpers.make_clients()
     await clients.free_trial.claim(telegram_id=username)
-    expected_secret = await db.aw(db.key_secret_token)(username)
+    raw_token_before = await db.aw(db.key_raw_token)(username)
+    expected_secret = await db.aw(db.key_secret_token)(
+        username, vds_name="it-test"
+    )
 
     result = await clients.links.get_my_servers(telegram_id=username)
 
+    raw_token_after = await db.aw(db.key_raw_token)(username)
+    assert raw_token_before is not None
+    assert raw_token_after == raw_token_before
     active_count = await db.aw(db.count_active_vds)()
     assert len(result.servers) == active_count >= 1
+    expected_link = (
+        "tg://proxy?server=it-test.mtprotokeys.com&port=443"
+        f"&secret={expected_secret}"
+    )
     for server in result.servers:
-        # хост — субдомен сервера {name}.mtprotokeys.com, секрет из get_secret_token (TLS_DOMAIN)
-        assert ".mtprotokeys.com" in server.proxy_link
-        assert expected_secret in server.proxy_link
+        assert server.proxy_link == expected_link
         assert server.location
 
 
@@ -34,6 +42,7 @@ async def test_my_servers_excludes_inactive_vds(username):
         ip_address="203.0.113.99",
         internal_ip_address="127.0.0.1",
         port=9,
+        tls_domain="tls-inactive.example",
         is_active=False,
     )
     try:
@@ -70,11 +79,21 @@ async def test_my_servers_auto_activates_free_period_for_new_user(username):
     assert len(keys) == 1
     assert result.expired_date == helpers.expected_expired(30)
 
-    # серверы возвращены и секрет доставлен на ВСЕ VDS — это именно наш токен
+    raw_token_before_delivery_check = await db.aw(db.key_raw_token)(username)
+    expected_secret = await db.aw(db.key_secret_token)(
+        username, vds_name="it-test"
+    )
+
+    # Серверы возвращены, а единый raw token доставлен на все здоровые VDS.
     active_count = await db.aw(db.count_active_vds)()
     assert len(result.servers) == active_count >= 1
     await helpers.assert_present_on_all_vds(username, present=True)
-    expected_secret = await db.aw(db.key_secret_token)(username)
+    raw_token_after_delivery_check = await db.aw(db.key_raw_token)(username)
+    assert raw_token_before_delivery_check is not None
+    assert raw_token_after_delivery_check == raw_token_before_delivery_check
+    expected_link = (
+        "tg://proxy?server=it-test.mtprotokeys.com&port=443"
+        f"&secret={expected_secret}"
+    )
     for server in result.servers:
-        assert ".mtprotokeys.com" in server.proxy_link
-        assert expected_secret in server.proxy_link
+        assert server.proxy_link == expected_link

@@ -48,6 +48,7 @@ class VDSInstanceAdmin(admin.ModelAdmin):
     list_display = [
         "pk",
         "name",
+        "tls_domain",
         "hosting",
         "internal_ip_address",
         "number",
@@ -68,21 +69,22 @@ class MTPRotoKeyAdmin(admin.ModelAdmin):
 
     search_fields = ("user__telegram_username", "user__username")
 
-    _example_server_name: str | None = None
+    _example_server: VDSInstance | None = None
 
     def get_queryset(self, request):
         # «Любой сервер» как пример хоста ссылки — берём один раз на весь список
         qs = super().get_queryset(request)
-        self._example_server_name = (
-            get_all_active_vds_instances().values_list("name", flat=True).first()
-        )
+        self._example_server = get_all_active_vds_instances().first()
         return qs
 
     @admin.display(description="Активная ссылка")
     def active_proxy_link(self, obj):
-        if not self._example_server_name or not _key_is_valid(obj):
+        if not self._example_server or not _key_is_valid(obj):
             return "—"
-        link = obj.get_proxy_link(server_name=self._example_server_name)
+        link = obj.get_proxy_link(
+            server_name=self._example_server.name,
+            tls_domain=self._example_server.tls_domain,
+        )
         return format_html('<a href="{}">{}</a>', link, link)
 
     @admin.display(description="Пользователь", ordering="telegram_username")

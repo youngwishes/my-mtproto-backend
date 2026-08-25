@@ -29,7 +29,9 @@ class TestDailyFreeTrialGrantService(SimpleTestCase):
             activate_free_trial=activation
             or mock.Mock(return_value=IssuedKeyOut(expired_date="10.08.26")),
             get_active_key=lambda **_: key or SimpleNamespace(
-                get_proxy_link=lambda *, server_name: f"tg://proxy?server={server_name}"
+                get_proxy_link=lambda *, server_name, tls_domain: (
+                    f"tg://proxy?server={server_name}&tls={tls_domain}"
+                )
             ),
             get_active_servers=lambda: servers or [],
             send_message=sender or mock.Mock(),
@@ -93,11 +95,21 @@ class TestDailyFreeTrialGrantService(SimpleTestCase):
     def test_sends_expiry_and_url_button_for_every_active_server(self) -> None:
         sender = mock.Mock()
         key = SimpleNamespace(
-            get_proxy_link=lambda *, server_name: f"tg://proxy?server={server_name}"
+            get_proxy_link=lambda *, server_name, tls_domain: (
+                f"tg://proxy?server={server_name}&tls={tls_domain}"
+            )
         )
         servers = [
-            SimpleNamespace(name="de", location="🇩🇪 Germany"),
-            SimpleNamespace(name="nl", location="🇳🇱 Netherlands"),
+            SimpleNamespace(
+                name="de",
+                location="🇩🇪 Germany",
+                tls_domain="tls-de.example",
+            ),
+            SimpleNamespace(
+                name="nl",
+                location="🇳🇱 Netherlands",
+                tls_domain="tls-nl.example",
+            ),
         ]
         service = self._service(
             candidates=[_user("123")], key=key, servers=servers, sender=sender
@@ -123,7 +135,10 @@ class TestDailyFreeTrialGrantService(SimpleTestCase):
         )
         self.assertEqual(
             [row[0].url for row in keyboard],
-            ["tg://proxy?server=de", "tg://proxy?server=nl"],
+            [
+                "tg://proxy?server=de&tls=tls-de.example",
+                "tg://proxy?server=nl&tls=tls-nl.example",
+            ],
         )
 
     def test_delivery_error_keeps_activation_and_report_counts(self) -> None:

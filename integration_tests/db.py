@@ -55,6 +55,7 @@ def ensure_test_vds(name: str = "it-test", location: str = "🧪 Test") -> VDSIn
             "ip_address": config.VDS_INTERNAL_IP,
             "internal_ip_address": config.VDS_INTERNAL_IP,
             "port": config.VDS_PORT,
+            "tls_domain": "tls-it.example",
             "is_healthy": True,
             "is_active": True,
             "location": location,
@@ -206,10 +207,19 @@ def count_payments(username: str) -> int:
     return Payment.objects.filter(user__username=username).count()
 
 
-def key_secret_token(username: str) -> str | None:
-    """get_secret_token() активного ключа (для сверки proxy_link в «Мои серверы»)."""
+def key_secret_token(username: str, *, vds_name: str) -> str | None:
+    """Client secret активного ключа для указанной VDS."""
     key = get_active_key(username)
-    return key.get_secret_token() if key else None
+    if key is None:
+        return None
+    vds = VDSInstance.objects.get(name=vds_name)
+    return key.get_secret_token(tls_domain=vds.tls_domain)
+
+
+def key_raw_token(username: str) -> str | None:
+    """Raw token активного ключа, доставляемый на VDS."""
+    key = get_active_key(username)
+    return key.token if key else None
 
 
 def get_keys(username: str) -> list[MTPRotoKey]:
