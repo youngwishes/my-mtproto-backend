@@ -56,12 +56,12 @@ class TestCreatePaymentView(APITestCase):
 
     @mock.patch("apps.notifications.services.send_notification_service.send_telegram_message")
     @mock.patch("apps.vds.tasks.push_key_to_servers_task.delay")
-    def test_create_yukassa_payment(self, mock_push, telegram) -> None:
+    def test_create_stars_payment_issues_key_and_loyalty(self, mock_push, telegram) -> None:
         with self.captureOnCommitCallbacks(execute=True):
             response = self._post({
                 "username": self.user.username,
-                "charge_id": "yukassa_charge_001",
-                "provider": PaymentProviderEnum.YUKASSA,
+                "charge_id": "stars_charge_001",
+                "provider": PaymentProviderEnum.STARS,
             })
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(
@@ -91,15 +91,15 @@ class TestCreatePaymentView(APITestCase):
         self.assertEqual(payment.key, key)
         mock_push.assert_called_once_with(key_id=key.pk)
         self.assertEqual(payment.user, self.user)
-        self.assertEqual(payment.charge_id, "yukassa_charge_001")
-        self.assertEqual(payment.provider, PaymentProviderEnum.YUKASSA)
+        self.assertEqual(payment.charge_id, "stars_charge_001")
+        self.assertEqual(payment.provider, PaymentProviderEnum.STARS)
         self.assertEqual(
             key.expired_date.date(), (timezone.now() + timedelta(days=30)).date()
         )
 
     @mock.patch("apps.notifications.services.send_notification_service.send_telegram_message")
     @mock.patch("apps.vds.tasks.push_key_to_servers_task.delay")
-    def test_create_stars_payment(self, mock_push, telegram) -> None:
+    def test_create_stars_payment_saves_provider(self, mock_push, telegram) -> None:
         response = self._post({
             "username": self.user.username,
             "charge_id": "stars_tx_789",
@@ -119,7 +119,7 @@ class TestCreatePaymentView(APITestCase):
         first_response = self._post({
             "username": self.user.username,
             "charge_id": "charge_first",
-            "provider": PaymentProviderEnum.YUKASSA,
+            "provider": PaymentProviderEnum.STARS,
         })
         payment = Payment.objects.first()
         self.assertIsNotNone(payment.key)
@@ -127,7 +127,7 @@ class TestCreatePaymentView(APITestCase):
         second_response = self._post({
             "username": self.user.username,
             "charge_id": "charge_second",
-            "provider": PaymentProviderEnum.YUKASSA,
+            "provider": PaymentProviderEnum.STARS,
         })
         payment.refresh_from_db()
         self.assertEqual(first_response.status_code, status.HTTP_200_OK)

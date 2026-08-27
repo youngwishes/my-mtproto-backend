@@ -26,7 +26,6 @@ from apps.payments.services.dtos.crypto_pay_dtos import CryptoInvoiceDTO
 class ProductFactory(factory.django.DjangoModelFactory):
     code = factory.Sequence(lambda n: f"product_{n}")
     title = factory.Sequence(function=lambda n: f"title{n}")
-    provider_data = factory.Sequence(function=lambda n: '{"key": "value"}')
     description = factory.Sequence(function=lambda n: f"description_{n}")
     price = 99
     stars_price = 99
@@ -40,7 +39,7 @@ class PaymentFactory(factory.django.DjangoModelFactory):
     user = factory.SubFactory("apps.users.tests.factories.SystemUserFactory")
     key = None
     charge_id = factory.Sequence(lambda n: f"charge_{n}")
-    provider = PaymentProviderEnum.YUKASSA
+    provider = PaymentProviderEnum.STARS
 
     class Meta:
         model = Payment

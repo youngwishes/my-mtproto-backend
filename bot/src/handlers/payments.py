@@ -131,11 +131,6 @@ async def process_boost_paid(callback: CallbackQuery, deps: Dependencies):
     )
 
 
-@router.callback_query(F.data == "pay_yukassa")
-async def process_pay_yukassa(callback: CallbackQuery) -> None:
-    await callback.answer()
-
-
 @router.callback_query(F.data == "pay_stars")
 async def process_pay_stars(callback: CallbackQuery, deps: Dependencies):
     await callback.answer()
@@ -194,11 +189,6 @@ async def process_gift_certificate(callback: CallbackQuery, deps: Dependencies):
     )
 
 
-@router.callback_query(F.data == "gift_yukassa")
-async def process_gift_yukassa(callback: CallbackQuery) -> None:
-    await callback.answer()
-
-
 @router.callback_query(F.data == "gift_stars")
 async def process_gift_stars(callback: CallbackQuery, deps: Dependencies):
     await callback.answer()
@@ -243,19 +233,15 @@ async def process_pre_checkout_query(pre_checkout_query: PreCheckoutQuery):
     await bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True)
 
 
-@router.message(F.successful_payment)
+@router.message(F.successful_payment.currency == "XTR")
 async def process_successful_payment(message: Message, deps: Dependencies):
-    if message.successful_payment.currency == "XTR":
-        charge_id = message.successful_payment.telegram_payment_charge_id
-        provider = "stars"
-    else:
-        charge_id = message.successful_payment.provider_payment_charge_id
-        provider = "yukassa"
+    charge_id = message.successful_payment.telegram_payment_charge_id
+    provider = "stars"
 
     payload = getattr(message.successful_payment, "invoice_payload", "")
 
     try:
-        if payload in {"vpn_yukassa", "vpn_stars"}:
+        if payload == "vpn_stars":
             if deps.vpn is None:
                 raise RuntimeError("VPN client is not configured")
             purchase = await deps.vpn.confirm_purchase(
@@ -302,7 +288,7 @@ async def process_successful_payment(message: Message, deps: Dependencies):
     except Exception:
         purchase_item = (
             "VPN-подписки"
-            if payload in {"vpn_yukassa", "vpn_stars"}
+            if payload == "vpn_stars"
             else "сертификата"
             if payload.startswith("gift_certificate")
             else "ключа"

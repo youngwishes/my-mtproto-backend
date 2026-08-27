@@ -29,7 +29,7 @@ class TestFulfillVPNPurchaseService(TestCase):
         self,
         *,
         charge_id: str = "charge-1",
-        provider: str = PaymentProviderEnum.YUKASSA,
+        provider: str = PaymentProviderEnum.STARS,
     ) -> FulfillVPNPaymentIn:
         return FulfillVPNPaymentIn(
             username=self.user.username,
@@ -101,7 +101,7 @@ class TestFulfillVPNPurchaseService(TestCase):
                 payment = FulfillVPNPaymentIn(
                     username=subscription.user.username,
                     charge_id=f"restart-{subscription.pk}",
-                    provider=PaymentProviderEnum.YUKASSA,
+                    provider=PaymentProviderEnum.STARS,
                     product_code=ProductCodeEnum.VPN_30D,
                 )
 
@@ -134,7 +134,7 @@ class TestFulfillVPNPurchaseService(TestCase):
         )
 
     def test_repeated_provider_charge_does_not_extend_twice(self) -> None:
-        for provider in (PaymentProviderEnum.YUKASSA, PaymentProviderEnum.STARS):
+        for provider in (PaymentProviderEnum.STARS, PaymentProviderEnum.CRYPTO_PAY):
             with self.subTest(provider=provider):
                 user = SystemUserFactory()
                 service = FulfillVPNPurchaseService(
@@ -166,7 +166,7 @@ class TestFulfillVPNPurchaseService(TestCase):
         duplicate_payment = FulfillVPNPaymentIn(
             username=another_user.username,
             charge_id="charge-1",
-            provider=PaymentProviderEnum.YUKASSA,
+            provider=PaymentProviderEnum.STARS,
             product_code=ProductCodeEnum.VPN_30D,
         )
         duplicate_result = self.service(payment=duplicate_payment)

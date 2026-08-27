@@ -131,11 +131,6 @@ async def _render_vpn_subscription(
     )
 
 
-@router.callback_query(F.data == "vpn_pay_yukassa")
-async def process_vpn_pay_yukassa(callback: CallbackQuery) -> None:
-    await callback.answer()
-
-
 @router.callback_query(F.data == "vpn_pay_stars")
 async def process_vpn_pay_stars(callback: CallbackQuery, deps: Dependencies) -> None:
     await callback.answer()

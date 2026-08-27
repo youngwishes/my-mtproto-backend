@@ -614,9 +614,6 @@ Telegram-инвойса. `GET /api/v1/payments/products/<code>/` возвращ�
   "title": "MTPRoto Proxy — 30 дней",
   "description": "Прокси-ссылка на 30 дней для Telegram",
   "currency": "RUB",
-  "provider_data": "{\"receipt\": ...}",
-  "send_email_to_provider": true,
-  "need_email": true,
   "price": 9900.0,
   "rub_amount": "99.00",
   "stars_price": 99,
@@ -628,7 +625,7 @@ Telegram-инвойса. `GET /api/v1/payments/products/<code>/` возвращ�
 `price` хранится и возвращается в копейках: `9900.0` соответствует 99 RUB.
 `rub_amount` аддитивно возвращает ту же цену как строку с ровно двумя
 десятичными знаками, без float; `stars_price` хранит отдельную цену в Telegram
-Stars. Все прежние product-поля сохраняют свой JSON-контракт.
+Stars.
 
 `payment_methods` всегда присутствует и содержит только активные способы,
 поддержанные кодом. Порядок фиксирован: активный `platega_sbp` всегда первый,
@@ -655,8 +652,8 @@ Stars. Все прежние product-поля сохраняют свой JSON-�
 ```json
 {
   "username": "1487189460",
-  "charge_id": "yukassa_charge_001",
-  "provider": "yukassa"
+  "charge_id": "stars_charge_001",
+  "provider": "stars"
 }
 ```
 
@@ -664,10 +661,10 @@ Stars. Все прежние product-поля сохраняют свой JSON-�
 |------|-----|----------|
 | `username` | string | Telegram ID |
 | `charge_id` | string | Идентификатор платежа от провайдера |
-| `provider` | string | `"yukassa"`, `"stars"`, `"crypto_pay"` или `"platega"` |
+| `provider` | string | `"stars"`, `"crypto_pay"` или `"platega"` |
 
-`provider` принимает значения общего `PaymentProviderEnum`: `yukassa`, `stars`,
-`crypto_pay` или `platega`; штатные sync-вызовы бота используют первые два, а
+`provider` принимает значения общего `PaymentProviderEnum`: `stars`,
+`crypto_pay` или `platega`; штатный sync-вызов бота использует Stars, а
 Crypto/Platega fulfilment вызывает ту же доменную границу из сохранённого
 intent. `charge_id` не может быть пустым; дополнительные клиентские поля,
 включая цену и ставку, отклоняются.
@@ -717,8 +714,8 @@ sync success-message.
 ```json
 {
   "username": "1487189460",
-  "charge_id": "yukassa_gift_001",
-  "provider": "yukassa"
+  "charge_id": "stars_gift_001",
+  "provider": "stars"
 }
 ```
 
@@ -726,7 +723,7 @@ sync success-message.
 |------|-----|----------|
 | `username` | string | Telegram ID покупателя |
 | `charge_id` | string | Идентификатор платежа от провайдера |
-| `provider` | string | `"yukassa"`, `"stars"`, `"crypto_pay"` или `"platega"` |
+| `provider` | string | `"stars"`, `"crypto_pay"` или `"platega"` |
 
 **Ответ:** `200 OK`
 

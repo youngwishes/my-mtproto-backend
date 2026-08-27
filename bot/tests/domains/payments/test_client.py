@@ -44,9 +44,6 @@ PRODUCT_JSON = {
     "title": "MTPRoto на месяц",
     "description": "Безлимитный прокси",
     "currency": "RUB",
-    "provider_data": {"receipt": {"items": []}},
-    "send_email_to_provider": False,
-    "need_email": False,
     "price": 9900,
     "stars_price": 99,
     "rub_amount": "99.00",
@@ -199,7 +196,7 @@ async def test_confirm_gift_certificate_purchase_returns_code(client: PaymentsCl
     result = await client.confirm_gift_certificate_purchase(
         telegram_id=42,
         charge_id="gift_ch_1",
-        provider="yukassa",
+        provider="stars",
     )
 
     assert result == GiftCertificate(
@@ -217,7 +214,7 @@ async def test_confirm_gift_certificate_purchase_returns_code(client: PaymentsCl
     assert parse_qs(route.calls.last.request.content) == {
         b"username": [b"42"],
         b"charge_id": [b"gift_ch_1"],
-        b"provider": [b"yukassa"],
+        b"provider": [b"stars"],
     }
     assert route.calls.last.request.headers["Bot-Auth-Token"] == "t"
 
@@ -233,7 +230,7 @@ async def test_confirm_gift_certificate_purchase_maps_exact_historical_tag(
     result = await client.confirm_gift_certificate_purchase(
         telegram_id=42,
         charge_id="historical_gift",
-        provider="yukassa",
+        provider="stars",
     )
 
     assert result == HistoricalPurchaseReplay()

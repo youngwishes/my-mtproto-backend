@@ -8,7 +8,7 @@ from src.exceptions import APIError
 
 from . import db, helpers
 
-PROVIDER = "yukassa"
+PROVIDER = "stars"
 
 
 async def test_buy_new_user_issues_key_and_payment(username):
@@ -64,9 +64,7 @@ async def test_payment_history_survives_reissue_of_new_key(username):
     assert await db.aw(db.count_payments)(username) == 1
 
 
-async def test_get_card_and_stars_invoice(username):
+async def test_get_stars_invoice(username):
     clients = helpers.make_clients()
-    card = await clients.payments.get_card_invoice()
-    assert card.title and card.prices
     stars = await clients.payments.get_stars_invoice()
     assert stars.title and stars.prices

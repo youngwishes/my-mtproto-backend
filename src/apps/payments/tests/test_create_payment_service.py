@@ -35,7 +35,7 @@ class TestCreatePaymentService(TestCase):
         *,
         username: str | None = None,
         charge_id: str = "charge_1",
-        provider: str = PaymentProviderEnum.YUKASSA,
+        provider: str = PaymentProviderEnum.STARS,
     ) -> CreatePaymentIn:
         return CreatePaymentIn(
             username=username or self.user.username,
@@ -90,7 +90,7 @@ class TestCreatePaymentService(TestCase):
         payment = Payment.objects.first()
         self.assertEqual(payment.key, key)
         self.assertEqual(payment.charge_id, "charge_new")
-        self.assertEqual(payment.provider, PaymentProviderEnum.YUKASSA)
+        self.assertEqual(payment.provider, PaymentProviderEnum.STARS)
 
         mock_send.assert_not_called()
 

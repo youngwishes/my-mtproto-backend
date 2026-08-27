@@ -117,8 +117,8 @@ backfill он ждёт DB-деактивацию активных истёкши
 
 ## Payments и loyalty
 
-Bot получает каталог и доступные способы оплаты из backend. Stars/Yukassa
-завершаются синхронным bot-authenticated вызовом; Crypto Pay и Platega создают
+Bot получает каталог и доступные способы оплаты из backend. Stars завершаются
+синхронным bot-authenticated вызовом; Crypto Pay и Platega создают
 локальный intent, принимают provider callback/webhook и завершают тот же
 доменный fulfilment асинхронно.
 
