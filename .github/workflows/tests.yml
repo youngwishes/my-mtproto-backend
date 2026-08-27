@@ -97,6 +97,9 @@ jobs:
         with:
           fetch-depth: 0
       - name: Validate Compose configuration
-        run: docker compose -f docker-compose.yml config --quiet
+        run: |
+          cp .env.example .env
+          : > bot/.env
+          docker compose -f docker-compose.yml config --quiet
       - name: Check whitespace errors
         run: git diff --check "$BASE_SHA..$GITHUB_SHA"
