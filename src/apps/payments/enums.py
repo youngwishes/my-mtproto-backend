@@ -9,7 +9,6 @@ class ProductCodeEnum(enum.StrEnum):
 
 
 class PaymentProviderEnum(enum.StrEnum):
-    YUKASSA = "yukassa"
     STARS = "stars"
     CRYPTO_PAY = "crypto_pay"
     PLATEGA = "platega"
@@ -17,7 +16,6 @@ class PaymentProviderEnum(enum.StrEnum):
     @classmethod
     def choices(cls) -> list[tuple[str, str]]:
         return [
-            (cls.YUKASSA, "ЮKassa"),
             (cls.STARS, "Telegram Stars"),
             (cls.CRYPTO_PAY, "Crypto Pay"),
             (cls.PLATEGA, "Platega"),

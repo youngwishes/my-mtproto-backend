@@ -26,9 +26,21 @@ class TestProductModel(TestCase):
 
 
 class TestPaymentModel(TestCase):
+    def test_provider_choices_contain_only_supported_payment_providers(self) -> None:
+        provider = PaymentFactory._meta.model._meta.get_field("provider")
+
+        self.assertEqual(
+            tuple(provider.choices),
+            (
+                (PaymentProviderEnum.STARS, "Telegram Stars"),
+                (PaymentProviderEnum.CRYPTO_PAY, "Crypto Pay"),
+                (PaymentProviderEnum.PLATEGA, "Platega"),
+            ),
+        )
+
     def test_vpn_payment_identity_is_unique_per_provider_charge_and_kind(self) -> None:
         PaymentFactory(
-            provider=PaymentProviderEnum.YUKASSA,
+            provider=PaymentProviderEnum.STARS,
             charge_id="vpn-charge-id",
             kind=PaymentKindEnum.VPN_SUBSCRIPTION,
         )
@@ -36,7 +48,7 @@ class TestPaymentModel(TestCase):
         with self.assertRaises(IntegrityError):
             with transaction.atomic():
                 PaymentFactory(
-                    provider=PaymentProviderEnum.YUKASSA,
+                    provider=PaymentProviderEnum.STARS,
                     charge_id="vpn-charge-id",
                     kind=PaymentKindEnum.VPN_SUBSCRIPTION,
                 )
@@ -44,7 +56,7 @@ class TestPaymentModel(TestCase):
     def test_subscription_payment_identity_is_not_limited_by_vpn_constraint(self) -> None:
         for _ in range(2):
             PaymentFactory(
-                provider=PaymentProviderEnum.YUKASSA,
+                provider=PaymentProviderEnum.STARS,
                 charge_id="subscription-charge-id",
                 kind=PaymentKindEnum.SUBSCRIPTION,
             )

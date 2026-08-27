@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import inspect
 from types import SimpleNamespace
 
 import pytest
@@ -1503,32 +1502,6 @@ def test_sbp_fractional_rub_label_uses_comma_and_primary_style(
     assert button.style == "primary"
 
 
-@pytest.mark.parametrize(
-    ("handler_module", "handler_name", "callback_data"),
-    [
-        (payments_module, "process_pay_yukassa", "pay_yukassa"),
-        (payments_module, "process_gift_yukassa", "gift_yukassa"),
-        (vpn_module, "process_vpn_pay_yukassa", "vpn_pay_yukassa"),
-    ],
-)
-async def test_legacy_yukassa_callbacks_are_safe_noops(
-    monkeypatch, handler_module, handler_name, callback_data
-):
-    fake_bot = FakeBot()
-    monkeypatch.setattr(payments_module, "bot", fake_bot)
-    monkeypatch.setattr(vpn_module, "bot", fake_bot)
-    handler = getattr(handler_module, handler_name)
-    callback = FakeCallback(data=callback_data)
-
-    await handler(callback)
-
-    assert tuple(inspect.signature(handler).parameters) == ("callback",)
-    assert callback.answers == [((), {})]
-    assert callback.message.answers == []
-    assert callback.message.edits == []
-    assert fake_bot.invoices == []
-
-
 async def test_vpn_navigation_matches_approved_hierarchy():
     callback = FakeCallback(data="show_vpn_menu")
 
@@ -2069,24 +2042,18 @@ async def test_platega_backend_error_shows_retryable_error_without_editing_scree
     )
 
 
-@pytest.mark.parametrize(
-    ("currency", "expected_charge_id", "expected_provider"),
-    [("XTR", "ch_stars", "stars"), ("RUB", "ch_card", "yukassa")],
-)
-async def test_successful_payment_preserves_provider_and_charge_id(
-    currency, expected_charge_id, expected_provider
-):
+async def test_successful_payment_uses_stars_provider_and_charge_id():
     payments = FakePayments()
     message = FakeMessage(user_id=42)
     message.successful_payment = SimpleNamespace(
-        currency=currency,
+        currency="XTR",
         telegram_payment_charge_id="ch_stars",
         provider_payment_charge_id="ch_card",
     )
 
     await process_successful_payment(message, make_deps(payments=payments))
 
-    assert payments.confirmed == [(42, expected_charge_id, expected_provider)]
+    assert payments.confirmed == [(42, "ch_stars", "stars")]
 
 
 async def test_successful_mtproxy_payment_sends_one_combined_saved_result():
@@ -2138,15 +2105,15 @@ async def test_successful_gift_payment_keeps_code_and_adds_same_loyalty_result()
     )
     message = FakeMessage(user_id=42)
     message.successful_payment = SimpleNamespace(
-        currency="RUB",
-        invoice_payload="gift_certificate_yukassa",
-        telegram_payment_charge_id="unused",
-        provider_payment_charge_id="gift_charge",
+        currency="XTR",
+        invoice_payload="gift_certificate_stars",
+        telegram_payment_charge_id="gift_charge",
+        provider_payment_charge_id="unused",
     )
 
     await process_successful_payment(message, make_deps(payments=payments))
 
-    assert payments.gift_confirmed == [(42, "gift_charge", "yukassa")]
+    assert payments.gift_confirmed == [(42, "gift_charge", "stars")]
     assert len(message.answers) == 1
     text, _ = message.answers[0]
     assert "<code>KEY-ABCD-1234</code>" in text
@@ -2238,15 +2205,15 @@ async def test_successful_gift_payment_returns_code_to_forward():
     )
     message = FakeMessage(user_id=42)
     message.successful_payment = SimpleNamespace(
-        currency="RUB",
-        invoice_payload="gift_certificate_yukassa",
-        telegram_payment_charge_id="ch_stars",
-        provider_payment_charge_id="gift_ch_card",
+        currency="XTR",
+        invoice_payload="gift_certificate_stars",
+        telegram_payment_charge_id="gift_ch_stars",
+        provider_payment_charge_id="unused",
     )
 
     await process_successful_payment(message, make_deps(payments=payments))
 
-    assert payments.gift_confirmed == [(42, "gift_ch_card", "yukassa")]
+    assert payments.gift_confirmed == [(42, "gift_ch_stars", "stars")]
     text, _ = message.answers[0]
     assert "KEY-ABCD-1234" in text
     assert "перешл" in text.lower()
@@ -2272,7 +2239,6 @@ async def test_successful_regular_payment_ignores_gift_confirmation():
     ("currency", "invoice_payload", "expected_charge_id", "expected_provider"),
     [
         ("XTR", "vpn_stars", "vpn_ch_stars", "stars"),
-        ("RUB", "vpn_yukassa", "vpn_ch_card", "yukassa"),
     ],
 )
 async def test_successful_vpn_payment_shows_approved_parent_actions(
@@ -2361,13 +2327,25 @@ async def test_successful_payment_warns_user_on_failure():
     assert "@mtproto_keys" not in text
 
 
-async def test_pre_checkout_query_is_approved(monkeypatch):
+@pytest.mark.parametrize(
+    ("currency", "expected_ok"),
+    [("XTR", True), ("RUB", False)],
+)
+async def test_pre_checkout_query_accepts_only_stars(
+    monkeypatch,
+    currency,
+    expected_ok,
+):
     fake_bot = FakeBot()
     monkeypatch.setattr(payments_module, "bot", fake_bot)
-    pre_checkout = SimpleNamespace(id="q1")
+    pre_checkout = SimpleNamespace(id="q1", currency=currency)
 
     await process_pre_checkout_query(pre_checkout)
 
     args, kwargs = fake_bot.pre_checkout[0]
     assert args[0] == "q1"
-    assert kwargs["ok"] is True
+    assert kwargs["ok"] is expected_ok
+    if expected_ok:
+        assert "error_message" not in kwargs
+    else:
+        assert kwargs["error_message"] == "Этот способ оплаты больше не поддерживается"

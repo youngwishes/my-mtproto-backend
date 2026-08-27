@@ -292,7 +292,7 @@ class TestGiftCertificateAppleCashback(AppleCashbackPurchaseTestMixin, TestCase)
         return CreateGiftCertificateIn(
             username=username or self.buyer.username,
             charge_id=charge_id,
-            provider=PaymentProviderEnum.YUKASSA,
+            provider=PaymentProviderEnum.STARS,
         )
 
     def test_gift_credits_the_buyer_and_returns_code_with_loyalty(self) -> None:
@@ -329,7 +329,7 @@ class TestGiftCertificateAppleCashback(AppleCashbackPurchaseTestMixin, TestCase)
     def test_historical_gift_replay_returns_only_tag_without_mutation(self) -> None:
         payment = PaymentFactory(
             user=self.buyer,
-            provider=PaymentProviderEnum.YUKASSA,
+            provider=PaymentProviderEnum.STARS,
             charge_id="historical-gift",
             kind=PaymentKindEnum.GIFT_CERTIFICATE,
         )
@@ -340,7 +340,7 @@ class TestGiftCertificateAppleCashback(AppleCashbackPurchaseTestMixin, TestCase)
         )
         AppleCashbackPurchaseFactory(
             payment=payment,
-            identity_key="yukassa:historical-gift:gift_certificate",
+            identity_key="stars:historical-gift:gift_certificate",
             rate_percent=None,
             apples_earned=0,
             balance_after=0,

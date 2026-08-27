@@ -39,13 +39,13 @@ class TestAppleCashbackBackfillMigration(TransactionTestCase):
         )
         blank_subscription = payment.objects.create(
             user_id=self.alice.pk,
-            provider="yukassa",
+            provider="stars",
             charge_id="",
             kind="subscription",
         )
         gift_payment = payment.objects.create(
             user_id=self.alice.pk,
-            provider="yukassa",
+            provider="stars",
             charge_id="gift-charge",
             kind="gift_certificate",
         )
@@ -151,7 +151,7 @@ class TestAppleCashbackBackfillMigration(TransactionTestCase):
                 ),
                 (
                     self.gift_payment_id,
-                    "yukassa:gift-charge:gift_certificate",
+                    "stars:gift-charge:gift_certificate",
                     self.alice.pk,
                     None,
                     0,

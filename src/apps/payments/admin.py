@@ -47,8 +47,6 @@ class ProductAdmin(admin.ModelAdmin):
         "price",
         "stars_price",
         "currency",
-        "send_email_to_provider",
-        "need_email",
     ]
 
 

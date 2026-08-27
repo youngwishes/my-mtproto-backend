@@ -107,7 +107,7 @@ class TestPaymentModel(TestCase):
     def test_legacy_subscription_duplicates_remain_allowed(self) -> None:
         for _ in range(2):
             PaymentFactory(
-                provider=PaymentProviderEnum.YUKASSA,
+                provider=PaymentProviderEnum.STARS,
                 charge_id="legacy-subscription-charge",
                 kind=PaymentKindEnum.SUBSCRIPTION,
             )

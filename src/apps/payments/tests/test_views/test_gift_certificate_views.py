@@ -44,7 +44,7 @@ class TestGiftCertificateViews(APITestCase):
         payload = {
             "username": self.user.username,
             "charge_id": "auth-gift",
-            "provider": PaymentProviderEnum.YUKASSA,
+            "provider": PaymentProviderEnum.STARS,
         }
 
         missing = self.client.post(path=self.buy_url, data=payload)
@@ -64,7 +64,7 @@ class TestGiftCertificateViews(APITestCase):
             {
                 "username": self.user.username,
                 "charge_id": "gift_charge_001",
-                "provider": PaymentProviderEnum.YUKASSA,
+                "provider": PaymentProviderEnum.STARS,
             },
         )
 
@@ -91,7 +91,7 @@ class TestGiftCertificateViews(APITestCase):
         request = {
             "username": self.user.username,
             "charge_id": "gift-api-duplicate",
-            "provider": PaymentProviderEnum.YUKASSA,
+            "provider": PaymentProviderEnum.STARS,
         }
 
         first = self._post(self.buy_url, request)
@@ -108,13 +108,13 @@ class TestGiftCertificateViews(APITestCase):
     def test_buy_historical_replay_returns_exact_tag_without_mutation(self) -> None:
         payment = PaymentFactory(
             user=self.user,
-            provider=PaymentProviderEnum.YUKASSA,
+            provider=PaymentProviderEnum.STARS,
             charge_id="historical-api-gift",
             kind=PaymentKindEnum.GIFT_CERTIFICATE,
         )
         AppleCashbackPurchaseFactory(
             payment=payment,
-            identity_key="yukassa:historical-api-gift:gift_certificate",
+            identity_key="stars:historical-api-gift:gift_certificate",
             rate_percent=None,
             apples_earned=0,
             balance_after=0,
@@ -127,7 +127,7 @@ class TestGiftCertificateViews(APITestCase):
             {
                 "username": self.user.username,
                 "charge_id": "historical-api-gift",
-                "provider": PaymentProviderEnum.YUKASSA,
+                "provider": PaymentProviderEnum.STARS,
             },
         )
 
@@ -146,7 +146,7 @@ class TestGiftCertificateViews(APITestCase):
             {
                 "username": self.user.username,
                 "charge_id": "   ",
-                "provider": PaymentProviderEnum.YUKASSA,
+                "provider": PaymentProviderEnum.STARS,
             },
         )
 
@@ -159,7 +159,7 @@ class TestGiftCertificateViews(APITestCase):
             {
                 "username": self.user.username,
                 "charge_id": "gift-authoritative-rate",
-                "provider": PaymentProviderEnum.YUKASSA,
+                "provider": PaymentProviderEnum.STARS,
                 "rate_percent": 99,
             },
         )

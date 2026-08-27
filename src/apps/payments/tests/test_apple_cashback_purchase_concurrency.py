@@ -80,7 +80,7 @@ class TestAppleCashbackPurchaseConcurrency(TransactionTestCase):
         request = CreateGiftCertificateIn(
             username=self.user.username,
             charge_id="concurrent-gift",
-            provider=PaymentProviderEnum.YUKASSA,
+            provider=PaymentProviderEnum.STARS,
         )
         barrier = Barrier(2)
 

@@ -34,7 +34,7 @@ class TestCryptoPaymentMigration(TransactionTestCase):
         payment = old_apps.get_model("payments", "Payment").objects.create(
             user_id=user.pk,
             key=None,
-            provider="yukassa",
+            provider="stars",
             charge_id="legacy-charge",
             kind="gift_certificate",
         )

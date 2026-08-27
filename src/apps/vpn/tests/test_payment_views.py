@@ -27,7 +27,7 @@ class TestVPNPaymentView(APITestCase):
             headers={"Bot-Auth-Token": settings.BOT_AUTH_TOKEN},
         )
 
-    def _payment_data(self, *, provider: str = PaymentProviderEnum.YUKASSA) -> dict[str, str]:
+    def _payment_data(self, *, provider: str = PaymentProviderEnum.STARS) -> dict[str, str]:
         return {
             "username": self.user.username,
             "charge_id": "charge-001",
@@ -35,7 +35,7 @@ class TestVPNPaymentView(APITestCase):
             "product_code": ProductCodeEnum.VPN_30D,
         }
 
-    def test_accepts_yukassa_purchase_and_returns_external_subscription_url(self) -> None:
+    def test_purchase_returns_external_subscription_url(self) -> None:
         response = self._post(self._payment_data())
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)

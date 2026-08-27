@@ -132,9 +132,6 @@ FakeTLS-secret вычисляется отдельно для конкретно
 | `title` | str | Название |
 | `description` | TextField | Описание |
 | `currency` | str | Валюта (default: RUB) |
-| `provider_data` | TextField | JSON для YuKassa (чек, режим оплаты) |
-| `send_email_to_provider` | bool | Отправлять email провайдеру |
-| `need_email` | bool | Запрашивать email у пользователя |
 | `price` | Decimal(10,2) | Цена в копейках (`9900` = 99 RUB) |
 | `stars_price` | PositiveInt | Цена в Telegram Stars (default: 80) |
 
@@ -173,7 +170,7 @@ migration задаёт `platega_sbp` ставку `8.00`, не меняя сох
 | `user` | FK → SystemUser | Кто заплатил |
 | `key` | OneToOne → MTPRotoKey? | За какой ключ (nullable) |
 | `charge_id` | str | ID платежа от провайдера |
-| `provider` | str | `YUKASSA`, `STARS`, `CRYPTO_PAY` или `PLATEGA` (`platega`); provider value отличается от глобального method code `platega_sbp` |
+| `provider` | str | `STARS`, `CRYPTO_PAY` или `PLATEGA` (`platega`); provider value отличается от глобального method code `platega_sbp` |
 | `kind` | str | `SUBSCRIPTION`, `VPN_SUBSCRIPTION` или `GIFT_CERTIFICATE`; отличает MTProto, VPN и подарочную покупку |
 
 Для VPN-платежа `key` остаётся `NULL`; уникальность `(provider, charge_id, kind)`

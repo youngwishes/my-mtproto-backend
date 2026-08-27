@@ -1,5 +1,3 @@
-import json
-
 from django.conf import settings
 from django.urls import reverse
 from rest_framework import status
@@ -21,28 +19,11 @@ class TestGetProductView(APITestCase):
         self.stars = PaymentMethod.objects.create(code="stars")
         self.crypto = PaymentMethod.objects.create(code="crypto_pay")
         self.mtproto_product = ProductFactory(code=ProductCodeEnum.MTPROTO_30D)
-        self.vpn_provider_data = {
-            "receipt": {
-                "customer": {},
-                "items": [
-                    {
-                        "description": "Оплата VPN-подписки на один месяц.",
-                        "quantity": "1.00",
-                        "amount": {"value": 149, "currency": "RUB"},
-                        "vat_code": 4,
-                        "payment_mode": "full_payment",
-                    },
-                ],
-            }
-        }
         self.vpn_product = ProductFactory(
             code=ProductCodeEnum.VPN_30D,
             title="VPN на 30 дней",
-            provider_data=json.dumps(self.vpn_provider_data),
             price=14900,
             stars_price=149,
-            need_email=True,
-            send_email_to_provider=True,
         )
 
     def get_product(self, path: str) -> Response:
@@ -59,13 +40,10 @@ class TestGetProductView(APITestCase):
             {
                 "title": self.mtproto_product.title,
                 "description": self.mtproto_product.description,
-                "provider_data": self.mtproto_product.provider_data_json,
                 "currency": "RUB",
                 "price": self.mtproto_product.price,
                 "rub_amount": "0.99",
                 "stars_price": self.mtproto_product.stars_price,
-                "need_email": self.mtproto_product.need_email,
-                "send_email_to_provider": self.mtproto_product.send_email_to_provider,
                 "payment_methods": ["platega_sbp", "stars", "crypto_pay"],
                 "priority_payment_methods": [],
             },
@@ -81,9 +59,19 @@ class TestGetProductView(APITestCase):
         self.assertEqual(response.json()["price"], float(self.vpn_product.price))
         self.assertEqual(response.json()["rub_amount"], "149.00")
         self.assertEqual(response.json()["stars_price"], self.vpn_product.stars_price)
-        self.assertEqual(response.json()["provider_data"], self.vpn_provider_data)
-        self.assertTrue(response.json()["need_email"])
-        self.assertTrue(response.json()["send_email_to_provider"])
+        self.assertEqual(
+            set(response.json()),
+            {
+                "title",
+                "description",
+                "currency",
+                "price",
+                "rub_amount",
+                "stars_price",
+                "payment_methods",
+                "priority_payment_methods",
+            },
+        )
 
     def test_returns_current_payment_methods_for_both_product_routes(self) -> None:
         routes = (

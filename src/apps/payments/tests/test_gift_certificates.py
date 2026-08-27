@@ -44,7 +44,7 @@ class TestCreateGiftCertificateService(TestCase):
         *,
         username: str | None = None,
         charge_id: str = "gift_charge_1",
-        provider: str = PaymentProviderEnum.YUKASSA,
+        provider: str = PaymentProviderEnum.STARS,
     ) -> CreateGiftCertificateIn:
         return CreateGiftCertificateIn(
             username=username or self.buyer.username,
@@ -79,7 +79,7 @@ class TestCreateGiftCertificateService(TestCase):
         self.assertIsNone(payment.key)
         self.assertEqual(payment.user, self.buyer)
         self.assertEqual(payment.charge_id, "gift_charge_1")
-        self.assertEqual(payment.provider, PaymentProviderEnum.YUKASSA)
+        self.assertEqual(payment.provider, PaymentProviderEnum.STARS)
         self.assertEqual(payment.kind, Payment.Kind.GIFT_CERTIFICATE)
         self.assertEqual(certificate.payment, payment)
         self.assertEqual(result.loyalty.apples_earned, 5)
