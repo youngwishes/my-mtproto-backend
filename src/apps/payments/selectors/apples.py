@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING
 
 from django.db.models import QuerySet
 
@@ -10,9 +9,6 @@ from apps.payments.models import (
     AppleRedemption,
 )
 from apps.vds.models import MTPRotoKey
-
-if TYPE_CHECKING:
-    pass
 
 
 def get_apple_cashback_purchase_by_identity(

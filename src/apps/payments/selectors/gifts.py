@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING
-
 
 from apps.payments.enums import (
     PaymentKindEnum,
@@ -11,9 +9,6 @@ from apps.payments.models import (
     GiftCertificate,
     Payment,
 )
-
-if TYPE_CHECKING:
-    pass
 
 
 def normalize_gift_certificate_code(*, code: str) -> str:

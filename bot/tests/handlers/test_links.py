@@ -1,16 +1,9 @@
 from __future__ import annotations
 
-from __future__ import annotations
-
-
+from src.domains.links import MyServers
 from src.handlers.links import process_my_servers, update_link, update_link_confirm
 
-
-from src.domains.links import MyServers
-
-
 from tests.fakes import FakeCallback, make_deps
-
 from tests.handler_support import (
     FakeLinks,
 )

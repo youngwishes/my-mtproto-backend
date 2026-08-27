@@ -1,24 +1,8 @@
 from __future__ import annotations
 
-from __future__ import annotations
-
-
-
-
 from aiogram.types import LabeledPrice
-
-
-from src.exceptions import (
-    APIError,
-)
-
-
 from src.domains.free_trial import FreeTrialKey
-
-
 from src.domains.links import ReissuedKey
-
-
 from src.domains.payments import (
     ActivatedGiftCertificate,
     ApplePurchaseOutcome,
@@ -26,13 +10,11 @@ from src.domains.payments import (
     GiftCertificate,
     StarsInvoice,
 )
-
-
 from src.domains.referrals import ReferralRewardKey
-
-
 from src.domains.vpn import VPNMenu, VPNPurchase, VPNReissue
-
+from src.exceptions import (
+    APIError,
+)
 
 APPROVED_MTPROXY_PAYMENT_TEXT = """💳 <b>Оплата подписки</b>
 

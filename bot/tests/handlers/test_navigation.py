@@ -1,19 +1,12 @@
 from __future__ import annotations
 
-from __future__ import annotations
-
-
 import pytest
-
-
 from src.handlers.start import (
     cmd_start,
     cmd_start_inline,
     process_legal_consent,
     process_mtproxy_menu,
 )
-
-
 from src.messages import (
     PRIVACY_URL,
     PRODUCT_MENU_TEXT,
@@ -26,9 +19,7 @@ from src.messages import (
     WELCOME_TEXT_WEEK,
 )
 
-
 from tests.fakes import FakeCallback, FakeMessage, make_deps
-
 from tests.handler_support import (
     FakeFreeTrial,
 )

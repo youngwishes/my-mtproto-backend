@@ -1,25 +1,16 @@
 from __future__ import annotations
 
-from __future__ import annotations
-
-
 import pytest
-
-
-from src.exceptions import (
-    APIError,
-)
-
-
 from src.domains.payments import (
     AppleRedemptionPreview,
     AppleRedemptionResult,
     AppleStatus,
 )
-
+from src.exceptions import (
+    APIError,
+)
 
 from tests.fakes import FakeCallback, make_deps
-
 from tests.handler_support import (
     FakePayments,
 )

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
+
 from django.db.models import Case, IntegerField, When
 
 from apps.payments.enums import (
@@ -13,7 +14,6 @@ from apps.payments.models import (
     Product,
 )
 from apps.users.models import SystemUser
-
 
 _SUPPORTED_PAYMENT_METHOD_CODES = (
     PaymentMethodCodeEnum.PLATEGA_SBP,

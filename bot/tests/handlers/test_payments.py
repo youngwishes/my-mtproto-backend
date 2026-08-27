@@ -1,62 +1,10 @@
 from __future__ import annotations
 
-from __future__ import annotations
-
-
 from types import SimpleNamespace
 
-
 import pytest
-
-
 from aiogram.types import LabeledPrice
-
-
-from src import keyboards, messages as messages_module
-
-
-from src.exceptions import (
-    APIError,
-)
-
-
-from src.handlers import payments as payments_module
-
-
-from src.handlers import vpn as vpn_module
-
-
-from src.handlers.payments import (
-    process_gift_certificate,
-    process_gift_certificate_activation,
-    process_gift_crypto,
-    process_gift_stars,
-    process_boost_paid,
-    process_pay_crypto,
-    process_pay_stars,
-    process_pre_checkout_query,
-    process_successful_payment,
-)
-
-
-from src.handlers.vpn import (
-    process_vpn,
-    process_vpn_pay_crypto,
-)
-
-
-from src.messages import (
-    CRYPTO_INVOICE_ERROR_TEXT,
-    PRIVACY_URL,
-    SITE_URL,
-    SUPPORT_URL,
-    TERMS_URL,
-)
-
-
 from src.domains.links import MyServers
-
-
 from src.domains.payments import (
     ActivatedGiftCertificate,
     ConfirmedPurchase,
@@ -65,13 +13,38 @@ from src.domains.payments import (
     HistoricalPurchaseReplay,
     StarsInvoice,
 )
-
-
 from src.domains.vpn import VPNMenu, VPNPurchase
+from src.exceptions import (
+    APIError,
+)
+from src.handlers import payments as payments_module
+from src.handlers import vpn as vpn_module
+from src.handlers.payments import (
+    process_boost_paid,
+    process_gift_certificate,
+    process_gift_certificate_activation,
+    process_gift_crypto,
+    process_gift_stars,
+    process_pay_crypto,
+    process_pay_stars,
+    process_pre_checkout_query,
+    process_successful_payment,
+)
+from src.handlers.vpn import (
+    process_vpn,
+    process_vpn_pay_crypto,
+)
+from src.messages import (
+    CRYPTO_INVOICE_ERROR_TEXT,
+    PRIVACY_URL,
+    SITE_URL,
+    SUPPORT_URL,
+    TERMS_URL,
+)
 
-
+from src import keyboards
+from src import messages as messages_module
 from tests.fakes import FakeBot, FakeCallback, FakeMessage, make_deps
-
 from tests.handler_support import (
     APPROVED_GIFT_PAYMENT_TEXT,
     APPROVED_MTPROXY_PAYMENT_TEXT,

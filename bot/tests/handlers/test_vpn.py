@@ -1,21 +1,16 @@
 from __future__ import annotations
 
-from __future__ import annotations
-
-
 import pytest
-
-
 from aiogram.types import LabeledPrice
-
-
+from src.domains.payments import (
+    StarsInvoice,
+)
+from src.domains.vpn import VPNMenu, VPNReissue
 from src.exceptions import (
     APIError,
     VPNReissueRequiresRenewal,
     VPNSubscriptionDoesNotExist,
 )
-
-
 from src.handlers.vpn import (
     process_vpn,
     process_vpn_menu,
@@ -24,24 +19,12 @@ from src.handlers.vpn import (
     process_vpn_reissue_confirm,
     process_vpn_subscription,
 )
-
-
 from src.messages import (
     VPN_REISSUE_CONFIRM_TEXT,
     VPN_REISSUE_DONE_BANNER,
 )
 
-
-from src.domains.payments import (
-    StarsInvoice,
-)
-
-
-from src.domains.vpn import VPNMenu, VPNReissue
-
-
 from tests.fakes import FakeBot, FakeCallback
-
 from tests.handler_support import (
     APPROVED_VPN_PAYMENT_TEXT,
     FakePayments,

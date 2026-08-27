@@ -1,19 +1,11 @@
 from __future__ import annotations
 
-from __future__ import annotations
-
-
 import pytest
-
-
+from src.domains.free_trial import FreeTrialKey
 from src.exceptions import (
     APIError,
 )
-
-
 from src.handlers.free_trial import process_boost_free
-
-
 from src.handlers.start import (
     cmd_start,
     cmd_start_inline,
@@ -21,8 +13,6 @@ from src.handlers.start import (
     process_legal_consent,
     process_mtproxy_menu,
 )
-
-
 from src.messages import (
     KEY_GENERATED_TEXT,
     PRIVACY_URL,
@@ -30,12 +20,7 @@ from src.messages import (
     TERMS_URL,
 )
 
-
-from src.domains.free_trial import FreeTrialKey
-
-
 from tests.fakes import FakeCallback, FakeMessage, make_deps
-
 from tests.handler_support import (
     FakeFreeTrial,
 )

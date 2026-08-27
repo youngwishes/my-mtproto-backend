@@ -1,19 +1,10 @@
 from __future__ import annotations
 
-from __future__ import annotations
-
-
 import pytest
-
-
+from src.domains.referrals import ReferralCabinet, ReferralRewardKey
 from src.handlers.referrals import process_referral, process_referral_link
 
-
-from src.domains.referrals import ReferralCabinet, ReferralRewardKey
-
-
 from tests.fakes import FakeCallback, make_deps
-
 from tests.handler_support import (
     FakeReferrals,
 )
