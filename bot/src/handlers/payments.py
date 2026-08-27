@@ -230,7 +230,14 @@ async def process_gift_platega_sbp(
 
 @router.pre_checkout_query()
 async def process_pre_checkout_query(pre_checkout_query: PreCheckoutQuery):
-    await bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True)
+    if pre_checkout_query.currency == "XTR":
+        await bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True)
+        return
+    await bot.answer_pre_checkout_query(
+        pre_checkout_query.id,
+        ok=False,
+        error_message="Этот способ оплаты больше не поддерживается",
+    )
 
 
 @router.message(F.successful_payment.currency == "XTR")

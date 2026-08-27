@@ -2327,13 +2327,25 @@ async def test_successful_payment_warns_user_on_failure():
     assert "@mtproto_keys" not in text
 
 
-async def test_pre_checkout_query_is_approved(monkeypatch):
+@pytest.mark.parametrize(
+    ("currency", "expected_ok"),
+    [("XTR", True), ("RUB", False)],
+)
+async def test_pre_checkout_query_accepts_only_stars(
+    monkeypatch,
+    currency,
+    expected_ok,
+):
     fake_bot = FakeBot()
     monkeypatch.setattr(payments_module, "bot", fake_bot)
-    pre_checkout = SimpleNamespace(id="q1")
+    pre_checkout = SimpleNamespace(id="q1", currency=currency)
 
     await process_pre_checkout_query(pre_checkout)
 
     args, kwargs = fake_bot.pre_checkout[0]
     assert args[0] == "q1"
-    assert kwargs["ok"] is True
+    assert kwargs["ok"] is expected_ok
+    if expected_ok:
+        assert "error_message" not in kwargs
+    else:
+        assert kwargs["error_message"] == "Этот способ оплаты больше не поддерживается"
