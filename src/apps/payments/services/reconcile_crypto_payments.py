@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Protocol, final
 from django.db import OperationalError
 
 from apps.payments.exceptions import CryptoPaymentRetryable
-from apps.payments.selectors import (
+from apps.payments.selectors.crypto import (
     get_unfinished_crypto_intents,
     get_unnotified_fulfilled_crypto_intents,
     mark_crypto_intent_provider_expired,

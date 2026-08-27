@@ -21,8 +21,8 @@ class TestVPNSubscriptionView(APITestCase):
             vless_uuid="11111111-2222-3333-4444-555555555555",
             hysteria_secret="hysteria-secret",
         )
-        first = VPNInstanceFactory(number=10, name="First", public_host="first.example.com")
-        second = VPNInstanceFactory(number=20, name="Second", public_host="second.example.com")
+        VPNInstanceFactory(number=10, name="First", public_host="first.example.com")
+        VPNInstanceFactory(number=20, name="Second", public_host="second.example.com")
 
         def reverse_nodes(instances: list[object]) -> None:
             instances.reverse()
@@ -59,7 +59,7 @@ class TestVPNSubscriptionView(APITestCase):
             vless_uuid="11111111-2222-3333-4444-555555555555",
             hysteria_secret="hysteria-secret",
         )
-        instance = VPNInstanceFactory(name="Moscow", public_host="vpn.example.com")
+        VPNInstanceFactory(name="Moscow", public_host="vpn.example.com")
 
         response = self.client.get(f"/api/v1/vpn/subscriptions/{subscription.token}/")
 

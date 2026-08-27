@@ -17,10 +17,12 @@ from apps.notifications.selectors import get_template
 from apps.payments.apple_cashback import get_apple_level
 from apps.payments.enums import PaymentKindEnum
 from apps.payments.exceptions import CryptoPayClientError
-from apps.payments.selectors import (
+from apps.payments.selectors.crypto import (
     get_crypto_intent_for_notification,
-    get_platega_intent_for_notification,
     mark_crypto_notification_sent,
+)
+from apps.payments.selectors.platega import (
+    get_platega_intent_for_notification,
     mark_platega_notification_sent,
 )
 from apps.payments.services import get_reconcile_crypto_payments_service

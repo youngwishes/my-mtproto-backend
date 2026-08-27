@@ -3,7 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, final
 
-from apps.payments.selectors import get_crypto_intent_by_provider_invoice_id
+from apps.payments.selectors.crypto import (
+    get_crypto_intent_by_provider_invoice_id,
+)
 from apps.payments.services.dtos import (
     CryptoWebhookWarningDTO,
     ValidatedCryptoPaymentDTO,

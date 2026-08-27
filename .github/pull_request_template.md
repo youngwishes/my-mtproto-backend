@@ -2,10 +2,10 @@
 
 <!-- Keep this brief. It is the final reviewer's source of task context. -->
 
-### Task contract
+### Task contract (full mode only)
 
-- Scope revision:
-- Requirement IDs:
+- Scope revision: N/A
+- Requirement IDs: N/A
 
 ### Goal
 

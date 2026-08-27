@@ -11,7 +11,7 @@ from apps.users.tests.factories import SystemUserFactory
 from apps.vds.exceptions import KeyDoesNotExist, TooManyRequests
 from apps.vds.models import MTPRotoKey
 from apps.vds.services import get_update_key_service
-from apps.vds.tests.factories import MTPRotoKeyFactory, VDSInstanceFactory
+from apps.vds.tests.factories import MTPRotoKeyFactory
 
 
 @mock.patch("apps.core.decorators._log_service_error")

@@ -6,7 +6,6 @@ from django.conf import settings
 from django.test import TestCase
 from django.utils import timezone
 
-from apps.payments.models import Payment
 from apps.payments.services.extend_key_service import get_extend_key_service
 from apps.payments.tests.factories import PaymentFactory
 from apps.users.tests.factories import SystemUserFactory

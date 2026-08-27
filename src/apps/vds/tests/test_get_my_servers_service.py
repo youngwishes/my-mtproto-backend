@@ -65,7 +65,7 @@ class TestGetMyServersService(TestCase):
 
     def test_excludes_inactive_vds(self, mock_log) -> None:
         user = SystemUserFactory(username="22222222")
-        vds1 = VDSInstanceFactory(name="nl1", location="🇳🇱 Нидерланды", is_active=True)
+        VDSInstanceFactory(name="nl1", location="🇳🇱 Нидерланды", is_active=True)
         VDSInstanceFactory(name="de1", location="🇩🇪 Германия", is_active=False)
         MTPRotoKeyFactory(
             user=user,

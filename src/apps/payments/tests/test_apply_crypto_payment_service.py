@@ -413,7 +413,7 @@ class TestApplyCryptoPaymentConcurrency(ApplyCryptoPaymentServiceMixin, Transact
             finally:
                 close_old_connections()
 
-        from apps.payments.selectors import (
+        from apps.payments.selectors.crypto import (
             conditionally_transition_crypto_intent,
             get_crypto_intent_by_id,
         )

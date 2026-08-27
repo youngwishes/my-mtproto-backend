@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from base64 import b64decode
-from datetime import timedelta
 from unittest.mock import Mock, patch
 from uuid import UUID
 

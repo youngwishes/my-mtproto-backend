@@ -17,13 +17,15 @@ from apps.payments.apple_cashback import (
 )
 from apps.payments.enums import PaymentKindEnum, ProductCodeEnum
 from apps.payments.exceptions import BadPaymentData
-from apps.payments.selectors import (
-    count_apple_cashback_purchases,
-    create_apple_cashback_purchase,
+from apps.payments.selectors.common import (
     create_subscription_payment,
     get_active_product_by_code,
-    get_apple_cashback_purchase_by_identity,
     get_payment_user_for_update,
+)
+from apps.payments.selectors.apples import (
+    count_apple_cashback_purchases,
+    create_apple_cashback_purchase,
+    get_apple_cashback_purchase_by_identity,
 )
 from apps.payments.services.extend_key_service import (
     ExtendKeyService,

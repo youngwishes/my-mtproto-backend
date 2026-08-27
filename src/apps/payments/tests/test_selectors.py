@@ -10,7 +10,7 @@ from apps.payments.enums import (
     ProductCodeEnum,
 )
 from apps.payments.models import PaymentMethod, Product
-from apps.payments.selectors import (
+from apps.payments.selectors.common import (
     get_active_payment_method_codes,
     get_active_priority_payment_method_codes,
     get_active_product_by_code,

@@ -17,10 +17,6 @@ from apps.vds.services.remove_key_infra_service import (
     RemoveUserKeyInfraService,
     get_remove_user_key_infra_service,
 )
-from apps.vds.services.remove_keys_from_vds_instance_infra_service import (
-    RemoveKeysFromVdsInstanceInfraService,
-    get_remove_keys_from_vds_instance_infra_service,
-)
 from apps.vds.services.update_key_service import (
     UpdateKeyService,
     get_update_key_service,
@@ -56,8 +52,6 @@ __all__ = [
     "get_remove_expired_keys_daily_service",
     "RemoveUserKeyInfraService",
     "get_remove_user_key_infra_service",
-    "RemoveKeysFromVdsInstanceInfraService",
-    "get_remove_keys_from_vds_instance_infra_service",
     "UpdateKeyService",
     "get_update_key_service",
     "RemoveDeadKeysFromVdsInfraService",
