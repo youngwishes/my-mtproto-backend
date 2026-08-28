@@ -54,7 +54,7 @@ class TestGetUsersByFilter(TestCase):
         self.assertEqual(set(result.values_list("pk", flat=True)), {user1.pk, user2.pk})
 
     def test_expiring_soon_returns_users_with_expiring_keys(self) -> None:
-        vds = VDSInstanceFactory()
+        VDSInstanceFactory()
         user_expiring = SystemUserFactory()
         user_safe = SystemUserFactory()
         MTPRotoKeyFactory(

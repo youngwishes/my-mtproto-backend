@@ -8,7 +8,6 @@ from django.utils import timezone
 from apps.users.tests.factories import SystemUserFactory
 from apps.vds.selectors import (
     count_active_valid_keys,
-    get_active_broadcast_keys,
     get_active_key,
     get_all_active_valid_keys,
     get_all_active_vds_instances,
@@ -87,7 +86,7 @@ class TestGetAllActiveVdsInstances(TestCase):
 class TestGetKeysByUsername(TestCase):
     def test_returns_keys_for_given_username(self) -> None:
         user = SystemUserFactory(username="target_user")
-        vds = VDSInstanceFactory()
+        VDSInstanceFactory()
         key1 = MTPRotoKeyFactory(user=user)
         key2 = MTPRotoKeyFactory(user=user)
 
@@ -265,68 +264,6 @@ class TestGetOtherActiveVdsInstances(TestCase):
         vds = VDSInstanceFactory(is_active=True)
         result = get_other_active_vds_instances(exclude_pk=vds.pk)
         self.assertFalse(result.exists())
-
-
-class TestGetActiveBroadcastKeys(TestCase):
-    def setUp(self) -> None:
-        self.vds = VDSInstanceFactory()
-
-    def test_returns_active_paid_keys(self) -> None:
-        user = SystemUserFactory(first_month_free_used=True)
-        key = MTPRotoKeyFactory(
-            user=user,
-            is_active=True,
-            was_deleted=False,
-            expired_date=timezone.now() + timedelta(days=10),
-        )
-        result = get_active_broadcast_keys(testing=False)
-        self.assertIn(key, result)
-
-    def test_excludes_expired_deleted_inactive_keys(self) -> None:
-        user = SystemUserFactory(first_month_free_used=True)
-
-        # expired
-        MTPRotoKeyFactory(
-            user=user,
-            is_active=True,
-            was_deleted=False,
-            expired_date=timezone.now() - timedelta(days=1),
-        )
-        # deleted
-        MTPRotoKeyFactory(
-            user=user,
-            is_active=True,
-            was_deleted=True,
-            expired_date=timezone.now() + timedelta(days=10),
-        )
-        # inactive
-        MTPRotoKeyFactory(
-            user=user,
-            is_active=False,
-            was_deleted=False,
-            expired_date=timezone.now() + timedelta(days=10),
-        )
-
-        result = get_active_broadcast_keys(testing=False)
-        self.assertFalse(result.exists())
-
-    def test_testing_mode_returns_only_test_user_keys(self) -> None:
-        test_user = SystemUserFactory(pk=562)
-        other_user = SystemUserFactory()
-
-        key = MTPRotoKeyFactory(
-            user=test_user,
-            is_active=True,
-            was_deleted=False,
-        )
-        MTPRotoKeyFactory(
-            user=other_user,
-            is_active=True,
-            was_deleted=False,
-        )
-
-        result = get_active_broadcast_keys(testing=True)
-        self.assertEqual(list(result), [key])
 
 
 class TestGetAllActiveValidKeys(TestCase):

@@ -14,8 +14,8 @@ from apps.users.tests.factories import SystemUserFactory
 class TestSendMailingService(TestCase):
     @mock.patch("apps.notifications.services.send_mailing_service.send_telegram_message")
     def test_sends_to_all_active_users(self, mock_send: mock.Mock, _mock_sleep: mock.Mock) -> None:
-        user1 = SystemUserFactory(username="111", is_active=True)
-        user2 = SystemUserFactory(username="222", is_active=True)
+        SystemUserFactory(username="111", is_active=True)
+        SystemUserFactory(username="222", is_active=True)
         SystemUserFactory(username="333", is_active=False)
 
         template = NotificationTemplateFactory(
@@ -40,7 +40,7 @@ class TestSendMailingService(TestCase):
 
     @mock.patch("apps.notifications.services.send_mailing_service.send_telegram_message")
     def test_merges_static_and_personal_context(self, mock_send: mock.Mock, _mock_sleep: mock.Mock) -> None:
-        user = SystemUserFactory(username="555", is_active=True)
+        SystemUserFactory(username="555", is_active=True)
 
         template = NotificationTemplateFactory(
             slug="mailing-merge",

@@ -1,5 +1,9 @@
 import os
 
+import pytest
+
+from src.domains.links import MyServers, ServerItem
+
 # Modules under src/ read configuration from the environment at import time
 # (e.g. src.bot constructs a Bot with the token). Provide deterministic dummy
 # values so importing them during tests never depends on a real .env.
@@ -9,3 +13,11 @@ os.environ.setdefault(
 os.environ.setdefault("API_URL", "http://backend")
 os.environ.setdefault("BOT_AUTH_TOKEN", "test-auth")
 os.environ.setdefault("MY_TELEGRAM_ID", "1")
+
+
+@pytest.fixture
+def servers() -> MyServers:
+    return MyServers(
+        expired_date="2026-07-14",
+        servers=[ServerItem(location="🇳🇱 Нидерланды", proxy_link="tg://proxy?a=1")],
+    )

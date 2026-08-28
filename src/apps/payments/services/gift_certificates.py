@@ -25,16 +25,20 @@ from apps.payments.exceptions import (
     GiftCertificateNotFound,
 )
 from apps.payments.models import GiftCertificate
-from apps.payments.selectors import (
+from apps.payments.selectors.common import (
+    get_active_product_by_code,
+    get_payment_user_for_update,
+)
+from apps.payments.selectors.apples import (
     count_apple_cashback_purchases,
     create_apple_cashback_purchase,
+    get_apple_cashback_purchase_by_identity,
+)
+from apps.payments.selectors.gifts import (
     create_gift_certificate,
     create_gift_certificate_payment,
-    get_active_product_by_code,
-    get_apple_cashback_purchase_by_identity,
     get_gift_certificate_by_payment_identity,
     get_gift_certificate_by_code,
-    get_payment_user_for_update,
     normalize_gift_certificate_code,
 )
 from apps.payments.services.dtos import (

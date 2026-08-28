@@ -27,13 +27,6 @@ def notify_before_removing_daily_hour_before() -> None:
 
 
 @shared_task
-def broadcast_proxy_links_task(testing: bool = False) -> None:
-    from apps.notifications.services import get_broadcast_proxy_links_service
-
-    get_broadcast_proxy_links_service()(testing=testing)
-
-
-@shared_task
 def notify_mtproto_link_reissue_task(preview: bool = True) -> None:
     from apps.notifications.services import get_notify_mtproto_link_reissue_service
 

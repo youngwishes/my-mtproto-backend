@@ -11,7 +11,7 @@ from django.utils import timezone
 from apps.core.decorators import log_service_error
 from apps.payments.enums import ProductCodeEnum
 from apps.payments.exceptions import BadPaymentData
-from apps.payments.selectors import (
+from apps.payments.selectors.common import (
     create_vpn_payment,
     get_vpn_payment_by_identity,
     get_vpn_payment_by_identity_for_update,

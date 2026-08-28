@@ -19,10 +19,11 @@ MTPRoto Keys — Django backend подписки на MTProto-прокси и VP
 - [DEPLOY.md](docs/DEPLOY.md) — единственная release-инструкция и production
   smoke checks.
 
-Полный процесс выполняй по `DEVELOPMENT_WORKFLOW.md`. Не пушь напрямую в
-`main`, не выполняй merge или production deploy без требуемого отдельного
-разрешения пользователя. Worktree в этом репозитории не создавай: работай в
-текущем checkout через feature-ветку `codex/<feature-slug>`.
+Маршрут задачи выбирай по `DEVELOPMENT_WORKFLOW.md`: компактный применяется по
+умолчанию, полный — для перечисленных там рисков. Не пушь напрямую в `main`, не
+выполняй merge или production deploy без требуемого отдельного разрешения
+пользователя. Worktree в этом репозитории не создавай: работай в текущем
+checkout через feature-ветку `codex/<feature-slug>`.
 
 ## Команды
 
@@ -40,7 +41,7 @@ make test ARGS="apps.users.tests.test_first_free_link.TestFirstFreeLink.test_fir
 make docs-check
 ```
 
-Проверка активного рабочего контракта в feature-ветке:
+Локальная проверка Task Contract в полном режиме:
 
 ```bash
 make agent-work-check
@@ -64,14 +65,15 @@ Production выпускается только по `DEPLOY.md`. Локальн�
 - Зависимости сервисов инъектируй через поля dataclass. Создание зависимых
   сервисов внутри `__call__` запрещено; wiring выполняют module-level factory
   functions.
-- ORM-запросы переиспользуй или добавляй в `selectors.py`, не размещай их в
-  сервисах.
+- ORM-запросы переиспользуй или добавляй в `selectors.py` либо тематический
+  модуль пакета `selectors/`, не размещай их в сервисах.
 - Доменные исключения хранятся в `exceptions.py`, enum — в `enums.py`; между
   слоями передавай DTO.
 - Используй `from __future__ import annotations`. Импорты только для аннотаций
   помещай под `TYPE_CHECKING`.
-- Каждый пакет явно реэкспортирует public symbols из `__init__.py`; star imports
-  запрещены.
+- Реэкспортируй из `__init__.py` только намеренный package-level API; внутренние
+  symbols импортируй из модуля-владельца. Star imports запрещены, кроме
+  составных Django settings.
 - Новые модели наследуй от `BaseDjangoModel`. Не дублируй `is_active`,
   `created_at`, `updated_at`; используй `Model.objects.active()` вместо
   `filter(is_active=True)`.

@@ -25,12 +25,14 @@ from apps.payments.exceptions import (
     CryptoPayClientError,
     ProductNotFound,
 )
-from apps.payments.selectors import (
+from apps.payments.selectors.common import (
+    get_active_product_by_code,
+)
+from apps.payments.selectors.crypto import (
     activate_crypto_intent_from_provider,
     expire_active_crypto_intent,
     fail_crypto_intent_creation,
     fail_stale_creating_crypto_intent,
-    get_active_product_by_code,
     get_reusable_crypto_intent,
     reserve_crypto_intent_or_read_winner,
 )

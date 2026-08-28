@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from django.test import TestCase
-from django.utils import timezone
-
 from apps.notifications.enums import MailingStatus
 from apps.notifications.tests.factories import MailingFactory, NotificationTemplateFactory
 

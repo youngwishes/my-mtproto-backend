@@ -10,7 +10,6 @@ from django.utils import timezone
 
 from apps.core.decorators import log_service_error
 from apps.users.exceptions import AlreadyUsedProgram, NotEnoughReferrals
-from apps.users.models import SystemUser
 from apps.users.selectors import get_active_referrals_count, get_user_by_username
 from apps.users.services.dtos import IssuedKeyOut
 from apps.vds.selectors import get_active_key

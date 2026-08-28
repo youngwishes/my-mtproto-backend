@@ -14,12 +14,14 @@ from apps.payments.enums import (
     PaymentProviderEnum,
 )
 from apps.payments.exceptions import CryptoPaymentRetryable
-from apps.payments.selectors import (
+from apps.payments.selectors.common import (
+    get_payment_by_identity,
+)
+from apps.payments.selectors.crypto import (
     claim_crypto_intent_for_fulfillment,
     conditionally_transition_crypto_intent,
     finalize_crypto_intent_fulfillment,
     get_crypto_intent_by_id,
-    get_payment_by_identity,
 )
 from apps.payments.services.create_payment_service import get_create_payment_service
 from apps.payments.services.dtos import (

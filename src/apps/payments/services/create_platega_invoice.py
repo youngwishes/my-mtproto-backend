@@ -25,14 +25,16 @@ from apps.payments.exceptions import (
     PlategaInvoiceUnavailable,
     ProductNotFound,
 )
-from apps.payments.selectors import (
+from apps.payments.selectors.common import (
+    get_active_product_by_code,
+    get_payment_method_commission_percent,
+)
+from apps.payments.selectors.platega import (
     activate_platega_intent_from_provider,
     expire_active_platega_intent,
     fail_platega_intent_creation,
     fail_stale_creating_platega_intent,
-    get_active_product_by_code,
     get_blocking_platega_intent,
-    get_payment_method_commission_percent,
     get_reusable_platega_intent,
     reserve_platega_intent_or_read_winner,
 )

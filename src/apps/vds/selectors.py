@@ -105,23 +105,3 @@ def get_healthy_vds_instances() -> QuerySet[VDSInstance]:
 def count_active_valid_keys() -> int:
     """Количество активных валидных ключей — для глобального лимита."""
     return get_all_active_valid_keys().count()
-
-
-def get_active_broadcast_keys(*, testing: bool = False) -> QuerySet[MTPRotoKey]:
-    """Ключи для рассылки.
-
-    testing=True — только тестовый пользователь (pk=562).
-    testing=False — все оплатившие пользователи с активными ключами.
-    """
-    if testing:
-        return MTPRotoKey.objects.filter(
-            user__pk=562,
-            is_active=True,
-            was_deleted=False,
-        ).select_related("user")
-    return MTPRotoKey.objects.filter(
-        is_active=True,
-        was_deleted=False,
-        user__first_month_free_used=True,
-        expired_date__gt=timezone.now(),
-    ).select_related("user")

@@ -1,7 +1,10 @@
-.PHONY: test docs-check agent-work-check test-e2e
+.PHONY: test lint docs-check agent-work-check test-e2e
 
 test:
 	cd src && python manage.py test --settings=config.test_settings $(ARGS)
+
+lint:
+	uv run ruff check src bot scripts integration_tests --exclude src/apps/music --select F
 
 docs-check:
 	python scripts/check_docs_boundaries.py

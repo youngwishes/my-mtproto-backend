@@ -22,7 +22,9 @@ from apps.payments.exceptions import (
     ProductNotFound,
 )
 from apps.payments.models import CryptoPaymentIntent, Product
-from apps.payments.selectors import fail_crypto_intent_creation
+from apps.payments.selectors.crypto import (
+    fail_crypto_intent_creation,
+)
 from apps.payments.services.create_crypto_invoice import (
     CreateOrReuseCryptoInvoiceService,
 )

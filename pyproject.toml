@@ -20,4 +20,11 @@ dependencies = [
 dev = [
     "factory-boy>=3.3.3",
     "responses>=0.26.0",
+    "ruff>=0.14.10",
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"**/migrations/*.py" = ["F401"]
+"integration_tests/settings.py" = ["F401", "F403", "F405"]
+"src/config/settings/__init__.py" = ["F403"]
+"src/config/test_settings/__init__.py" = ["F403", "F405"]

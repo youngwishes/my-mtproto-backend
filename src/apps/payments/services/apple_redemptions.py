@@ -16,13 +16,15 @@ from apps.payments.exceptions import (
     InvalidAppleRedemption,
     StaleAppleRedemption,
 )
-from apps.payments.selectors import (
+from apps.payments.selectors.common import (
+    get_payment_user_for_update,
+)
+from apps.payments.selectors.apples import (
     count_apple_cashback_purchases,
     create_apple_redemption,
     get_apple_redemption_for_update,
     get_existing_apple_redemption_key,
     get_existing_apple_redemption_key_for_update,
-    get_payment_user_for_update,
 )
 from apps.payments.services.dtos import (
     AppleRedemptionConfirmIn,

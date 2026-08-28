@@ -14,12 +14,14 @@ from apps.payments.enums import (
     PlategaPaymentIntentStatusEnum,
 )
 from apps.payments.exceptions import PlategaPaymentRetryable
-from apps.payments.selectors import (
+from apps.payments.selectors.common import (
+    get_payment_by_identity,
+)
+from apps.payments.selectors.platega import (
     claim_platega_intent_for_fulfillment,
     claim_platega_notification_enqueue,
     clear_platega_notification_enqueue,
     finalize_platega_intent_fulfillment,
-    get_payment_by_identity,
     get_platega_intent_by_id,
     mark_platega_intent_retryable,
 )

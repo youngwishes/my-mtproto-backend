@@ -8,7 +8,7 @@ from uuid import UUID
 from django.utils import timezone
 
 from apps.payments.enums import PlategaPaymentIntentStatusEnum
-from apps.payments.selectors import (
+from apps.payments.selectors.platega import (
     cancel_platega_intent,
     get_platega_intent_by_provider_transaction_id,
 )

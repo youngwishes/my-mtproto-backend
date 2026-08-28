@@ -7,7 +7,7 @@ from uuid import uuid4
 from django.test import TestCase
 
 from apps.payments.enums import PaymentKindEnum, PlategaPaymentIntentStatusEnum
-from apps.payments.selectors import (
+from apps.payments.selectors.platega import (
     activate_platega_intent_from_provider,
     expire_active_platega_intent,
     fail_stale_creating_platega_intent,

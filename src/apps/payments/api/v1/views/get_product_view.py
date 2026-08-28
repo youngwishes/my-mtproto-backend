@@ -6,7 +6,7 @@ from rest_framework.views import APIView
 from apps.payments.api.v1.serializers import GetProductSerializer
 from apps.payments.enums import ProductCodeEnum
 from apps.payments.exceptions import ProductNotFound
-from apps.payments.selectors import (
+from apps.payments.selectors.common import (
     get_active_payment_method_codes,
     get_active_priority_payment_method_codes,
     get_active_product_by_code,
