@@ -11,12 +11,14 @@ from django.utils import timezone
 class TestAppleCashbackBackfillMigration(TransactionTestCase):
     migrate_from = ("payments", "0013_apple_cashback_schema")
     migrate_to = ("payments", "0014_backfill_apple_cashback_purchases")
+    users_migration = ("users", "0018_systemuser_apple_balance")
 
     def setUp(self) -> None:
         super().setUp()
         self.executor = MigrationExecutor(connection)
-        self.executor.migrate([self.migrate_from])
-        old_apps = self.executor.loader.project_state([self.migrate_from]).apps
+        migrate_from = [self.migrate_from, self.users_migration]
+        self.executor.migrate(migrate_from)
+        old_apps = self.executor.loader.project_state(migrate_from).apps
 
         user = old_apps.get_model("users", "SystemUser")
         payment = old_apps.get_model("payments", "Payment")
@@ -93,8 +95,9 @@ class TestAppleCashbackBackfillMigration(TransactionTestCase):
         self.bob_payment_id = bob_payment.pk
 
         self.executor = MigrationExecutor(connection)
-        self.executor.migrate([self.migrate_to])
-        self.apps = self.executor.loader.project_state([self.migrate_to]).apps
+        migrate_to = [self.migrate_to, self.users_migration]
+        self.executor.migrate(migrate_to)
+        self.apps = self.executor.loader.project_state(migrate_to).apps
 
     def tearDown(self) -> None:
         self.executor = MigrationExecutor(connection)
@@ -185,8 +188,9 @@ class TestAppleCashbackBackfillMigration(TransactionTestCase):
         )
 
         self.executor = MigrationExecutor(connection)
-        self.executor.migrate([self.migrate_from])
-        apps_after_reverse = self.executor.loader.project_state([self.migrate_from]).apps
+        migrate_from = [self.migrate_from, self.users_migration]
+        self.executor.migrate(migrate_from)
+        apps_after_reverse = self.executor.loader.project_state(migrate_from).apps
         purchase_after_reverse = apps_after_reverse.get_model(
             "payments", "AppleCashbackPurchase"
         )

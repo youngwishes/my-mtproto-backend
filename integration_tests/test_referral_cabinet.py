@@ -19,7 +19,7 @@ async def test_cabinet_counts_and_link(username):
         cabinet = await clients.referrals.get_cabinet(telegram_id=username)
         assert cabinet.total_referrals_count == 5
         assert cabinet.active_referrals_count == 3
-        assert cabinet.link_activated_count == 0
+        assert cabinet.apple_balance == 0
         assert cabinet.referral_link and username in cabinet.referral_link
     finally:
         await db.aw(db.cleanup_users)(refs)

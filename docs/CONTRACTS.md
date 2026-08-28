@@ -126,33 +126,9 @@ referrer.
   "total_referrals_count": 12,
   "active_referrals_count": 7,
   "referral_link": "https://t.me/bot/?start=1487189460",
-  "link_activated_count": 1
+  "apple_balance": 105
 }
 ```
-
----
-
-### POST /api/v1/users/referral/link/
-
-Забирает бесплатную реферальную ссылку (требуется минимум 5 активных рефералов).
-
-**Запрос:**
-
-```json
-{
-  "username": "1487189460"
-}
-```
-
-**Ответ:** `200 OK`
-
-```json
-{
-  "expired_date": "20.06.26"
-}
-```
-
-**Ошибки:** `NotEnoughReferrals`, `AlreadyUsedProgram`.
 
 ---
 

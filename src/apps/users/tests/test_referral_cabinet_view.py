@@ -25,11 +25,13 @@ class TestReferralCabinet(TestCase):
                 "total_referrals_count": 0,
                 "active_referrals_count": 0,
                 "referral_link": self.user.referral_link,
-                "link_activated_count": 0,
+                "apple_balance": 0,
             },
         )
 
     def test_referral_cabinet_with_data(self) -> None:
+        self.user.apple_balance = 45
+        self.user.save(update_fields=["apple_balance"])
         SystemUserFactory(invited_from_username=self.user.username)
         SystemUserFactory(invited_from_username=self.user.username)
         SystemUserFactory(invited_from_username=self.user.username, referral_activated=True)
@@ -46,7 +48,7 @@ class TestReferralCabinet(TestCase):
                 "total_referrals_count": 3,
                 "active_referrals_count": 1,
                 "referral_link": self.user.referral_link,
-                "link_activated_count": 0,
+                "apple_balance": 45,
             },
         )
 

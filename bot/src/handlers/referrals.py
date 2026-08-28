@@ -6,8 +6,7 @@ from aiogram import F, Router
 from aiogram.types import CallbackQuery
 
 from src import keyboards
-from src.messages import REFERRAL_CABINET, REFERRAL_REWARD_TEXT
-from src.presentation import format_user_date
+from src.messages import REFERRAL_CABINET
 
 if TYPE_CHECKING:
     from src.dependencies import Dependencies
@@ -24,21 +23,9 @@ async def process_referral(callback: CallbackQuery, deps: Dependencies):
             total_referrals_count=cabinet.total_referrals_count,
             active_referrals_count=cabinet.active_referrals_count,
             referral_link=cabinet.referral_link,
+            apple_balance=cabinet.apple_balance,
         ),
         reply_markup=keyboards.referral_cabinet(
-            active_referrals_count=cabinet.active_referrals_count,
             referral_link=cabinet.referral_link,
         ),
-    )
-
-
-@router.callback_query(F.data == "get-referral-link")
-async def process_referral_link(callback: CallbackQuery, deps: Dependencies):
-    await callback.answer()
-    key = await deps.referrals.claim_reward(telegram_id=str(callback.message.chat.id))
-    await callback.message.answer(
-        text=REFERRAL_REWARD_TEXT.format(
-            expired_date=format_user_date(key.expired_date),
-        ),
-        reply_markup=keyboards.referral_reward(),
     )

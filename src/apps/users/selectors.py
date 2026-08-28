@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from django.db.models import QuerySet
+from django.db.models import F, QuerySet
 
 from apps.users.models import SystemUser
 
@@ -52,3 +52,10 @@ def get_active_referrals_count(*, username: str) -> int:
         invited_from_username=username,
         referral_activated=True,
     ).count()
+
+
+def credit_user_apples(*, username: str, apples: int) -> None:
+    """Атомарно начисляет яблоки пользователю."""
+    SystemUser.objects.filter(username=username).update(
+        apple_balance=F("apple_balance") + apples,
+    )

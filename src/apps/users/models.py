@@ -28,11 +28,6 @@ class SystemUser(AbstractUser):
         "реферал активирован",
         default=False,
     )
-    referral_link_activated_count = models.PositiveSmallIntegerField(
-        "количество активированных реф. ссылок",
-        default=0,
-    )
-
     @property
     def referral_link(self) -> str:
         return settings.BOT_LINK + f"/?start={self.username}"

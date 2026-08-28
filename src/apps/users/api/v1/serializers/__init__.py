@@ -6,10 +6,7 @@ from .first_free_link_serializer import (
     CheckFirstFreeLinkSerializer,
     LegalConsentStatusSerializer,
 )
-from .referral_cabinet_serializer import (
-    ReferralCabinetSerializer,
-    GetReferralLinkSerializer,
-)
+from .referral_cabinet_serializer import ReferralCabinetSerializer
 from .update_key_serializer import (
     UpdateKeySerializer,
 )
@@ -21,7 +18,6 @@ __all__ = [
     "AcceptLegalConsentSerializer",
     "CheckFirstFreeLinkSerializer",
     "FirstFreeLinkSerializer",
-    "GetReferralLinkSerializer",
     "LegalConsentStatusSerializer",
     "MyServersSerializer",
     "ReferralCabinetSerializer",

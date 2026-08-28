@@ -12,4 +12,4 @@ class ReferralCabinetOut(BaseServiceDTO):
     total_referrals_count: int | None
     active_referrals_count: int | None
     referral_link: str | None
-    link_activated_count: int | None
+    apple_balance: int | None

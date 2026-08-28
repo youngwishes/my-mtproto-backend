@@ -25,8 +25,7 @@
 | `telegram_username` | str | Username в Telegram (@username); `""` если у юзера нет @username |
 | `invited_from_username` | str? | Telegram ID пригласившего |
 | `referral_activated` | bool | Активировал ли свой бесплатный период (для подсчёта рефералов пригласившего) |
-| `referral_link_activated_count` | SmallInt | Сколько раз забирал бесплатную реферальную ссылку |
-| `apple_balance` | PositiveInt | Текущий бессрочный баланс яблок, default `0`; DB constraint запрещает отрицательное значение |
+| `apple_balance` | PositiveInt | Текущий бессрочный баланс яблок из покупок и реферальных активаций, default `0`; DB constraint запрещает отрицательное значение |
 
 **Свойство:** `referral_link` — формирует ссылку `{BOT_LINK}/?start={username}`.
 

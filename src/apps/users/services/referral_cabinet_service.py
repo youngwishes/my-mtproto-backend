@@ -24,14 +24,14 @@ class ReferralCabinetService:
                 total_referrals_count=None,
                 active_referrals_count=None,
                 referral_link=None,
-                link_activated_count=None,
+                apple_balance=None,
             )
 
         return ReferralCabinetOut(
             total_referrals_count=get_total_referrals_count(username=username),
             active_referrals_count=get_active_referrals_count(username=username),
             referral_link=user.referral_link,
-            link_activated_count=user.referral_link_activated_count,
+            apple_balance=user.apple_balance,
         )
 
 
