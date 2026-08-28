@@ -448,21 +448,16 @@ def gift_certificate_payment_methods(
 
 def referral_cabinet(
     *,
-    active_referrals_count: int,
     referral_link: str,
 ) -> InlineKeyboardMarkup:
-    keyboard: list[list[InlineKeyboardButton]] = []
-    if active_referrals_count >= 5:
-        keyboard.append(
-            [
-                InlineKeyboardButton(
-                    text="🎁 Получить 14 дней MTProxy",
-                    callback_data="get-referral-link",
-                    style="success",
-                )
-            ]
-        )
-    keyboard.append(
+    keyboard = [
+        [
+            InlineKeyboardButton(
+                text="🍏 Потратить яблоки",
+                callback_data="apples_spend",
+                style="success",
+            )
+        ],
         [
             InlineKeyboardButton(
                 text="🔗 Поделиться ссылкой",
@@ -472,27 +467,7 @@ def referral_cabinet(
                 ),
                 style="primary",
             )
-        ]
-    )
-    keyboard.append([_ROOT_BACK])
+        ],
+        [_ROOT_BACK],
+    ]
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
-
-
-def referral_reward() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="⚡ Перейти в MTProxy",
-                    callback_data="show_mtproxy_menu",
-                    style="success",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="🔙 Реферальная программа",
-                    callback_data="referral",
-                )
-            ],
-        ]
-    )

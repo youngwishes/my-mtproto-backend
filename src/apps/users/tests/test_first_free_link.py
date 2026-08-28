@@ -29,7 +29,10 @@ class TestFirstFreeLink(APITestCase):
         issue_key = mock.Mock()
 
         with self.assertRaises(AlreadyUsedFree):
-            FirstFreeLinkService(issue_key_service=issue_key)(username=self.user.username)
+            FirstFreeLinkService(
+                issue_key_service=issue_key,
+                credit_apples=mock.Mock(),
+            )(username=self.user.username)
 
         issue_key.assert_not_called()
 
@@ -116,7 +119,8 @@ class TestFirstFreeLink(APITestCase):
         # Пока лимит бесплатных НЕ исчерпан — 30 дней всем, включая рефералов
         # (инвайт даёт бонус 14 дней только ПОСЛЕ исчерпания лимита, как в check).
         self.assertEqual(MTPRotoKey.objects.count(), 0)
-        self.user.invited_from_username = "test"
+        inviter = SystemUserFactory(apple_balance=7)
+        self.user.invited_from_username = inviter.username
         self.user.save()
         response = self.client.post(
             path=self.url,
@@ -126,8 +130,10 @@ class TestFirstFreeLink(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(MTPRotoKey.objects.count(), 1)
         self.user.refresh_from_db()
+        inviter.refresh_from_db()
         self.assertTrue(self.user.first_month_free_used)
         self.assertTrue(self.user.referral_activated)
+        self.assertEqual(inviter.apple_balance, 22)
         self.assertEqual(
             MTPRotoKey.objects.first().expired_date.date(),
             (timezone.now() + timedelta(days=30)).date(),

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import TYPE_CHECKING, final
@@ -18,6 +19,9 @@ if TYPE_CHECKING:
     from apps.vds.services.issue_key_service import IssueKeyService
 
 
+REFERRAL_ACTIVATION_APPLES = 15
+
+
 @final
 @dataclass(kw_only=True, slots=True, frozen=True)
 class FirstFreeLinkService:
@@ -30,6 +34,7 @@ class FirstFreeLinkService:
     """
 
     issue_key_service: IssueKeyService
+    credit_apples: Callable[..., None]
 
     @log_service_error
     def __call__(
@@ -50,6 +55,10 @@ class FirstFreeLinkService:
             user.first_month_free_used = True
             if user.invited_from_username:
                 user.referral_activated = True
+                self.credit_apples(
+                    username=user.invited_from_username,
+                    apples=REFERRAL_ACTIVATION_APPLES,
+                )
             user.save(update_fields=["first_month_free_used", "referral_activated"])
 
         return IssuedKeyOut(
@@ -69,8 +78,10 @@ class FirstFreeLinkService:
 
 
 def get_first_free_link_service() -> FirstFreeLinkService:
+    from apps.users.selectors import credit_user_apples
     from apps.vds.services import get_issue_key_service
 
     return FirstFreeLinkService(
         issue_key_service=get_issue_key_service(),
+        credit_apples=credit_user_apples,
     )

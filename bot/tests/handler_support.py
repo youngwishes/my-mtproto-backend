@@ -10,7 +10,6 @@ from src.domains.payments import (
     GiftCertificate,
     StarsInvoice,
 )
-from src.domains.referrals import ReferralRewardKey
 from src.domains.vpn import VPNMenu, VPNPurchase, VPNReissue
 from src.exceptions import (
     APIError,
@@ -129,19 +128,13 @@ class FakeLinks:
 
 
 class FakeReferrals:
-    def __init__(self, *, cabinet, reward=None) -> None:
+    def __init__(self, *, cabinet) -> None:
         self._cabinet = cabinet
-        self._reward = reward or ReferralRewardKey(expired_date="2026-06-28")
         self.cabinet_calls: list[str] = []
-        self.reward_calls: list[str] = []
 
     async def get_cabinet(self, *, telegram_id):
         self.cabinet_calls.append(telegram_id)
         return self._cabinet
-
-    async def claim_reward(self, *, telegram_id):
-        self.reward_calls.append(telegram_id)
-        return self._reward
 
 
 class FakePayments:
