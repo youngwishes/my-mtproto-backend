@@ -4,7 +4,6 @@
   const app = document.querySelector(".fortune-app");
   const rotor = document.querySelector(".wheel-rotor");
   const spinButton = document.querySelector(".spin-button");
-  const availability = document.querySelector(".availability");
   const countdown = document.querySelector(".countdown");
   const lastPrize = document.querySelector(".last-prize");
   const lastPrizeValue = lastPrize.querySelector("strong");
@@ -13,12 +12,14 @@
   const registrationLink = document.querySelector(".registration-link");
   const telegram = window.Telegram?.WebApp;
   const prizeOrder = [5, 10, 15, 25, 60, 100];
+  const spinDurationMs = Number(app.dataset.spinDurationMs);
   let nextSpinAt = null;
   let countdownTimer = null;
   let rotation = 0;
 
   telegram?.ready();
   telegram?.expand();
+  rotor.style.setProperty("--spin-duration", `${spinDurationMs}ms`);
 
   function hapticImpact() {
     telegram?.HapticFeedback?.impactOccurred("medium");
@@ -79,8 +80,6 @@
       clearInterval(countdownTimer);
       countdownTimer = null;
       countdown.hidden = true;
-      availability.textContent = "Вращение доступно сейчас";
-      availability.classList.add("is-ready");
       spinButton.disabled = false;
       return;
     }
@@ -91,8 +90,6 @@
   function showCooldown(prize, nextAt) {
     lastPrizeValue.textContent = prize;
     lastPrize.hidden = false;
-    availability.textContent = "Следующая попытка ещё не доступна";
-    availability.classList.remove("is-ready");
     spinButton.disabled = true;
     nextSpinAt = new Date(nextAt);
     clearInterval(countdownTimer);
@@ -103,8 +100,6 @@
   function showReady() {
     nextSpinAt = null;
     countdown.hidden = true;
-    availability.textContent = "Вращение доступно сейчас";
-    availability.classList.add("is-ready");
     spinButton.disabled = false;
   }
 
@@ -125,12 +120,11 @@
       hapticSuccess();
       showCooldown(prize, nextAt);
       spinButton.textContent = "Крутить колесо";
-    }, reducedMotion ? 0 : 5200);
+    }, reducedMotion ? 0 : spinDurationMs);
   }
 
   async function loadStatus() {
     if (!telegram?.initData) {
-      availability.textContent = "Откройте колесо через Telegram";
       showError("Telegram не передал данные для входа.");
       return;
     }
@@ -144,7 +138,6 @@
         showCooldown(state.last_prize, state.next_spin_at);
       }
     } catch (error) {
-      availability.textContent = "Не удалось проверить доступность";
       showError(error.message);
     }
   }
