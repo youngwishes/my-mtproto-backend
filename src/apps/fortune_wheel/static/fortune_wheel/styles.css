@@ -2,11 +2,11 @@
   color-scheme: dark;
   --night: #010514;
   --deep-blue: #061338;
-  --electric-blue: #0788f5;
-  --cyan: #65dcff;
   --white: #f5f9ff;
-  --muted: #8da3c8;
-  font-family: "Arial Narrow", "Roboto Condensed", Arial, sans-serif;
+  --muted: #91a2be;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
 }
 
 * {
@@ -22,10 +22,7 @@ body {
 body {
   color: var(--white);
   background:
-    radial-gradient(circle at 50% 38%, rgb(0 104 255 / 28%), transparent 31%),
-    radial-gradient(circle at 12% 16%, #58bfff 0 1px, transparent 2px),
-    radial-gradient(circle at 87% 24%, #166cff 0 1px, transparent 2px),
-    radial-gradient(circle at 14% 74%, #166cff 0 1px, transparent 2px),
+    radial-gradient(circle at 50% 38%, rgb(0 92 224 / 20%), transparent 34%),
     linear-gradient(155deg, var(--night), #020719 58%, var(--deep-blue));
   background-attachment: fixed;
 }
@@ -35,7 +32,7 @@ body {
   width: min(100%, 430px);
   min-height: 100dvh;
   margin: 0 auto;
-  padding: calc(22px + env(safe-area-inset-top)) 18px calc(24px + env(safe-area-inset-bottom));
+  padding: calc(24px + env(safe-area-inset-top)) 20px calc(24px + env(safe-area-inset-bottom));
   flex-direction: column;
   align-items: center;
   overflow: hidden;
@@ -48,40 +45,42 @@ body {
 }
 
 .brand-label {
-  color: #59c5ff;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: .25em;
+  color: #7fa9d6;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .22em;
   text-transform: uppercase;
 }
 
 h1 {
-  margin: 7px 0 3px;
-  font-size: clamp(26px, 7vw, 34px);
-  font-weight: 800;
-  letter-spacing: -.03em;
-  text-shadow: 0 0 20px rgb(88 193 255 / 32%);
+  margin: 9px 0 5px;
+  font-size: clamp(26px, 7vw, 32px);
+  font-weight: 700;
+  letter-spacing: -.035em;
+  line-height: 1.08;
+  text-shadow: 0 0 18px rgb(88 193 255 / 14%);
 }
 
 .fortune-header p {
   margin: 0;
   color: var(--muted);
   font-size: 13px;
+  line-height: 1.4;
 }
 
 .wheel-stage {
   position: relative;
   width: min(94vw, 390px);
   aspect-ratio: 1;
-  margin: 8px -12px 0;
-  filter: drop-shadow(0 22px 28px rgb(0 22 80 / 55%));
+  margin: 14px -12px 0;
+  filter: drop-shadow(0 20px 26px rgb(0 16 60 / 48%));
 }
 
 .wheel-rotor {
   position: absolute;
   inset: 0;
   transform: rotate(var(--rotation, 0deg));
-  transition: transform 5.2s cubic-bezier(.12, .72, .08, 1);
+  transition: transform var(--spin-duration, 7.5s) cubic-bezier(.12, .72, .08, 1);
   will-change: transform;
 }
 
@@ -98,13 +97,13 @@ h1 {
   z-index: 4;
   top: 3.5%;
   left: 50%;
-  width: 13%;
+  width: 11.5%;
   aspect-ratio: 1.12;
   transform: translateX(-50%);
   clip-path: polygon(5% 8%, 95% 8%, 50% 100%);
   background: linear-gradient(145deg, #ecfbff 0%, #59d8ff 28%, #0877ee 72%, #021950 100%);
-  border-radius: 24%;
-  filter: drop-shadow(0 0 7px #69ddff) drop-shadow(0 5px 8px rgb(0 25 99 / 80%));
+  border-radius: 22%;
+  filter: drop-shadow(0 0 5px rgb(105 221 255 / 68%)) drop-shadow(0 4px 7px rgb(0 25 99 / 65%));
 }
 
 .wheel-pointer::after {
@@ -122,9 +121,11 @@ h1 {
   height: 9%;
   place-items: center;
   color: #f7fcff;
-  font-size: clamp(17px, 5vw, 22px);
-  font-weight: 800;
-  text-shadow: 0 0 5px #39bbff, 0 0 15px #087eff;
+  font-size: clamp(17px, 5vw, 21px);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  text-shadow: 0 0 8px rgb(8 126 255 / 72%);
 }
 
 .prize-5 { top: 17%; left: 43%; }
@@ -135,65 +136,69 @@ h1 {
 .prize-100 { top: 32%; left: 18%; transform: rotate(300deg); }
 
 .result-panel {
-  min-height: 76px;
-  margin-top: -2px;
+  min-height: 66px;
+  margin-top: 4px;
   text-align: center;
 }
 
 .result-panel p {
-  margin: 5px 0;
+  margin: 4px 0;
 }
 
 .last-prize {
   color: white;
-  font-size: 18px;
+  font-size: 16px;
+  line-height: 1.4;
 }
 
 .last-prize strong {
-  color: #61d4ff;
-  font-size: 23px;
-  text-shadow: 0 0 12px #087eff;
+  color: #73d4ff;
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 10px rgb(8 126 255 / 58%);
 }
 
-.countdown,
-.availability {
+.countdown {
   color: var(--muted);
   font-size: 13px;
-}
-
-.availability.is-ready {
-  color: #71e5ff;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
 }
 
 .error-message {
   color: #ffb3bf;
   font-size: 13px;
+  line-height: 1.4;
 }
 
 .spin-button,
 .registration-link {
   display: grid;
   width: 88%;
-  min-height: 54px;
+  min-height: 52px;
   place-items: center;
-  border: 1px solid var(--cyan);
-  border-radius: 16px;
+  border: 1px solid rgb(117 207 255 / 72%);
+  border-radius: 14px;
   color: white;
-  background: linear-gradient(180deg, rgb(68 191 255 / 96%), rgb(7 72 204 / 98%));
+  background: linear-gradient(180deg, rgb(31 143 220 / 96%), rgb(8 73 171 / 98%));
   box-shadow:
-    0 0 26px rgb(0 142 255 / 55%),
-    inset 0 1px rgb(255 255 255 / 65%),
-    inset 0 -8px 18px rgb(0 19 93 / 35%);
+    0 10px 24px rgb(0 48 129 / 34%),
+    inset 0 1px rgb(255 255 255 / 36%);
   font: inherit;
-  font-size: 16px;
-  font-weight: 700;
+  font-size: 15px;
+  font-weight: 650;
   text-decoration: none;
 }
 
 .spin-button:disabled {
   cursor: not-allowed;
-  opacity: .48;
+  opacity: .42;
   box-shadow: none;
+}
+
+.spin-button:not(:disabled):active,
+.registration-link:active {
+  transform: translateY(1px);
 }
 
 .spin-button:focus-visible,
@@ -205,15 +210,17 @@ h1 {
 .registration-panel {
   width: 100%;
   padding: 20px;
-  border: 1px solid rgb(65 180 255 / 34%);
-  border-radius: 18px;
-  background: rgb(3 14 42 / 88%);
+  border: 1px solid rgb(91 163 218 / 26%);
+  border-radius: 16px;
+  background: rgb(3 14 42 / 78%);
   text-align: center;
 }
 
 .registration-panel h2 {
   margin: 0 0 8px;
-  font-size: 21px;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -.02em;
 }
 
 .registration-panel p {
