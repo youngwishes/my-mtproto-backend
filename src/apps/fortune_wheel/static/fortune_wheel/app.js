@@ -13,6 +13,7 @@
   const telegram = window.Telegram?.WebApp;
   const prizeOrder = [5, 10, 15, 25, 60, 100];
   const spinDurationMs = Number(app.dataset.spinDurationMs);
+  const reducedSpinDurationMs = Number(app.dataset.reducedSpinDurationMs);
   let nextSpinAt = null;
   let countdownTimer = null;
   let rotation = 0;
@@ -20,6 +21,10 @@
   telegram?.ready();
   telegram?.expand();
   rotor.style.setProperty("--spin-duration", `${spinDurationMs}ms`);
+  rotor.style.setProperty(
+    "--reduced-spin-duration",
+    `${reducedSpinDurationMs}ms`,
+  );
 
   function hapticImpact() {
     telegram?.HapticFeedback?.impactOccurred("medium");
@@ -120,7 +125,7 @@
       hapticSuccess();
       showCooldown(prize, nextAt);
       spinButton.textContent = "Крутить колесо";
-    }, reducedMotion ? 0 : spinDurationMs);
+    }, reducedMotion ? reducedSpinDurationMs : spinDurationMs);
   }
 
   async function loadStatus() {

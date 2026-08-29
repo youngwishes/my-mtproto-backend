@@ -248,6 +248,6 @@ h1 {
 
 @media (prefers-reduced-motion: reduce) {
   .wheel-rotor {
-    transition-duration: .01ms;
+    transition-duration: var(--reduced-spin-duration, 7.5s);
   }
 }

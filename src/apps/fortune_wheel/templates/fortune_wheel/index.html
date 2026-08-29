@@ -16,6 +16,7 @@
     data-status-url="{% url 'fortune-wheel-status' %}"
     data-spin-url="{% url 'fortune-wheel-spin' %}"
     data-spin-duration-ms="7500"
+    data-reduced-spin-duration-ms="7500"
   >
     <header class="fortune-header">
       <span class="brand-label">MTProto Keys</span>
@@ -43,6 +44,7 @@
     <section class="result-panel" aria-live="polite">
       <p class="last-prize" hidden>Последний приз: <strong></strong> 🍏</p>
       <p class="countdown" hidden></p>
+      <p class="availability" hidden></p>
       <p class="error-message" role="alert" hidden></p>
     </section>
 
