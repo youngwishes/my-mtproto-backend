@@ -11,13 +11,14 @@ Telegram Mini App колеса фортуны: проверка подписан
 
 ## Карта компонентов
 
-- `FortuneSpin` — неизменяемый журнал успешных результатов.
+- `FortuneSpin` — журнал успешных результатов.
 - `SpinFortuneWheelService` — cooldown, случайный выбор, транзакция начисления.
 - `GetFortuneWheelStatusService` — последний приз и следующая доступность.
 - `TelegramMiniAppAuthentication` — HMAC и freshness boundary для `initData`.
 - API views — status/spin transport mapping.
 - Template и static assets — 3D-колесо, анимация, countdown и haptic feedback.
-- `FortuneSpinAdmin` — read-only диагностика истории.
+- `FortuneSpinAdmin` — диагностика и ручная корректировка существующей истории;
+  добавление и удаление строк запрещены.
 
 ## Зависимости
 
