@@ -10,6 +10,7 @@ ENV = {
     "API_URL": "http://example",
     "MY_TELEGRAM_ID": "777",
     "BOT_AUTH_TOKEN": "auth",
+    "FORTUNE_WHEEL_URL": "https://dash.mtprotokeys.com/fortune-wheel/",
 }
 
 
@@ -31,6 +32,7 @@ def test_settings_loads_and_coerces_from_environment(env):
     assert settings.api_url == "http://example"
     assert settings.my_telegram_id == 777  # coerced to int
     assert settings.bot_auth_token == "auth"
+    assert settings.fortune_wheel_url == ("https://dash.mtprotokeys.com/fortune-wheel/")
 
 
 def test_settings_raises_when_required_var_missing(env):

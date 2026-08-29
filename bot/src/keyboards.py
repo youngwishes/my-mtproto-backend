@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
 from src.messages import (
     CRYPTO_PAY_BUTTON,
@@ -214,9 +214,16 @@ def mtproxy_menu(boost_callback_data: str) -> InlineKeyboardMarkup:
     )
 
 
-def apples_status() -> InlineKeyboardMarkup:
+def apples_status(*, fortune_wheel_url: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🎡 Колесо фортуны",
+                    web_app=WebAppInfo(url=fortune_wheel_url),
+                    style="primary",
+                )
+            ],
             [
                 InlineKeyboardButton(
                     text="🍏 Потратить яблоки",

@@ -6,6 +6,7 @@ from aiogram import F, Router
 from aiogram.types import CallbackQuery
 
 from src import keyboards
+from src.config import settings
 from src.messages import (
     APPLE_KEY_REQUIRED_TEXT,
     render_apple_redemption_preview,
@@ -32,7 +33,9 @@ async def process_apples_status(
     )
     await callback.message.edit_text(
         text=render_apple_status(status=status),
-        reply_markup=keyboards.apples_status(),
+        reply_markup=keyboards.apples_status(
+            fortune_wheel_url=settings.fortune_wheel_url,
+        ),
     )
 
 

@@ -58,7 +58,7 @@ as `token=None`. Values come from the environment (case-insensitive) or, for
 local runs, a `.env` file (git-ignored, excluded from the Docker image).
 
 Required: `TELEGRAM_BOT_TOKEN`, `API_URL`, `BOT_AUTH_TOKEN`, `MY_TELEGRAM_ID`
-(int).
+(int), `FORTUNE_WHEEL_URL` (публичный HTTPS URL Mini App).
 
 Доступность и порядок оплаты определяет backend по правилам из
 [BUSINESS.md](../docs/BUSINESS.md#монетизация); wire-форматы находятся в

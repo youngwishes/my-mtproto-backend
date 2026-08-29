@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     "apps.payments",
     "apps.vpn",
     "apps.notifications",
+    "apps.fortune_wheel",
     "rest_framework",
 ]
 
@@ -96,6 +97,7 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": os.path.join(BASE_DIR, "data", "db.sqlite3"),
+        "OPTIONS": {"transaction_mode": "IMMEDIATE"},
     }
 }
 
@@ -129,6 +131,10 @@ TIME_ZONE = "UTC"
 USE_I18N = True
 
 USE_TZ = True
+
+FORTUNE_WHEEL_INIT_DATA_MAX_AGE_SECONDS = int(
+    os.getenv("FORTUNE_WHEEL_INIT_DATA_MAX_AGE_SECONDS", "3600")
+)
 
 
 # Static files (CSS, JavaScript, Images)

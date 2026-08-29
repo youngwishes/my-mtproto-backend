@@ -84,6 +84,33 @@ entrypoint Django, проверяет HTTP-ответ и состояние вс
 применённые миграции БД автоматически не откатываются; перед ручным откатом
 проверь их совместимость и состояние backup в Litestream.
 
+## Fortune wheel: production-конфигурация
+
+До первого релиза добавь в защищённый `bot/.env` публичный URL:
+
+```dotenv
+FORTUNE_WHEEL_URL=https://dash.mtprotokeys.com/fortune-wheel/
+```
+
+Backend использует существующий `BOT_TOKEN` для проверки Telegram Mini App
+`initData`. Необязательный
+`FORTUNE_WHEEL_INIT_DATA_MAX_AGE_SECONDS=3600` задаётся в корневом `.env`.
+Значения токенов не переносятся во frontend.
+
+После успешного deploy настрой у этого же бота в @BotFather Main Mini App с URL
+`https://dash.mtprotokeys.com/fortune-wheel/`. Это создаёт кнопку открытия в
+профиле; кнопка на экране `🍏 Мои яблоки` использует `FORTUNE_WHEEL_URL`.
+
+Production smoke дополняется проверкой страницы и ручным запуском из обеих
+точек входа. У тестового зарегистрированного пользователя проверь одно
+вращение, сохранённый последний приз, таймер и появление строки в read-only
+Django Admin:
+
+```bash
+curl --fail --silent --show-error \
+  https://dash.mtprotokeys.com/fortune-wheel/ >/dev/null
+```
+
 ## VPN: production-конфигурация
 
 VPN использует `VPN_SUBSCRIPTION_BASE_URL=https://dash.mtprotokeys.com` и
