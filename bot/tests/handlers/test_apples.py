@@ -50,11 +50,25 @@ async def test_apples_status_shows_progress_and_always_offers_spend_action():
         "Курс: <b>15 🍏 = 1 день</b>"
     )
     assert [
-        [(button.text, button.callback_data) for button in row]
+        [
+            (
+                button.text,
+                button.callback_data,
+                None if button.web_app is None else button.web_app.url,
+            )
+            for button in row
+        ]
         for row in markup.inline_keyboard
     ] == [
-        [("🍏 Потратить яблоки", "apples_spend")],
-        [("🔙 Назад", "show_mtproxy_menu")],
+        [
+            (
+                "🎡 Колесо фортуны",
+                None,
+                "https://dash.mtprotokeys.com/fortune-wheel/",
+            )
+        ],
+        [("🍏 Потратить яблоки", "apples_spend", None)],
+        [("🔙 Назад", "show_mtproxy_menu", None)],
     ]
 
 
@@ -82,7 +96,9 @@ async def test_apples_status_shows_max_level_without_progress_count():
     text, markup = callback.message.edits[0]
     assert "Максимальный уровень достигнут" in text
     assert "До следующего уровня" not in text
-    assert markup.inline_keyboard[0][0].callback_data == "apples_spend"
+    assert markup.inline_keyboard[0][0].web_app.url == (
+        "https://dash.mtprotokeys.com/fortune-wheel/"
+    )
 
 
 async def test_apples_spend_offers_one_day_and_all_saved_backend_modes():

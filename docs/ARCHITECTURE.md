@@ -73,6 +73,8 @@ TLS-домен клиентского MTProxy FakeTLS-secret задаётся о
 - `src/apps/vpn/` — VPN-подписки и node delivery.
 - `src/apps/notifications/` — шаблоны и рассылки.
 - `src/apps/infrastructure/` — операционный инвентарь проектных серверов.
+- `src/apps/fortune_wheel/` — Telegram Mini App, проверка Telegram init data и
+  журнал атомарных apple-наград.
 - `bot/` — Telegram presentation layer и typed backend client.
 - `ansible/`, `docker-compose*.yml`, `nginx/` — release/runtime infrastructure.
 
@@ -137,6 +139,24 @@ quote и confirm; bot передаёт только identifiers/mode и отоб
 
 Payment provider credentials доступны только Django/Celery environment. Bot не
 получает secrets, provider payload или авторитетные суммы/ставки.
+
+## Fortune wheel Mini App
+
+Django отдаёт HTML/CSS/JavaScript Mini App и два API endpoint с того же origin.
+Frontend передаёт неизменённые Telegram `initData`; backend проверяет подпись и
+свежесть через `BOT_TOKEN` и выводит Telegram ID только из подписанных данных.
+Этот boundary не использует доверяемый bot-to-backend `Bot-Auth-Token`.
+
+`fortune_wheel` владеет cooldown, случайным выбором и журналом вращений.
+Транзакция блокирует пользователя, повторно проверяет последнее вращение,
+начисляет `SystemUser.apple_balance` и создаёт `FortuneSpin`. Frontend получает
+уже сохранённый результат и отвечает только за анимацию, haptic feedback и
+отсчёт. SQLite-транзакции запускаются в режиме `IMMEDIATE`, поэтому два
+одновременных вращения сериализуются до чтения cooldown. Карта модулей находится
+в
+[docs/apps/FORTUNE_WHEEL.md](apps/FORTUNE_WHEEL.md), правила — в
+[BUSINESS.md](BUSINESS.md#колесо-фортуны), wire-формат — в
+[CONTRACTS.md](CONTRACTS.md#fortune-wheel-mini-app).
 
 ## Notifications
 

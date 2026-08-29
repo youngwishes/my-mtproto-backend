@@ -13,6 +13,10 @@ os.environ.setdefault(
 os.environ.setdefault("API_URL", "http://backend")
 os.environ.setdefault("BOT_AUTH_TOKEN", "test-auth")
 os.environ.setdefault("MY_TELEGRAM_ID", "1")
+os.environ.setdefault(
+    "FORTUNE_WHEEL_URL",
+    "https://dash.mtprotokeys.com/fortune-wheel/",
+)
 
 
 @pytest.fixture

@@ -1,0 +1,58 @@
+{% load static %}
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#010514">
+  <title>Колесо фортуны</title>
+  <link rel="stylesheet" href="{% static 'fortune_wheel/styles.css' %}">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script defer src="{% static 'fortune_wheel/app.js' %}"></script>
+</head>
+<body>
+  <main
+    class="fortune-app"
+    data-status-url="{% url 'fortune-wheel-status' %}"
+    data-spin-url="{% url 'fortune-wheel-spin' %}"
+  >
+    <header class="fortune-header">
+      <span class="brand-label">MTProto Keys</span>
+      <h1>Колесо фортуны</h1>
+      <p>Испытайте удачу раз в 10 дней</p>
+    </header>
+
+    <section class="wheel-stage" aria-label="Колесо с призами в яблоках">
+      <div class="wheel-pointer" aria-hidden="true"></div>
+      <div class="wheel-rotor">
+        <img
+          class="wheel-image"
+          src="{% static 'fortune_wheel/wheel-disc.png' %}"
+          alt="Объёмное синее колесо со стеклянным яблоком"
+        >
+        <span class="prize prize-5">5</span>
+        <span class="prize prize-10">10</span>
+        <span class="prize prize-15">15</span>
+        <span class="prize prize-25">25</span>
+        <span class="prize prize-60">60</span>
+        <span class="prize prize-100">100</span>
+      </div>
+    </section>
+
+    <section class="result-panel" aria-live="polite">
+      <p class="last-prize" hidden>Последний приз: <strong></strong> 🍏</p>
+      <p class="countdown" hidden></p>
+      <p class="availability">Проверяем доступность…</p>
+      <p class="error-message" role="alert" hidden></p>
+    </section>
+
+    <button class="spin-button" type="button" disabled>Крутить колесо</button>
+
+    <section class="registration-panel" hidden>
+      <h2>Сначала загляните в бот</h2>
+      <p>Примите условия использования, затем вернитесь к колесу.</p>
+      <a class="registration-link" href="#">Открыть бот</a>
+    </section>
+  </main>
+</body>
+</html>
