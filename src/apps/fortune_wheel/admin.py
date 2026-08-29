@@ -19,6 +19,11 @@ class FortuneSpinAdminForm(forms.ModelForm):
         model = FortuneSpin
         fields = ("is_active", "user", "prize_apples")
 
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            self.initial.setdefault("created_at", self.instance.created_at)
+
     def save(self, commit: bool = True) -> FortuneSpin:
         spin = super().save(commit=False)
         spin.created_at = self.cleaned_data["created_at"]

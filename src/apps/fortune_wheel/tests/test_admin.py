@@ -62,3 +62,11 @@ class FortuneSpinAdminTest(TestCase):
         self.assertEqual(spin.created_at, created_at)
         self.assertEqual(original_user.apple_balance, 100)
         self.assertEqual(replacement_user.apple_balance, 200)
+
+    def test_change_form_preserves_existing_created_at_as_initial_value(self) -> None:
+        spin = FortuneSpinFactory()
+
+        form_class = self.admin.get_form(self.request, spin)
+        form = form_class(instance=spin)
+
+        self.assertEqual(form.initial.get("created_at"), spin.created_at)
