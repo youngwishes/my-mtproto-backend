@@ -11,13 +11,16 @@ import html
 import json
 from typing import TYPE_CHECKING
 
+from aiogram import F
+
+from src import keyboards
 from src.bot import bot
 from src.config import settings
 from src.exceptions import BaseServiceError
 
 if TYPE_CHECKING:
     from aiogram import Dispatcher
-    from aiogram.types import ErrorEvent
+    from aiogram.types import CallbackQuery, ErrorEvent
 
 
 async def handle_service_errors(event: ErrorEvent) -> bool:
@@ -26,7 +29,18 @@ async def handle_service_errors(event: ErrorEvent) -> bool:
         return False
 
     if exc.telegram_id is not None:
-        await bot.send_message(chat_id=exc.telegram_id, text=exc.message)
+        callback_query = event.update.callback_query
+        reply_markup = None
+        if callback_query is not None and callback_query.data in {
+            "update_link_confirm",
+            "vpn_reissue_confirm",
+        }:
+            reply_markup = keyboards.reissue_error_notification()
+        await bot.send_message(
+            chat_id=exc.telegram_id,
+            text=exc.message,
+            reply_markup=reply_markup,
+        )
 
     status_code = exc.context.get("status_code")
     if status_code is not None and 400 <= status_code < 500:
@@ -48,5 +62,14 @@ async def handle_service_errors(event: ErrorEvent) -> bool:
     return True
 
 
+async def dismiss_error_notification(callback: CallbackQuery) -> None:
+    await callback.answer()
+    await callback.message.delete()
+
+
 def register_error_handler(dp: Dispatcher) -> None:
     dp.errors.register(handle_service_errors)
+    dp.callback_query.register(
+        dismiss_error_notification,
+        F.data == keyboards.DISMISS_ERROR_NOTIFICATION_CALLBACK,
+    )

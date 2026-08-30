@@ -30,6 +30,20 @@ _MY_SERVERS = InlineKeyboardButton(
     text="📡 Мои серверы", callback_data="my_servers", style="primary"
 )
 LEGAL_CONSENT_CALLBACK = "accept_legal_terms"
+DISMISS_ERROR_NOTIFICATION_CALLBACK = "dismiss_error_notification"
+
+
+def reissue_error_notification() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🧹 Понятно",
+                    callback_data=DISMISS_ERROR_NOTIFICATION_CALLBACK,
+                )
+            ]
+        ]
+    )
 
 
 def legal_consent(
