@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 
 SITE_URL = "https://mtprotokeys.com"
 SUPPORT_URL = "https://t.me/mtprotokeys_support"
+CHANNEL_URL = "https://t.me/mtproto_keys"
 VPN_SETUP_URL = "https://mtprotokeys.com/vpn/"
 TERMS_URL = "https://mtprotokeys.com/terms"
 PRIVACY_URL = "https://mtprotokeys.com/privacy"
