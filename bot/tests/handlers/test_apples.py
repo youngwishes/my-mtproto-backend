@@ -60,6 +60,7 @@ async def test_apples_status_shows_progress_and_always_offers_spend_action():
         ]
         for row in markup.inline_keyboard
     ] == [
+        [("🍏 Потратить яблоки", "apples_spend", None)],
         [
             (
                 "🎡 Колесо фортуны",
@@ -67,7 +68,6 @@ async def test_apples_status_shows_progress_and_always_offers_spend_action():
                 "https://dash.mtprotokeys.com/fortune-wheel/",
             )
         ],
-        [("🍏 Потратить яблоки", "apples_spend", None)],
         [("🔙 Назад", "show_mtproxy_menu", None)],
     ]
 
@@ -96,7 +96,7 @@ async def test_apples_status_shows_max_level_without_progress_count():
     text, markup = callback.message.edits[0]
     assert "Максимальный уровень достигнут" in text
     assert "До следующего уровня" not in text
-    assert markup.inline_keyboard[0][0].web_app.url == (
+    assert markup.inline_keyboard[1][0].web_app.url == (
         "https://dash.mtprotokeys.com/fortune-wheel/"
     )
 
@@ -136,6 +136,63 @@ async def test_apples_spend_offers_one_day_and_all_saved_backend_modes():
         [("Обменять все яблоки", "apples_redeem_all")],
         [("🔙 Назад", "apples_status")],
     ]
+
+
+async def test_apples_spend_from_referral_returns_to_referral_cabinet():
+    from src.handlers.apples import process_apples_spend
+
+    payments = FakePayments(
+        apple_status=AppleStatus(
+            balance=37,
+            eligible_purchase_count=7,
+            level="Мастер сада",
+            rate_percent=15,
+            next_level_purchase_count=None,
+            purchases_to_next_level=None,
+            is_max_level=True,
+            redeemable_days=2,
+            missing_apples=0,
+            has_existing_key=True,
+        )
+    )
+    callback = FakeCallback(user_id=42, data="apples_spend_referral")
+
+    await process_apples_spend(callback, make_deps(payments=payments))
+
+    _, markup = callback.message.edits[0]
+    assert markup.inline_keyboard[-1][0].callback_data == "referral"
+
+
+@pytest.mark.parametrize(
+    ("missing_apples", "has_existing_key"),
+    [(8, True), (0, False)],
+)
+async def test_unavailable_apple_spend_from_referral_returns_to_referral_cabinet(
+    missing_apples: int,
+    has_existing_key: bool,
+):
+    from src.handlers.apples import process_apples_spend
+
+    payments = FakePayments(
+        apple_status=AppleStatus(
+            balance=7,
+            eligible_purchase_count=0,
+            level="Новичок",
+            rate_percent=5,
+            next_level_purchase_count=4,
+            purchases_to_next_level=4,
+            is_max_level=False,
+            redeemable_days=0,
+            missing_apples=missing_apples,
+            has_existing_key=has_existing_key,
+        )
+    )
+    callback = FakeCallback(user_id=42, data="apples_spend_referral")
+
+    await process_apples_spend(callback, make_deps(payments=payments))
+
+    _, markup = callback.message.edits[0]
+    assert markup.inline_keyboard[0][0].callback_data == "referral"
 
 
 async def test_apples_spend_below_rate_shows_exact_missing_count_without_preview():

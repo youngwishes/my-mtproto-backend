@@ -233,16 +233,16 @@ def apples_status(*, fortune_wheel_url: str) -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="🎡 Колесо фортуны",
-                    web_app=WebAppInfo(url=fortune_wheel_url),
-                    style="primary",
+                    text="🍏 Потратить яблоки",
+                    callback_data="apples_spend",
+                    style="success",
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text="🍏 Потратить яблоки",
-                    callback_data="apples_spend",
-                    style="success",
+                    text="🎡 Колесо фортуны",
+                    web_app=WebAppInfo(url=fortune_wheel_url),
+                    style="primary",
                 )
             ],
             [_MTPROXY_BACK],
@@ -250,7 +250,7 @@ def apples_status(*, fortune_wheel_url: str) -> InlineKeyboardMarkup:
     )
 
 
-def apples_spend() -> InlineKeyboardMarkup:
+def apples_spend(*, back_callback_data: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -266,15 +266,25 @@ def apples_spend() -> InlineKeyboardMarkup:
                     callback_data="apples_redeem_all",
                 )
             ],
-            [InlineKeyboardButton(text="🔙 Назад", callback_data="apples_status")],
+            [
+                InlineKeyboardButton(
+                    text="🔙 Назад",
+                    callback_data=back_callback_data,
+                )
+            ],
         ]
     )
 
 
-def apples_back_to_status() -> InlineKeyboardMarkup:
+def apples_back_to_status(*, back_callback_data: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="🔙 Назад", callback_data="apples_status")]
+            [
+                InlineKeyboardButton(
+                    text="🔙 Назад",
+                    callback_data=back_callback_data,
+                )
+            ]
         ]
     )
 
@@ -474,19 +484,19 @@ def referral_cabinet(
     keyboard = [
         [
             InlineKeyboardButton(
-                text="🍏 Потратить яблоки",
-                callback_data="apples_spend",
-                style="success",
-            )
-        ],
-        [
-            InlineKeyboardButton(
                 text="🔗 Поделиться ссылкой",
                 switch_inline_query=(
                     "Привет! Переходи по моей реферальной ссылке: "
                     f"{referral_link}"
                 ),
                 style="primary",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text="🍏 Потратить яблоки",
+                callback_data="apples_spend_referral",
+                style="success",
             )
         ],
         [_ROOT_BACK],

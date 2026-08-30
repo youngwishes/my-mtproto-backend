@@ -25,10 +25,17 @@ async def test_referral_cabinet_shows_apple_program():
     await process_referral(callback, make_deps(referrals=fake))
 
     text, markup = callback.message.edits[0]
-    assert "Общее количество приглашённых: <b>7</b>" in text
-    assert "Активировали пробный период: <b>5</b>" in text
-    assert "Баланс яблок: <b>75 🍏</b>" in text
-    assert "https://t.me/bot?start=42" in text
+    assert text == (
+        "\n<b>🤝 Реферальная программа</b>\n\n"
+        "Приглашай друзей и получай яблоки:\n\n"
+        "👥 Приглашено: <b>7</b>\n"
+        "✅ Получили пробный доступ: <b>5</b>\n"
+        "🍏 На балансе: <b>75</b>\n\n"
+        "Друг получает <b>14 дней бесплатно</b>, а ты — <b>15 🍏</b> "
+        "после активации его пробного периода.\n\n"
+        "<b>Твоя ссылка:</b>\n"
+        "https://t.me/bot?start=42\n"
+    )
     assert [
         [
             (
@@ -42,7 +49,6 @@ async def test_referral_cabinet_shows_apple_program():
         ]
         for row in markup.inline_keyboard
     ] == [
-        [("🍏 Потратить яблоки", "apples_spend", None, None, "success")],
         [
             (
                 "🔗 Поделиться ссылкой",
@@ -51,6 +57,15 @@ async def test_referral_cabinet_shows_apple_program():
                 "Привет! Переходи по моей реферальной ссылке: "
                 "https://t.me/bot?start=42",
                 "primary",
+            )
+        ],
+        [
+            (
+                "🍏 Потратить яблоки",
+                "apples_spend_referral",
+                None,
+                None,
+                "success",
             )
         ],
         [("🔙 Главное меню", "show_start_screen", None, None, None)],

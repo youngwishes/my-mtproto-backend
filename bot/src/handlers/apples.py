@@ -39,19 +39,25 @@ async def process_apples_status(
     )
 
 
+@router.callback_query(F.data == "apples_spend_referral")
 @router.callback_query(F.data == "apples_spend")
 async def process_apples_spend(
     callback: CallbackQuery,
     deps: Dependencies,
 ) -> None:
     await callback.answer()
+    back_callback_data = (
+        "referral" if callback.data == "apples_spend_referral" else "apples_status"
+    )
     status = await deps.payments.get_apple_status(
         telegram_id=callback.from_user.id,
     )
     if not status.has_existing_key:
         await callback.message.edit_text(
             text=APPLE_KEY_REQUIRED_TEXT,
-            reply_markup=keyboards.apples_back_to_status(),
+            reply_markup=keyboards.apples_back_to_status(
+                back_callback_data=back_callback_data,
+            ),
         )
         return
     if status.missing_apples:
@@ -59,7 +65,9 @@ async def process_apples_spend(
             text=render_insufficient_apples(
                 missing_apples=status.missing_apples,
             ),
-            reply_markup=keyboards.apples_back_to_status(),
+            reply_markup=keyboards.apples_back_to_status(
+                back_callback_data=back_callback_data,
+            ),
         )
         return
     await callback.message.edit_text(
@@ -67,7 +75,9 @@ async def process_apples_spend(
             balance=status.balance,
             redeemable_days=status.redeemable_days,
         ),
-        reply_markup=keyboards.apples_spend(),
+        reply_markup=keyboards.apples_spend(
+            back_callback_data=back_callback_data,
+        ),
     )
 
 
