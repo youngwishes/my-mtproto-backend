@@ -53,6 +53,7 @@ async def test_post_raises_apierror_with_backend_message_on_error_status(
     assert exc_info.value.message == "Вы уже получали ссылку"
     assert exc_info.value.telegram_id == "42"
     assert exc_info.value.context["request_url"] == f"{BASE}/api/v1/x/"
+    assert exc_info.value.context["status_code"] == 400
 
 
 @respx.mock

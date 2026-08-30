@@ -49,6 +49,36 @@ async def test_notifies_user_and_admin_for_service_error(fake_bot: FakeBot):
     assert user_text == APIError.__doc__
 
 
+async def test_notifies_only_user_for_backend_client_error(fake_bot: FakeBot):
+    exc = APIError(
+        telegram_id="42",
+        request_url="http://backend/x",
+        status_code=400,
+        error="bad request",
+        message="Проверьте введённые данные",
+    )
+
+    handled = await error_handler.handle_service_errors(_event(exc))
+
+    assert handled is True
+    assert fake_bot.sent == [("42", "Проверьте введённые данные")]
+
+
+async def test_notifies_user_and_admin_for_backend_server_error(fake_bot: FakeBot):
+    exc = APIError(
+        telegram_id="42",
+        request_url="http://backend/x",
+        status_code=500,
+        error="server error",
+    )
+
+    handled = await error_handler.handle_service_errors(_event(exc))
+
+    assert handled is True
+    recipients = [chat_id for chat_id, _ in fake_bot.sent]
+    assert recipients == ["42", "999"]
+
+
 async def test_skips_user_message_when_no_telegram_id(fake_bot: FakeBot):
     exc = APIError(telegram_id=None, request_url="http://backend/x", error="boom")
 

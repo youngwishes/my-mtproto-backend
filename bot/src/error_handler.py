@@ -28,6 +28,10 @@ async def handle_service_errors(event: ErrorEvent) -> bool:
     if exc.telegram_id is not None:
         await bot.send_message(chat_id=exc.telegram_id, text=exc.message)
 
+    status_code = exc.context.get("status_code")
+    if status_code is not None and 400 <= status_code < 500:
+        return True
+
     pretty_error = html.escape(
         json.dumps(exc.to_dict(), indent=2, ensure_ascii=False)
     )
