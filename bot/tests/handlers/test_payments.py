@@ -196,8 +196,13 @@ def test_root_menu_links_to_common_destinations():
     urls = [btn.url for row in markup.inline_keyboard for btn in row if btn.url]
     assert SUPPORT_URL == "https://t.me/mtprotokeys_support"
     assert "https://t.me/mtprotokeys_support" in urls
+    assert "https://t.me/mtproto_keys" in urls
     assert "https://mtprotokeys.com" in urls
-    assert set(urls) == {SITE_URL, SUPPORT_URL, TERMS_URL, PRIVACY_URL}
+    assert set(urls) == {
+        SITE_URL,
+        SUPPORT_URL,
+        "https://t.me/mtproto_keys",
+    }
 
 
 def test_info_keyboard_returns_only_to_mtproxy():

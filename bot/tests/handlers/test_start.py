@@ -92,8 +92,8 @@ async def test_accept_consent_registers_clicking_user_and_opens_start_screen():
         ["🔐 VPN"],
         ["🤝 Реферальная программа"],
         ["💬 Написать в поддержку"],
+        ["Наш канал"],
         ["🌐 Наш сайт"],
-        ["📜 Условия пользования", "🔒 Политика конфиденциальности"],
     ]
 
 
@@ -132,7 +132,7 @@ async def test_show_start_screen_shows_product_root():
         ["referral"],
         [None],
         [None],
-        [None, None],
+        [None],
     ]
 
 
