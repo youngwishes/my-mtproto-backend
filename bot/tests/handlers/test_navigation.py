@@ -8,9 +8,11 @@ from src.handlers.start import (
     process_mtproxy_menu,
 )
 from src.messages import (
+    PRIVACY_URL,
     PRODUCT_MENU_TEXT,
     SITE_URL,
     SUPPORT_URL,
+    TERMS_URL,
     WELCOME_TEXT_MONTH,
     WELCOME_TEXT_NOT_FREE,
     WELCOME_TEXT_TWO_WEEK,
@@ -46,8 +48,11 @@ async def test_root_navigation_matches_approved_hierarchy():
         [("🔐 VPN", "show_vpn_menu", None, "primary")],
         [("🤝 Реферальная программа", "referral", None, None)],
         [("💬 Написать в поддержку", None, SUPPORT_URL, None)],
-        [("Наш канал", None, "https://t.me/mtproto_keys", None)],
         [("🌐 Наш сайт", None, SITE_URL, None)],
+        [
+            ("📜 Условия пользования", None, TERMS_URL, None),
+            ("🔒 Политика конфиденциальности", None, PRIVACY_URL, None),
+        ],
     ]
     assert [
         [
