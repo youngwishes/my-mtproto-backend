@@ -5,9 +5,9 @@ from typing import TYPE_CHECKING
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
 from src.messages import (
+    CHANNEL_URL,
     CRYPTO_PAY_BUTTON,
     PRIVACY_URL,
-    SITE_URL,
     SUPPORT_URL,
     TERMS_URL,
     VPN_SETUP_URL,
@@ -75,7 +75,7 @@ def product_menu() -> InlineKeyboardMarkup:
                 )
             ],
             [InlineKeyboardButton(text="💬 Написать в поддержку", url=SUPPORT_URL)],
-            [InlineKeyboardButton(text="🌐 Наш сайт", url=SITE_URL)],
+            [InlineKeyboardButton(text="📣 Наш канал", url=CHANNEL_URL)],
             [
                 InlineKeyboardButton(text="📜 Условия пользования", url=TERMS_URL),
                 InlineKeyboardButton(
