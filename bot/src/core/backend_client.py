@@ -60,9 +60,11 @@ class BackendClient:
                 response.raise_for_status()
                 return response.json() if expect_json else {}
         except Exception as exc:
+            response = getattr(exc, "response", None)
             raise APIError(
                 telegram_id=telegram_id,
                 request_url=url,
+                status_code=response.status_code if response is not None else None,
                 error=str(exc),
                 message=self._extract_error_message(exc),
             )
