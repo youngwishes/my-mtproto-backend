@@ -10,7 +10,6 @@ from src.handlers.start import (
 from src.messages import (
     PRIVACY_URL,
     PRODUCT_MENU_TEXT,
-    SITE_URL,
     SUPPORT_URL,
     TERMS_URL,
     WELCOME_TEXT_MONTH,
@@ -48,7 +47,7 @@ async def test_root_navigation_matches_approved_hierarchy():
         [("🔐 VPN", "show_vpn_menu", None, "primary")],
         [("🤝 Реферальная программа", "referral", None, None)],
         [("💬 Написать в поддержку", None, SUPPORT_URL, None)],
-        [("🌐 Наш сайт", None, SITE_URL, None)],
+        [("📣 Наш канал", None, "https://t.me/mtproto_keys", None)],
         [
             ("📜 Условия пользования", None, TERMS_URL, None),
             ("🔒 Политика конфиденциальности", None, PRIVACY_URL, None),

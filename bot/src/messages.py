@@ -13,7 +13,7 @@ if TYPE_CHECKING:
         AppleStatus,
     )
 
-SITE_URL = "https://mtprotokeys.com"
+CHANNEL_URL = "https://t.me/mtproto_keys"
 SUPPORT_URL = "https://t.me/mtprotokeys_support"
 VPN_SETUP_URL = "https://mtprotokeys.com/vpn/"
 TERMS_URL = "https://mtprotokeys.com/terms"
