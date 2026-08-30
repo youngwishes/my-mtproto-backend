@@ -35,6 +35,7 @@ def _log_error(
             f"⚙️ <i>{attention_text}</i>"
         ),
         timeout=settings.TELEGRAM_TIMEOUT,
+        premium_emoji=False,
     )
 
 

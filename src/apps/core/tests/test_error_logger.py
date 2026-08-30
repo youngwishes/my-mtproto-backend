@@ -25,6 +25,7 @@ class TestLogInfraError(TestCase):
         self.assertIn("SERVER INTERNAL ERROR (500)", call_kwargs.kwargs["text"])
         self.assertIn("VDS down", call_kwargs.kwargs["text"])
         self.assertEqual(call_kwargs.kwargs["timeout"], 5)
+        self.assertIs(call_kwargs.kwargs["premium_emoji"], False)
 
 
 class TestLogServiceError(TestCase):
@@ -44,6 +45,7 @@ class TestLogServiceError(TestCase):
         self.assertIn("🟡", call_kwargs.kwargs["text"])
         self.assertIn("SERVICE (400)", call_kwargs.kwargs["text"])
         self.assertIn("Product not found", call_kwargs.kwargs["text"])
+        self.assertIs(call_kwargs.kwargs["premium_emoji"], False)
 
 
 class TestErrorNotificationsToggle(TestCase):

@@ -58,6 +58,7 @@ async def handle_service_errors(event: ErrorEvent) -> bool:
             f"<code>{pretty_error}</code>\n\n"
             "⚙️ <i>Требуется внимание команды</i>"
         ),
+        premium_emoji=False,
     )
     return True
 

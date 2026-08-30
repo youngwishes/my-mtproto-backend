@@ -55,6 +55,7 @@ def _notify_delivery_failure(
             f"- Операция: <b>{operation.upper()}</b>"
         ),
         timeout=settings.TELEGRAM_TIMEOUT,
+        premium_emoji=False,
     )
 
 

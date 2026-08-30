@@ -32,6 +32,7 @@ def _handle_replication_failure(*, server_id: int, username: str, exc: Exception
             f"<code>{escaped_error}</code>\n\n"
             "⚙️ <i>Сервер помечен как нездоровый. Health-check восстановит его автоматически.</i>"
         ),
+        premium_emoji=False,
     )
 
 
