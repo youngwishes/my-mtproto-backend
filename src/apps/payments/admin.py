@@ -2,7 +2,9 @@ from django.contrib import admin
 from django.http import HttpRequest
 from django.utils.html import format_html
 
+from apps.payments.apple_cashback import APPLES_PER_DAY
 from apps.payments.models import (
+    AppleRedemption,
     CryptoPaymentIntent,
     GiftCertificate,
     Payment,
@@ -10,6 +12,48 @@ from apps.payments.models import (
     PlategaPaymentIntent,
     Product,
 )
+
+
+@admin.register(AppleRedemption)
+class AppleRedemptionAdmin(admin.ModelAdmin):
+    """Read-only journal of apple redemptions."""
+
+    actions = None
+    list_display = (
+        "id",
+        "user",
+        "key",
+        "apples_spent",
+        "days",
+        "new_expired_at",
+        "balance_after",
+        "created_at",
+    )
+    list_filter = ("new_expired_at",)
+    search_fields = ("user__username", "user__telegram_username", "key__token")
+    list_select_related = ("user", "key")
+
+    @admin.display(description="Дни")
+    def days(self, obj: AppleRedemption) -> int:
+        return obj.apples_spent // APPLES_PER_DAY
+
+    def has_add_permission(self, request: HttpRequest) -> bool:
+        return False
+
+    def has_change_permission(
+        self, request: HttpRequest, obj: object | None = None
+    ) -> bool:
+        return False
+
+    def has_delete_permission(
+        self, request: HttpRequest, obj: object | None = None
+    ) -> bool:
+        return False
+
+    def get_readonly_fields(
+        self, request: HttpRequest, obj: object | None = None
+    ) -> tuple[str, ...]:
+        return tuple(field.name for field in self.model._meta.fields)
 
 
 @admin.register(Payment)
