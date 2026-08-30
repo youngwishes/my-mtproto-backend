@@ -12,10 +12,6 @@ from src.messages import (
     PRODUCT_MENU_TEXT,
     SUPPORT_URL,
     TERMS_URL,
-    WELCOME_TEXT_MONTH,
-    WELCOME_TEXT_NOT_FREE,
-    WELCOME_TEXT_TWO_WEEK,
-    WELCOME_TEXT_WEEK,
 )
 
 from tests.fakes import FakeCallback, FakeMessage, make_deps
@@ -37,9 +33,10 @@ async def test_root_navigation_matches_approved_hierarchy():
         text
         == PRODUCT_MENU_TEXT
         == (
-            "👋 Добро пожаловать в MTProto Keys!\n\n"
-            "MTProxy, VPN, бонусы и полезные ссылки — всё здесь.\n"
-            "Выбери, что тебе интересно:"
+            "👋 <b>Привет!</b>\n\n"
+            "Подключай <b>MTProxy</b> и <b>VPN</b>, приглашай друзей "
+            "и получай бонусы.\n\n"
+            "Выбирай нужный раздел 👇"
         )
     )
     expected_rows = [
@@ -93,16 +90,20 @@ async def test_root_navigation_matches_approved_hierarchy():
 
 
 @pytest.mark.parametrize(
-    ("period", "expected_text", "boost_callback"),
+    ("period", "free_period_text", "boost_callback"),
     [
-        ("MONTH", WELCOME_TEXT_MONTH, "boost_free"),
-        ("WEEK", WELCOME_TEXT_WEEK, "boost_free"),
-        ("TWO_WEEK", WELCOME_TEXT_TWO_WEEK, "boost_free"),
-        ("NOT_AVAILABLE", WELCOME_TEXT_NOT_FREE, "boost_paid"),
+        ("MONTH", "Первый месяц — бесплатно.\n", "boost_free"),
+        ("WEEK", "Первая неделя — бесплатно.\n", "boost_free"),
+        (
+            "TWO_WEEK",
+            "По приглашению первые две недели — бесплатно.\n",
+            "boost_free",
+        ),
+        ("NOT_AVAILABLE", "", "boost_paid"),
     ],
 )
 async def test_mtproxy_navigation_matches_approved_hierarchy(
-    period, expected_text, boost_callback
+    period, free_period_text, boost_callback
 ):
     fake = FakeFreeTrial(check=period)
     callback = FakeCallback(user_id=42, username="real_user")
@@ -116,8 +117,15 @@ async def test_mtproxy_navigation_matches_approved_hierarchy(
         ("42", "real_user", None),
     ]
     text, markup = callback.message.edits[-1]
-    assert text == expected_text
-    assert text.rstrip().endswith("👇 Жми «Мои серверы» и подключайся!")
+    assert text == (
+        "⚡️ <b>MTProxy для Telegram</b>\n\n"
+        "🌐 Сеть серверов в разных странах\n"
+        "🔁 Резервное подключение при сбоях\n"
+        "🍏 Бонусная программа\n"
+        "🎁 MTProxy можно подарить другу\n"
+        f"{free_period_text}\n"
+        "👇 Жми «Мои серверы» и подключайся!"
+    )
     if period == "TWO_WEEK":
         assert "По приглашению первые две недели — бесплатно." in text
         assert "Вы пришли" not in text
