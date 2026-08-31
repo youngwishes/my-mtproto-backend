@@ -4,6 +4,8 @@ from django.conf import settings
 from telebot import TeleBot
 from telebot.types import InlineKeyboardMarkup
 
+from apps.core.telegram.custom_emoji import customize_markup, customize_text
+
 
 class _LazyBot:
     """Прокси, создающий TeleBot при первом обращении, а не при импорте модуля."""
@@ -26,7 +28,12 @@ def send_telegram_message(
     parse_mode: str = "HTML",
     markup: InlineKeyboardMarkup | None = None,
     timeout: int | None = None,
+    premium_emoji: bool = True,
 ) -> None:
+    if premium_emoji and parse_mode == "HTML":
+        text = customize_text(text)
+        if markup is not None:
+            customize_markup(markup)
     bot.send_message(
         chat_id=chat_id,
         text=text,

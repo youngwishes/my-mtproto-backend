@@ -54,6 +54,7 @@ class MigrateVdsKeysInfraService:
                 f"<code>{escaped_error}</code>\n\n"
                 "⚙️ <i>Требуется внимание команды!</i>"
             ),
+            premium_emoji=False,
         )
 
 

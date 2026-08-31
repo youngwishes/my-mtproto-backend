@@ -207,4 +207,5 @@ def warn_crypto_webhook_admin_task(
             f"intent_id={escape(str(safe['intent_id']))}"
         ),
         timeout=settings.TELEGRAM_TIMEOUT,
+        premium_emoji=False,
     )

@@ -30,10 +30,12 @@ class FakeBot:
     def __init__(self) -> None:
         self.sent: list[tuple[object, str]] = []
         self.reply_markups: list[object | None] = []
+        self.premium_emoji: list[bool | None] = []
 
     async def send_message(self, *, chat_id, text, **kwargs) -> None:
         self.sent.append((chat_id, text))
         self.reply_markups.append(kwargs.get("reply_markup"))
+        self.premium_emoji.append(kwargs.get("premium_emoji"))
 
 
 @pytest.fixture
@@ -77,6 +79,7 @@ async def test_notifies_user_and_admin_for_service_error(fake_bot: FakeBot):
     assert "999" in recipients  # admin gets the system alert
     user_text = dict(fake_bot.sent)["42"]
     assert user_text == APIError.__doc__
+    assert fake_bot.premium_emoji == [None, False]
 
 
 async def test_notifies_only_user_for_backend_client_error(fake_bot: FakeBot):
