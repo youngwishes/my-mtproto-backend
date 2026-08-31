@@ -147,6 +147,39 @@ class TestSend(TestCase):
         )
 
     @mock.patch("apps.core.telegram.transport.bot")
+    def test_send_animates_finland_kazakhstan_and_usa_flags(
+        self,
+        mock_bot: mock.Mock,
+    ) -> None:
+        from apps.core.telegram.transport import send_telegram_message
+
+        markup = InlineKeyboardMarkup(
+            keyboard=[
+                [InlineKeyboardButton(text="🇫🇮 Подключиться", callback_data="fi")]
+            ]
+        )
+
+        send_telegram_message(
+            chat_id=123,
+            text="🇫🇮 Финляндия · 🇰🇿 Казахстан · 🇺🇸 США",
+            markup=markup,
+        )
+
+        call = mock_bot.send_message.call_args.kwargs
+        self.assertEqual(
+            call["text"],
+            '<tg-emoji emoji-id="5382151560182642075">🇫🇮</tg-emoji> Финляндия · '
+            '<tg-emoji emoji-id="5228718354658769982">🇰🇿</tg-emoji> Казахстан · '
+            '<tg-emoji emoji-id="5202021044105257611">🇺🇸</tg-emoji> США',
+        )
+        button = call["reply_markup"].keyboard[0][0]
+        self.assertEqual(button.text, "Подключиться")
+        self.assertEqual(
+            button.icon_custom_emoji_id,
+            "5382151560182642075",
+        )
+
+    @mock.patch("apps.core.telegram.transport.bot")
     def test_send_calls_bot_send_message_with_defaults(self, mock_bot: mock.Mock) -> None:
         from apps.core.telegram.transport import send_telegram_message
 
