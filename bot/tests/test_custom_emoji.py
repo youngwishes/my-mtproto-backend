@@ -201,3 +201,33 @@ async def test_middleware_replaces_back_button_with_animated_arrow() -> None:
     button = result.reply_markup.inline_keyboard[0][0]
     assert button.text == "Назад"
     assert button.icon_custom_emoji_id == "5393368163628905240"
+
+
+async def test_middleware_animates_finland_kazakhstan_and_usa_flags() -> None:
+    method = SendMessage(
+        chat_id=42,
+        text="🇫🇮 Финляндия · 🇰🇿 Казахстан · 🇺🇸 США",
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="🇫🇮 Подключиться", callback_data="fi")]
+            ]
+        ),
+    )
+
+    async def make_request(bot, outgoing_method):
+        return outgoing_method
+
+    result = await PremiumEmojiMiddleware()(
+        make_request,
+        mock.Mock(),
+        method,
+    )
+
+    assert result.text == (
+        '<tg-emoji emoji-id="5382151560182642075">🇫🇮</tg-emoji> Финляндия · '
+        '<tg-emoji emoji-id="5228718354658769982">🇰🇿</tg-emoji> Казахстан · '
+        '<tg-emoji emoji-id="5202021044105257611">🇺🇸</tg-emoji> США'
+    )
+    button = result.reply_markup.inline_keyboard[0][0]
+    assert button.text == "Подключиться"
+    assert button.icon_custom_emoji_id == "5382151560182642075"
