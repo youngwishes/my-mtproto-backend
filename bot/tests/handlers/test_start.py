@@ -166,3 +166,64 @@ async def test_boost_free_claims_key_and_shows_expiry():
     assert "01.08.2026" in text
     assert "2026-08-01" not in text
     assert text.rstrip().endswith("👇 Нажми «Мои серверы» ниже")
+
+
+@pytest.mark.parametrize(
+    ("balance", "days", "missing", "has_key", "expected", "first_action"),
+    [
+        (37, 2, 0, True, "Доступно дней: <b>2</b>", "apples_redeem_one"),
+        (5, 0, 10, True, "Для обмена не хватает <b>10 🍏</b>", "apples_status"),
+        (25, 1, 0, False, "существующего MTProxy-ключа", "apples_status"),
+    ],
+)
+async def test_start_apples_spend_opens_exchange_without_spending(
+    balance,
+    days,
+    missing,
+    has_key,
+    expected,
+    first_action,
+):
+    from src.domains.payments import AppleStatus
+    from tests.handler_support import FakePayments
+
+    payments = FakePayments(
+        apple_status=AppleStatus(
+            balance=balance,
+            eligible_purchase_count=0,
+            level="Росток",
+            rate_percent=5,
+            next_level_purchase_count=3,
+            purchases_to_next_level=3,
+            is_max_level=False,
+            redeemable_days=days,
+            missing_apples=missing,
+            has_existing_key=has_key,
+        )
+    )
+    message = FakeMessage(text="/start apples_spend", user_id=42)
+
+    await cmd_start(
+        message,
+        make_deps(
+            free_trial=FakeFreeTrial(consent=True),
+            payments=payments,
+        ),
+    )
+
+    text, markup = message.answers[0]
+    assert expected in text
+    assert markup.inline_keyboard[0][0].callback_data == first_action
+    assert payments.apple_status_calls == [42]
+    assert payments.apple_preview_calls == []
+    assert payments.apple_confirm_calls == []
+
+
+async def test_start_apples_spend_requires_consent():
+    message = FakeMessage(text="/start apples_spend", user_id=42)
+
+    await cmd_start(message, make_deps(free_trial=FakeFreeTrial(consent=False)))
+
+    text, markup = message.answers[0]
+    assert "Для использования сервиса необходимо принять" in text
+    assert markup.inline_keyboard[0][0].callback_data == "accept_legal_terms"

@@ -6,9 +6,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#010514">
   <title>Колесо фортуны</title>
-  <link rel="stylesheet" href="{% static 'fortune_wheel/styles.css' %}?v=entrance-1">
+  <link rel="stylesheet" href="{% static 'fortune_wheel/styles.css' %}?v=reward-1">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script defer src="{% static 'fortune_wheel/app.js' %}"></script>
+  <script defer src="{% static 'fortune_wheel/app.js' %}?v=reward-1"></script>
 </head>
 <body>
   <main
@@ -25,6 +25,16 @@
     </header>
 
     <section class="wheel-stage" aria-label="Колесо с призами в яблоках">
+      <div class="apple-burst" aria-hidden="true">
+        <span class="apple-particle" style="--x: -120px; --y: -70px; --tilt: -30deg; --delay: 0ms">🍏</span>
+        <span class="apple-particle" style="--x: -65px; --y: -120px; --tilt: 25deg; --delay: 40ms">🍏</span>
+        <span class="apple-particle" style="--x: 15px; --y: -140px; --tilt: -15deg; --delay: 80ms">🍏</span>
+        <span class="apple-particle" style="--x: 100px; --y: -100px; --tilt: 35deg; --delay: 20ms">🍏</span>
+        <span class="apple-particle" style="--x: 130px; --y: -10px; --tilt: -20deg; --delay: 60ms">🍏</span>
+        <span class="apple-particle" style="--x: 90px; --y: 85px; --tilt: 30deg; --delay: 100ms">🍏</span>
+        <span class="apple-particle" style="--x: -30px; --y: 100px; --tilt: -25deg; --delay: 50ms">🍏</span>
+        <span class="apple-particle" style="--x: -120px; --y: 50px; --tilt: 20deg; --delay: 90ms">🍏</span>
+      </div>
       <div class="wheel-pointer" aria-hidden="true"></div>
       <div class="wheel-rotor">
         <img
@@ -42,13 +52,22 @@
     </section>
 
     <section class="result-panel" aria-live="polite">
-      <p class="last-prize" hidden>Последний приз: <strong></strong> 🍏</p>
-      <p class="countdown" hidden></p>
+      <div class="reward-panel" hidden>
+        <p class="reward-title">Последний приз</p>
+        <h2 class="reward-value"></h2>
+        <p class="reward-note" hidden>Яблоки уже на вашем балансе</p>
+      </div>
       <p class="availability" hidden></p>
       <p class="error-message" role="alert" hidden></p>
     </section>
 
     <button class="spin-button" type="button" disabled>Крутить колесо</button>
+
+    <section class="spend-panel" hidden>
+      <a class="spend-link" href="{{ spend_url }}">🍏 Потратить яблоки</a>
+      <p>15 🍏 = 1 день MTProxy</p>
+    </section>
+    <p class="countdown" hidden></p>
 
     <section class="registration-panel" hidden>
       <h2>Сначала загляните в бот</h2>

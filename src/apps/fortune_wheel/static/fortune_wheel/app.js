@@ -5,8 +5,13 @@
   const rotor = document.querySelector(".wheel-rotor");
   const spinButton = document.querySelector(".spin-button");
   const countdown = document.querySelector(".countdown");
-  const lastPrize = document.querySelector(".last-prize");
-  const lastPrizeValue = lastPrize.querySelector("strong");
+  const wheelStage = document.querySelector(".wheel-stage");
+  const rewardPanel = document.querySelector(".reward-panel");
+  const rewardTitle = document.querySelector(".reward-title");
+  const rewardValue = document.querySelector(".reward-value");
+  const rewardNote = document.querySelector(".reward-note");
+  const spendPanel = document.querySelector(".spend-panel");
+  const spendLink = document.querySelector(".spend-link");
   const errorMessage = document.querySelector(".error-message");
   const registrationPanel = document.querySelector(".registration-panel");
   const registrationLink = document.querySelector(".registration-link");
@@ -85,16 +90,22 @@
       clearInterval(countdownTimer);
       countdownTimer = null;
       countdown.hidden = true;
-      spinButton.disabled = false;
+      showReady();
       return;
     }
     countdown.textContent = `Следующее вращение через ${formatRemaining(remaining)}`;
     countdown.hidden = false;
   }
 
-  function showCooldown(prize, nextAt) {
-    lastPrizeValue.textContent = prize;
-    lastPrize.hidden = false;
+  function showCooldown(prize, nextAt, won = false) {
+    rewardTitle.textContent = won ? "Вы выиграли" : "Последний приз";
+    rewardValue.textContent = `${prize} 🍏`;
+    rewardNote.hidden = !won;
+    rewardPanel.hidden = false;
+    rewardPanel.classList.toggle("is-new", won);
+    wheelStage.classList.toggle("is-winning", won);
+    spendPanel.hidden = false;
+    spinButton.hidden = true;
     spinButton.disabled = true;
     nextSpinAt = new Date(nextAt);
     clearInterval(countdownTimer);
@@ -105,7 +116,12 @@
   function showReady() {
     nextSpinAt = null;
     countdown.hidden = true;
+    spinButton.hidden = false;
     spinButton.disabled = false;
+    spendPanel.hidden = true;
+    rewardPanel.hidden = true;
+    rewardPanel.classList.remove("is-new");
+    wheelStage.classList.remove("is-winning");
   }
 
   function showRegistration(url) {
@@ -123,7 +139,7 @@
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     window.setTimeout(() => {
       hapticSuccess();
-      showCooldown(prize, nextAt);
+      showCooldown(prize, nextAt, true);
       spinButton.textContent = "Крутить колесо";
     }, reducedMotion ? reducedSpinDurationMs : spinDurationMs);
   }
@@ -163,6 +179,14 @@
       }
       spinButton.disabled = false;
       showError(error.message);
+    }
+  });
+
+  spendLink.addEventListener("click", (event) => {
+    if (telegram?.openTelegramLink) {
+      event.preventDefault();
+      telegram.openTelegramLink(spendLink.href);
+      telegram.close();
     }
   });
 

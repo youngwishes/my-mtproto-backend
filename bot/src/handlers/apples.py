@@ -17,6 +17,8 @@ from src.messages import (
 )
 
 if TYPE_CHECKING:
+    from aiogram.types import InlineKeyboardMarkup
+
     from src.dependencies import Dependencies
 
 router = Router()
@@ -49,36 +51,33 @@ async def process_apples_spend(
     back_callback_data = (
         "referral" if callback.data == "apples_spend_referral" else "apples_status"
     )
-    status = await deps.payments.get_apple_status(
+    text, keyboard = await render_apple_spend_screen(
+        deps=deps,
         telegram_id=callback.from_user.id,
+        back_callback_data=back_callback_data,
     )
+    await callback.message.edit_text(text=text, reply_markup=keyboard)
+
+
+async def render_apple_spend_screen(
+    *,
+    deps: Dependencies,
+    telegram_id: int,
+    back_callback_data: str = "apples_status",
+) -> tuple[str, InlineKeyboardMarkup]:
+    status = await deps.payments.get_apple_status(telegram_id=telegram_id)
     if not status.has_existing_key:
-        await callback.message.edit_text(
-            text=APPLE_KEY_REQUIRED_TEXT,
-            reply_markup=keyboards.apples_back_to_status(
-                back_callback_data=back_callback_data,
-            ),
-        )
-        return
-    if status.missing_apples:
-        await callback.message.edit_text(
-            text=render_insufficient_apples(
-                missing_apples=status.missing_apples,
-            ),
-            reply_markup=keyboards.apples_back_to_status(
-                back_callback_data=back_callback_data,
-            ),
-        )
-        return
-    await callback.message.edit_text(
-        text=render_apple_spend(
-            balance=status.balance,
-            redeemable_days=status.redeemable_days,
-        ),
-        reply_markup=keyboards.apples_spend(
+        return APPLE_KEY_REQUIRED_TEXT, keyboards.apples_back_to_status(
             back_callback_data=back_callback_data,
-        ),
-    )
+        )
+    if status.missing_apples:
+        return render_insufficient_apples(
+            missing_apples=status.missing_apples,
+        ), keyboards.apples_back_to_status(back_callback_data=back_callback_data)
+    return render_apple_spend(
+        balance=status.balance,
+        redeemable_days=status.redeemable_days,
+    ), keyboards.apples_spend(back_callback_data=back_callback_data)
 
 
 async def _process_apple_redemption_preview(
