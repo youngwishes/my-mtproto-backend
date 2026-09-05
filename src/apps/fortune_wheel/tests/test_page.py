@@ -28,3 +28,9 @@ class FortuneWheelPageTest(TestCase):
 
         self.assertContains(response, 'data-spin-duration-ms="7500"')
         self.assertContains(response, 'data-reduced-spin-duration-ms="7500"')
+
+    def test_page_bypasses_cached_styles_from_before_entrance_animation(self) -> None:
+        response = self.client.get(reverse("fortune-wheel-page"))
+
+        self.assertContains(response, 'fortune_wheel/styles.css?v=entrance-1')
+        self.assertNotContains(response, 'fortune_wheel/styles.css"')
