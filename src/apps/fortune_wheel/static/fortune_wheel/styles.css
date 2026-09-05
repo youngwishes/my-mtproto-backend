@@ -70,10 +70,21 @@ h1 {
 
 .wheel-stage {
   position: relative;
+  isolation: isolate;
   width: min(94vw, 390px);
   aspect-ratio: 1;
   margin: 14px -12px 0;
   filter: drop-shadow(0 20px 26px rgb(0 16 60 / 48%));
+}
+
+.wheel-stage::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -8%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(31 143 255 / 28%) 20%, rgb(8 100 238 / 14%) 48%, transparent 70%);
+  pointer-events: none;
 }
 
 .wheel-rotor {
@@ -243,6 +254,59 @@ h1 {
 
   .result-panel {
     min-height: 65px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .fortune-header {
+    animation: entrance-fade 420ms ease-out backwards;
+  }
+
+  .wheel-stage {
+    animation: wheel-entrance 780ms 100ms cubic-bezier(.22, 1, .36, 1) backwards;
+  }
+
+  .wheel-stage::before {
+    animation: glow-entrance 800ms 100ms ease-out backwards;
+  }
+
+  .spin-button {
+    animation: entrance-fade 360ms 520ms ease-out backwards;
+  }
+}
+
+@keyframes entrance-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes wheel-entrance {
+  0% {
+    opacity: 0;
+    transform: translateY(32px) scale(.86);
+  }
+
+  65% {
+    opacity: 1;
+    transform: translateY(-4px) scale(1.025);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes glow-entrance {
+  from {
+    opacity: 0;
+    transform: scale(.75);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 
