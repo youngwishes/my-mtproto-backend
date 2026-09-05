@@ -19,12 +19,12 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
-from django.views.generic import TemplateView
+from apps.fortune_wheel.views import FortuneWheelPageView
 
 urlpatterns = [
     path(
         "fortune-wheel/",
-        TemplateView.as_view(template_name="fortune_wheel/index.html"),
+        FortuneWheelPageView.as_view(),
         name="fortune-wheel-page",
     ),
     path(

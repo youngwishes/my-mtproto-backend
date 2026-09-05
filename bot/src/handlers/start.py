@@ -9,6 +9,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message
 from src import keyboards
 from src.enums import FreeAvailable
 from src.exceptions import APIError
+from src.handlers.apples import render_apple_spend_screen
 from src.messages import (
     FAQ_TEXT,
     FREE_AVAILABLE_TEXT_MAPPING,
@@ -62,7 +63,13 @@ async def cmd_start(message: Message, deps: Dependencies):
             reply_markup=keyboards.legal_consent(invited_from_username),
         )
         return
-    text, keyboard = _render_start_screen()
+    if message.text.split()[1:] == ["apples_spend"]:
+        text, keyboard = await render_apple_spend_screen(
+            deps=deps,
+            telegram_id=message.from_user.id,
+        )
+    else:
+        text, keyboard = _render_start_screen()
     await message.answer(text=text, reply_markup=keyboard)
 
 

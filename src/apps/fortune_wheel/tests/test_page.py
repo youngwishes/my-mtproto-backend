@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 
@@ -29,8 +29,19 @@ class FortuneWheelPageTest(TestCase):
         self.assertContains(response, 'data-spin-duration-ms="7500"')
         self.assertContains(response, 'data-reduced-spin-duration-ms="7500"')
 
-    def test_page_bypasses_cached_styles_from_before_entrance_animation(self) -> None:
+    def test_page_bypasses_cached_assets_from_before_reward_animation(self) -> None:
         response = self.client.get(reverse("fortune-wheel-page"))
 
-        self.assertContains(response, 'fortune_wheel/styles.css?v=entrance-1')
+        self.assertContains(response, "fortune_wheel/styles.css?v=reward-1")
         self.assertNotContains(response, 'fortune_wheel/styles.css"')
+        self.assertContains(response, "fortune_wheel/app.js?v=reward-1")
+
+    @override_settings(BOT_LINK="https://t.me/test_wheel_bot")
+    def test_page_links_reward_to_bot_exchange(self) -> None:
+        response = self.client.get(reverse("fortune-wheel-page"))
+
+        self.assertContains(
+            response, 'href="https://t.me/test_wheel_bot?start=apples_spend"'
+        )
+        self.assertContains(response, "🍏 Потратить яблоки")
+        self.assertContains(response, "15 🍏 = 1 день MTProxy")
