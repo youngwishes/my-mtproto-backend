@@ -96,6 +96,22 @@ class TestSyncKeysToVdsInfraService(TestCase):
         self.assertEqual(len(responses.calls), 2)
 
     @responses.activate
+    def test_continues_on_conflict_without_notifying_admin(self) -> None:
+        MTPRotoKeyFactory(expired_date=timezone.now() + timedelta(days=30))
+        MTPRotoKeyFactory(expired_date=timezone.now() + timedelta(days=30))
+        self._mock_target_endpoint(status=409)
+        self._mock_target_endpoint()
+
+        with patch(
+            "apps.vds.services.sync_keys_to_vds_infra_service.send_telegram_message"
+        ) as notify:
+            get_sync_keys_to_vds_infra_service()(instance_id=self.target.pk)
+
+        self.assertEqual(len(responses.calls), 2)
+        self.assertEqual([call.request.method for call in responses.calls], ["POST", "POST"])
+        notify.assert_not_called()
+
+    @responses.activate
     def test_continues_on_http_error_and_notifies_admin(self) -> None:
         MTPRotoKeyFactory(expired_date=timezone.now() + timedelta(days=30))
         MTPRotoKeyFactory(expired_date=timezone.now() + timedelta(days=30))
@@ -107,7 +123,8 @@ class TestSyncKeysToVdsInfraService(TestCase):
         )
         self._mock_target_endpoint()
 
-        with patch("apps.vds.services.sync_keys_to_vds_infra_service.send_telegram_message"):
+        with patch("apps.vds.services.sync_keys_to_vds_infra_service.send_telegram_message") as notify:
             get_sync_keys_to_vds_infra_service()(instance_id=self.target.pk)
 
         self.assertEqual(len(responses.calls), 2)
+        notify.assert_called_once()
