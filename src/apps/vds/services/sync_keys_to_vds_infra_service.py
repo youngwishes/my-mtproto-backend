@@ -32,6 +32,8 @@ class SyncKeysToVdsInfraService:
                 json={"username": key.user.username, "secret": key.token},
                 timeout=settings.VDS_REQUEST_TIMEOUT,
             )
+            if response.status_code == 409:
+                return
             response.raise_for_status()
         except Exception as exc:
             self._notify_admin(key=key, target=target, exc=exc)
