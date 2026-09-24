@@ -1,10 +1,17 @@
-from django.contrib import admin
+from __future__ import annotations
+
+from django.contrib import admin, messages
 from django.utils import timezone
 from django.utils.html import format_html
 
 from apps.vds.models import Hosting, MTPRotoKey, VDSInstance
 from apps.vds.selectors import get_all_active_vds_instances
-from apps.vds.tasks import migrate_vds_keys_task, remove_dead_keys_from_vds_task, sync_keys_to_vds_task
+from apps.vds.tasks import (
+    migrate_vds_keys_task,
+    push_key_to_server_task,
+    remove_dead_keys_from_vds_task,
+    sync_keys_to_vds_task,
+)
 
 
 def _key_is_valid(key: MTPRotoKey) -> bool:
@@ -35,6 +42,35 @@ def sync_keys_to_vds(modeladmin, request, queryset):
         sync_keys_to_vds_task.delay(instance_id=instance.pk)
 
 
+@admin.action(
+    description="Синхронизировать выбранные ключи на все активные серверы",
+    permissions=["change"],
+)
+def sync_selected_keys_to_servers(modeladmin, request, queryset):
+    servers = list(get_all_active_vds_instances())
+    if not servers:
+        modeladmin.message_user(request, "Нет активных серверов для синхронизации.", messages.WARNING)
+        return
+
+    queued = 0
+    skipped = 0
+    for key in queryset:
+        if not _key_is_valid(key):
+            skipped += 1
+            continue
+        for server in servers:
+            push_key_to_server_task.delay(
+                server_id=server.pk, username=key.user.username, secret=key.token,
+            )
+            queued += 1
+
+    modeladmin.message_user(
+        request,
+        f"Поставлено задач доставки: {queued}. Пропущено недействующих ключей: {skipped}.",
+        messages.SUCCESS if queued else messages.WARNING,
+    )
+
+
 @admin.register(Hosting)
 class HostingAdmin(admin.ModelAdmin):
     list_display = ["pk", "name", "link", "is_active"]
@@ -63,6 +99,7 @@ class VDSInstanceAdmin(admin.ModelAdmin):
 
 @admin.register(MTPRotoKey)
 class MTPRotoKeyAdmin(admin.ModelAdmin):
+    actions = (sync_selected_keys_to_servers,)
     list_select_related = ["user"]
     list_display = ["pk", "__str__", "telegram_username_link", "active_proxy_link", "expired_date"]
     list_filter = ["was_deleted", "is_active", "user_notified"]
