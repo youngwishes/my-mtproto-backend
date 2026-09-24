@@ -90,3 +90,65 @@ class MTPRotoKeyAdminProxyLinkTest(TestCase):
         self._prime_example_server()
 
         self.assertEqual(self.admin.active_proxy_link(key), "—")
+
+
+class MTPRotoKeyAdminSyncTest(TestCase):
+    def setUp(self) -> None:
+        from django.contrib.auth.models import User
+        from django.contrib.messages.storage.fallback import FallbackStorage
+
+        self.admin = MTPRotoKeyAdmin(MTPRotoKey, AdminSite())
+        self.request = RequestFactory().post("/admin/vds/mtprotokey/")
+        self.request.user = User(is_staff=True, is_superuser=True)
+        self.request.session = {}
+        self.request._messages = FallbackStorage(self.request)
+
+    def _run_action(self, keys) -> None:
+        actions = self.admin.get_actions(self.request)
+        self.assertIn("sync_selected_keys_to_servers", actions)
+        actions["sync_selected_keys_to_servers"][0](self.admin, self.request, keys)
+
+    @patch("apps.vds.tasks.push_key_to_server_task.delay")
+    def test_delivers_only_selected_keys_to_all_active_servers(self, delay) -> None:
+        from unittest.mock import call
+
+        healthy = VDSInstanceFactory(is_healthy=True)
+        unhealthy = VDSInstanceFactory(is_healthy=False)
+        VDSInstanceFactory(is_active=False)
+        keys = MTPRotoKeyFactory.create_batch(
+            2, expired_date=timezone.now() + timedelta(days=1)
+        )
+        MTPRotoKeyFactory(expired_date=timezone.now() + timedelta(days=1))
+
+        self._run_action(MTPRotoKey.objects.filter(pk__in=[key.pk for key in keys]))
+
+        expected = [
+            call(server_id=server.pk, username=key.user.username, secret=str(key.token))
+            for key in keys
+            for server in (healthy, unhealthy)
+        ]
+        self.assertCountEqual(delay.call_args_list, expected)
+        self.assertIn("4", str(list(self.request._messages)[0]))
+
+    @patch("apps.vds.tasks.push_key_to_server_task.delay")
+    def test_skips_inactive_deleted_and_expired_keys(self, delay) -> None:
+        VDSInstanceFactory()
+        future = timezone.now() + timedelta(days=1)
+        MTPRotoKeyFactory(is_active=False, expired_date=future)
+        MTPRotoKeyFactory(was_deleted=True, expired_date=future)
+        MTPRotoKeyFactory(expired_date=timezone.now() - timedelta(days=1))
+
+        self._run_action(MTPRotoKey.objects.all())
+
+        delay.assert_not_called()
+        self.assertIn("3", str(list(self.request._messages)[0]))
+
+    @patch("apps.vds.tasks.push_key_to_server_task.delay")
+    def test_no_active_servers_does_not_queue_delivery(self, delay) -> None:
+        VDSInstanceFactory(is_active=False)
+        MTPRotoKeyFactory(expired_date=timezone.now() + timedelta(days=1))
+
+        self._run_action(MTPRotoKey.objects.all())
+
+        delay.assert_not_called()
+        self.assertTrue(list(self.request._messages))
