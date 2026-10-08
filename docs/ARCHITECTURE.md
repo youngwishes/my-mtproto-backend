@@ -58,8 +58,21 @@ Flower защищён Basic Auth и не направляется в Django.
 Сертификат использует lineage `/etc/nginx/ssl/live/beatvault.ru/` с SAN
 `beatvault.ru`, `dash.mtprotokeys.com`, `flower.mtprotokeys.com`.
 TLS-домен клиентского MTProxy FakeTLS-secret задаётся отдельно для каждой VDS;
-глобальной настройки или runtime fallback для него нет. VPN subscription URL —
-`VPN_SUBSCRIPTION_BASE_URL=https://dash.mtprotokeys.com`.
+глобальной настройки или runtime fallback для него нет. Публичный адрес
+VPN-подписок задаётся `VPN_SUBSCRIPTION_BASE_URL`; default остаётся
+`https://dash.mtprotokeys.com`.
+
+Для выдачи VPN-подписок через отдельный адрес предусмотрен Nginx на
+`212.192.4.192` с доменом `api.meow-meow-fast.site`. Он передаёт только чтение
+подписок на фиксированный HTTPS upstream `dash.mtprotokeys.com`, проверяет его
+сертификат, сохраняет payload и заголовки, не кэширует ответы и не записывает
+subscription token в access/error logs. Другие backend-маршруты закрыты.
+Пользовательский VPN-трафик продолжает идти напрямую на VPN-ноды.
+
+Backend переключает выдаваемые ссылки существующей настройкой после проверки
+прокси. Сохраняются прежние token и credentials; уже импортированный адрес в
+HAPP пользователь заменяет ссылкой из бота. Автоматический перенос и HAPP
+Provider ID в эту схему не входят.
 
 Операционные release-команды и проверки принадлежат только
 [DEPLOY.md](DEPLOY.md).

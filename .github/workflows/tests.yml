@@ -103,3 +103,14 @@ jobs:
           docker compose -f docker-compose.yml config --quiet
       - name: Check whitespace errors
         run: git diff --check "$BASE_SHA..$GITHUB_SHA"
+
+  vpn-subscription-proxy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+      - name: Exercise subscription proxy with a local TLS origin
+        run: |
+          docker pull nginx:alpine
+          python3 -m unittest scripts.tests.test_vpn_subscription_proxy
