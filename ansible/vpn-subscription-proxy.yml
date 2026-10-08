@@ -1,0 +1,125 @@
+---
+- name: Provision the VPN subscription HTTPS proxy
+  hosts: vpn_subscription_proxy
+  become: true
+
+  pre_tasks:
+    - name: Require the reviewed release checkout
+      ansible.builtin.assert:
+        that:
+          - deploy_revision is defined
+          - deploy_revision is match('^[0-9a-f]{40}$')
+          - lookup('ansible.builtin.pipe', 'git rev-parse HEAD') == deploy_revision
+        fail_msg: "Run from the approved release checkout with -e deploy_revision=<full-sha>."
+
+  tasks:
+    - name: Install Nginx and certificate dependencies
+      ansible.builtin.apt:
+        name: [nginx, certbot, ca-certificates]
+        state: present
+        update_cache: true
+
+    - name: Create ACME challenge directory
+      ansible.builtin.file:
+        path: /var/www/certbot
+        state: directory
+        mode: "0755"
+
+    - name: Disable the default site on the dedicated proxy VPS
+      ansible.builtin.file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+
+    - name: Check whether the proxy certificate already exists
+      ansible.builtin.stat:
+        path: /etc/letsencrypt/live/api.meow-meow-fast.site/fullchain.pem
+      register: vpn_proxy_certificate
+
+    - name: Bootstrap HTTP for the first certificate
+      when: not vpn_proxy_certificate.stat.exists
+      block:
+        - name: Serve ACME challenges before enabling HTTPS
+          ansible.builtin.copy:
+            dest: /etc/nginx/conf.d/vpn-subscription-proxy.conf
+            mode: "0644"
+            content: |
+              server {
+                  listen 80;
+                  server_name api.meow-meow-fast.site;
+                  server_tokens off;
+                  access_log off;
+                  error_log /dev/null;
+                  location /.well-known/acme-challenge/ {
+                      root /var/www/certbot;
+                  }
+                  location / { return 404; }
+              }
+
+        - name: Validate HTTP bootstrap configuration
+          ansible.builtin.command: nginx -t
+          changed_when: false
+
+        - name: Start HTTP challenge server
+          ansible.builtin.service:
+            name: nginx
+            state: reloaded
+            enabled: true
+
+        - name: Issue the initial certificate
+          ansible.builtin.command:
+            argv:
+              - certbot
+              - certonly
+              - --webroot
+              - --webroot-path
+              - /var/www/certbot
+              - --domain
+              - api.meow-meow-fast.site
+              - --non-interactive
+              - --agree-tos
+              - --register-unsafely-without-email
+
+    - name: Install subscription-only HTTPS configuration
+      ansible.builtin.copy:
+        src: ../nginx/vpn-subscription-proxy.conf
+        dest: /etc/nginx/conf.d/vpn-subscription-proxy.conf
+        mode: "0644"
+        backup: true
+
+    - name: Validate HTTPS configuration
+      ansible.builtin.command: nginx -t
+      changed_when: false
+
+    - name: Enable and reload HTTPS proxy
+      ansible.builtin.service:
+        name: nginx
+        state: reloaded
+        enabled: true
+
+    - name: Reload Nginx after certificate renewal
+      ansible.builtin.copy:
+        dest: /etc/letsencrypt/renewal-hooks/deploy/reload-nginx
+        mode: "0755"
+        content: |
+          #!/bin/sh
+          /usr/sbin/nginx -t && /bin/systemctl reload nginx
+
+    - name: Enable automatic certificate renewal
+      ansible.builtin.systemd_service:
+        name: certbot.timer
+        state: started
+        enabled: true
+
+    - name: Check HTTPS subscription route with a fabricated token
+      ansible.builtin.uri:
+        url: https://api.meow-meow-fast.site/api/v1/vpn/subscriptions/proxy-connectivity-check/
+        status_code: 404
+        follow_redirects: none
+        validate_certs: true
+
+    - name: Check that the backend admin is not exposed
+      ansible.builtin.uri:
+        url: https://api.meow-meow-fast.site/admin/
+        status_code: 404
+        follow_redirects: none
+        validate_certs: true

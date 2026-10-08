@@ -113,8 +113,9 @@ curl --fail --silent --show-error \
 
 ## VPN: production-конфигурация
 
-VPN использует `VPN_SUBSCRIPTION_BASE_URL=https://dash.mtprotokeys.com` и
-защищённый `VPN_AGENT_TOKEN` вне Git. Обычный релиз не повторяет первоначальный
+VPN использует `VPN_SUBSCRIPTION_BASE_URL` и защищённый `VPN_AGENT_TOKEN` вне
+Git. До включения отдельного прокси base URL — `https://dash.mtprotokeys.com`.
+Обычный релиз не повторяет первоначальный
 rollout node-agent, transport, `VPNInstance` и товара `vpn_30d`.
 
 В текущем MVP `VPNInstance.management_url` указывает на публичный plaintext HTTP
@@ -125,3 +126,91 @@ Application rollback на предыдущий SHA не восстанавлив
 subscription token, VLESS UUID и Hysteria secret. После отката асинхронная
 доставка должна довести до нод актуальные credentials из БД; вручную возвращать
 старые credentials нельзя.
+
+### Отдельный HTTPS-прокси подписок
+
+Proxy устанавливается на выделенный Ubuntu VPS. DNS A-запись
+`api.meow-meow-fast.site` должна указывать на `212.192.4.192`; входящие TCP 80
+и 443 должны быть доступны. На сервере не должно быть другого web-сервера:
+playbook отключает стандартный сайт Nginx и управляет отдельным конфигом.
+Порт 80 нужен также для продления сертификата Let's Encrypt. Certbot
+регистрируется без email; за сроком сертификата нужно следить внешним мониторингом.
+
+До публикации проверь реальный Nginx с тестовым TLS upstream в Docker:
+
+```bash
+docker pull nginx:alpine
+python3 -m unittest scripts.tests.test_vpn_subscription_proxy
+```
+
+К прокси применяются те же требования к merged PR, точному `RELEASE_SHA` и
+отдельному разрешению на production deploy из раздела «Новый релиз». Запускай
+playbook из checkout этого SHA. Сначала выполни только syntax check:
+
+```bash
+ansible-playbook -i ansible/inventory/vpn-subscription-proxy.ini \
+  ansible/vpn-subscription-proxy.yml --syntax-check \
+  -e deploy_revision="$RELEASE_SHA" --private-key ~/.ssh/id_ed25519_deploy
+```
+
+После отдельного разрешения на установку прокси:
+
+```bash
+ansible-playbook -i ansible/inventory/vpn-subscription-proxy.ini \
+  ansible/vpn-subscription-proxy.yml -e deploy_revision="$RELEASE_SHA" \
+  --private-key ~/.ssh/id_ed25519_deploy
+```
+
+Playbook выпускает сертификат через HTTP webroot, устанавливает HTTPS-конфиг,
+включает `certbot.timer` и reload Nginx после продления. Повторный запуск
+сохраняет существующий сертификат. Он не меняет backend-настройки.
+
+Проверь `nginx -t`, таймер, пробное продление и внешний HTTPS. Токен ниже
+вымышленный; ожидаются `404` для обоих HTTPS-запросов и `301` на тот же путь
+нового HTTPS-домена для HTTP:
+
+```bash
+ansible -i ansible/inventory/vpn-subscription-proxy.ini vpn_subscription_proxy \
+  --private-key ~/.ssh/id_ed25519_deploy -m ansible.builtin.command -a 'nginx -t'
+ansible -i ansible/inventory/vpn-subscription-proxy.ini vpn_subscription_proxy \
+  --private-key ~/.ssh/id_ed25519_deploy -m ansible.builtin.command \
+  -a 'systemctl is-active certbot.timer'
+ansible -i ansible/inventory/vpn-subscription-proxy.ini vpn_subscription_proxy \
+  --private-key ~/.ssh/id_ed25519_deploy -m ansible.builtin.command \
+  -a 'certbot renew --dry-run --run-deploy-hooks'
+curl --silent --show-error -o /dev/null -w '%{http_code}\n' \
+  https://api.meow-meow-fast.site/api/v1/vpn/subscriptions/proxy-connectivity-check/
+curl --silent --show-error -o /dev/null -w '%{http_code}\n' \
+  https://api.meow-meow-fast.site/admin/
+curl --silent --show-error -D - -o /dev/null \
+  http://api.meow-meow-fast.site/api/v1/vpn/subscriptions/proxy-connectivity-check/
+```
+
+Проверка с вымышленным token не доказывает выдачу рабочей подписки. В HAPP
+тестового пользователя замени только домен действующей ссылки и проверь
+обновление без включённого VPN из проблемной сети. Не выводи действующую
+ссылку или содержимое подписки в логи, PR или командную строку.
+
+Только после этой проверки запроси отдельное разрешение на переключение
+backend. В рамках одобренного release обнови единственную настройку и затем
+выполни стандартный deploy `ansible/deploy.yml` с тем же `RELEASE_SHA`:
+
+```bash
+ansible -i ansible/inventory/production.ini mtproto_keys \
+  --private-key ~/.ssh/id_ed25519_deploy -m ansible.builtin.lineinfile \
+  -a 'path=/root/my-mtproto-backend/.env regexp=^VPN_SUBSCRIPTION_BASE_URL= line=VPN_SUBSCRIPTION_BASE_URL=https://api.meow-meow-fast.site owner=root group=root mode=0600'
+```
+
+В боте открой «VPN → Моя подписка»: URL должен начинаться с нового домена,
+а token оставаться прежним. Пользователям со старой ссылкой нужно заменить
+её в HAPP ссылкой из бота. Они также могут нажать «Перевыпустить ссылку»:
+результат использует новый домен, но при этом ротируются token и credentials,
+поэтому новую ссылку нужно импортировать на всех их устройствах.
+
+Rollback переключения: тем же модулем верни строку
+`VPN_SUBSCRIPTION_BASE_URL=https://dash.mtprotokeys.com` и выполни одобренный
+стандартный release. Автоматический rollback кода в `deploy.yml` не откатывает
+`.env`; при неудаче переключения настройку нужно восстановить отдельно.
+После выдачи новых ссылок сохраняй прокси работающим: возврат настройки в боте
+не меняет уже импортированные адреса. Для отката конфига прокси используй
+backup, созданный Ansible рядом с конфигом, затем `nginx -t` и reload.
