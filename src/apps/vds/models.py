@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models.enums import IntegerChoices
 from apps.core import BaseDjangoModel, ActiveQuerySet
+from apps.vds.enums import ProxyMode
 
 
 class Hosting(BaseDjangoModel):
@@ -20,7 +22,10 @@ class Hosting(BaseDjangoModel):
 
 class VDSInstance(BaseDjangoModel):
     name = models.CharField("название сервера")
-    tls_domain = models.CharField("TLS-домен")
+    tls_domain = models.CharField("TLS-домен", blank=True)
+    proxy_mode = models.CharField(
+        "режим прокси", max_length=8, choices=ProxyMode.choices, default=ProxyMode.FAKE_TLS,
+    )
     number = models.PositiveSmallIntegerField("порядковый номер", unique=True)
     ip_address = models.CharField("IP-адрес", unique=True)
     internal_ip_address = models.CharField("внутренний IP-адрес", blank=True)
@@ -39,6 +44,11 @@ class VDSInstance(BaseDjangoModel):
     )
 
     objects = ActiveQuerySet.as_manager()
+
+    def clean(self) -> None:
+        super().clean()
+        if self.proxy_mode == ProxyMode.FAKE_TLS and not self.tls_domain:
+            raise ValidationError({"tls_domain": "Укажите TLS-домен для FakeTLS."})
 
     @property
     def internal_url(self) -> str:
@@ -93,7 +103,11 @@ class MTPRotoKey(BaseDjangoModel):
         domain_hex = tls_domain.encode("utf-8").hex()
         return f"ee{self.token}{domain_hex}"
 
-    def get_proxy_link(self, *, server_name: str, tls_domain: str) -> str:
+    def get_proxy_link(
+        self, *, server_name: str, tls_domain: str, proxy_mode: ProxyMode = ProxyMode.FAKE_TLS,
+    ) -> str:
+        if proxy_mode == ProxyMode.WEB:
+            return f"tg://webproxy?server={server_name}.mtprotokeys.com&secret=dd{self.token}"
         secret = self.get_secret_token(tls_domain=tls_domain)
         return f"tg://proxy?server={server_name}.mtprotokeys.com&port=443&secret={secret}"
 

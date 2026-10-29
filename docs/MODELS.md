@@ -64,7 +64,8 @@
 | `hosting` | FK → Hosting? | Хостинг-провайдер сервера. Nullable для постепенного заполнения существующих записей. |
 | `expired_at` | DateField? | Дата, до которой оплачен конкретный VDS-инстанс |
 | `name` | str (unique) | DNS-субдомен сервера в хосте proxy-URL (`{name}.mtprotokeys.com`), напр. `kz`, `nl` |
-| `tls_domain` | str | Обязательный TLS-домен для FakeTLS-secret ссылок этой VDS; без default и uniqueness constraint |
+| `tls_domain` | str | TLS-домен для FakeTLS-secret; может быть пустым для WEB, без default и uniqueness constraint |
+| `proxy_mode` | str | `ProxyMode` из `apps/vds/enums.py`: `fake_tls` (FakeTLS, default) или `web` (WEB) |
 | `number` | SmallInt (unique) | Порядковый номер. Задаёт порядок отображения серверов (`Meta.ordering = ["number"]`), в т.ч. порядок кнопок в «Мои серверы». Управляется через админку. |
 | `ip_address` | str (unique) | Внешний IP |
 | `internal_ip_address` | str | IP в Docker-сети |
@@ -77,8 +78,10 @@
 
 Миграция добавления `tls_domain` заполняет существующие VDS значением
 `mtprotokeys.com`, создаёт DB-колонку `NOT NULL`, но не сохраняет model default.
-Стандартная admin/model form требует непустое значение; raw ORM save не
-запускает model validation автоматически. Одинаковые домены у нескольких VDS
+Admin/model validation требует непустой `tls_domain` для FakeTLS; для WEB
+допускается пустое значение. Raw ORM save не запускает validation автоматически.
+Миграция `proxy_mode` сохраняет существующие TLS-домены и выставляет всем
+существующим VDS режим `fake_tls`. Одинаковые домены у нескольких VDS
 допустимы.
 
 **Методы:**
@@ -121,7 +124,7 @@
 Прокси-ключ пользователя. **Один raw token, валидный на всём флоте** — без
 привязки к «домашнему» серверу. БД — источник правды; присутствие raw token на
 серверах — производный кэш (доставляется асинхронным пушем). Клиентский
-FakeTLS-secret вычисляется отдельно для конкретной VDS и в модели не хранится.
+secret вычисляется отдельно для конкретной VDS и в модели не хранится.
 
 | Поле | Тип | Описание |
 |------|-----|----------|
@@ -137,7 +140,7 @@ FakeTLS-secret вычисляется отдельно для конкретно
 **Менеджер:** `expired_today()` — ключи, которые истекли на сегодня.
 
 **Методы:**
-- `get_proxy_link(*, server_name, tls_domain)` — единственный генератор ссылки: `tg://proxy?server={server_name}.mtprotokeys.com&port=443&secret={secret}`. Хост зависит только от имени сервера, а в client secret передаётся TLS-домен этой VDS.
+- `get_proxy_link(*, server_name, tls_domain, proxy_mode=ProxyMode.FAKE_TLS)` — единый генератор ссылки в режиме VDS; формат описан в [CONTRACTS.md](CONTRACTS.md).
 - `get_secret_token(*, tls_domain)` — `ee{token}{hex(tls_domain)}`, где домен кодируется в UTF-8. Метод не использует глобальную настройку или fallback.
 
 ---

@@ -253,9 +253,12 @@ referrer.
 ```
 
 Форма ответа не меняется. В каждом `servers[].proxy_link` хост остаётся
-`{vds.name}.mtprotokeys.com`, а FakeTLS-secret кодирует `tls_domain` именно этой
-VDS. При разных TLS-доменах ссылки одного пользовательского ключа получают
-разные клиентские secrets, сохраняя единый raw token пользователя.
+`{vds.name}.mtprotokeys.com`. Режим VDS определяет ссылку:
+- `fake_tls`: `tg://proxy?server={name}.mtprotokeys.com&port=443&secret=ee{token}{hex(tls_domain)}`;
+- `web`: `tg://webproxy?server={name}.mtprotokeys.com&secret=dd{token}` — без порта и TLS-домена.
+
+Raw token пользователя остаётся общим. Режим не меняет VDS API payload:
+режим работы и профили пользователей на VDS задаются окружением самого VDS.
 
 **Ошибки:** `KeyDoesNotExist` (нет активного ключа и бесплатный период уже израсходован).
 
