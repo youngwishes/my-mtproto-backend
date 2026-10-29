@@ -17,16 +17,23 @@ class TestVDSInstanceModelStructure(TestCase):
         self.assertIn("hosting", field_names)
         self.assertIn("expired_at", field_names)
 
-    def test_tls_domain_is_required_non_unique_and_has_no_default(self) -> None:
+    def test_tls_domain_is_blank_non_unique_and_has_no_default(self) -> None:
         field = VDSInstance._meta.get_field("tls_domain")
 
-        self.assertFalse(field.blank)
+        self.assertTrue(field.blank)
         self.assertFalse(field.null)
         self.assertFalse(field.unique)
         self.assertIs(field.default, models.NOT_PROVIDED)
 
 
 class TestMTPRotoKeyMethods(TestCase):
+    def test_web_link_uses_dd_secret_without_tls_domain_or_port(self) -> None:
+        key = MTPRotoKeyFactory(token="abc123")
+
+        link = key.get_proxy_link(server_name="new", tls_domain="", proxy_mode="web")
+
+        self.assertEqual(link, "tg://webproxy?server=new.mtprotokeys.com&secret=ddabc123")
+
     def test_get_proxy_link_uses_given_server_name_and_tls_domain(self) -> None:
         key = MTPRotoKeyFactory(token="abc123")
 
@@ -92,6 +99,7 @@ class TestMTPRotoKeyMethods(TestCase):
 
 
 class TestVDSInstanceTLSDomainMigration(TransactionTestCase):
+    old_vds_fields = {}
     migrate_from = ("vds", "0021_hosting_vdsinstance_expired_at_vdsinstance_hosting")
     migrate_to = ("vds", "0022_vdsinstance_tls_domain")
 
@@ -106,6 +114,7 @@ class TestVDSInstanceTLSDomainMigration(TransactionTestCase):
             number=1,
             ip_address="192.0.2.1",
             internal_ip_address="192.0.2.2",
+            **self.old_vds_fields,
         ).pk
 
         self.executor = MigrationExecutor(connection)
@@ -126,3 +135,16 @@ class TestVDSInstanceTLSDomainMigration(TransactionTestCase):
             vds_instance._meta.get_field("tls_domain").default,
             models.NOT_PROVIDED,
         )
+
+
+class TestVDSInstanceProxyModeMigration(TestVDSInstanceTLSDomainMigration):
+    old_vds_fields = {"tls_domain": "existing.example"}
+    migrate_from = ("vds", "0022_vdsinstance_tls_domain")
+    migrate_to = ("vds", "0023_vdsinstance_proxy_mode_alter_vdsinstance_tls_domain")
+
+    def test_existing_vds_gets_tls_domain_without_model_default(self) -> None:
+        vds_instance = self.apps.get_model("vds", "VDSInstance")
+        migrated_vds = vds_instance.objects.get(pk=self.vds_id)
+
+        self.assertEqual(migrated_vds.proxy_mode, "fake_tls")
+        self.assertEqual(migrated_vds.tls_domain, "existing.example")

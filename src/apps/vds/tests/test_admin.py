@@ -31,6 +31,7 @@ class VDSInstanceAdminFormTest(TestCase):
         return {
             "name": "nl1",
             "tls_domain": tls_domain,
+            "proxy_mode": "fake_tls",
             "number": "1",
             "ip_address": "192.0.2.1",
             "internal_ip_address": "192.0.2.2",
@@ -45,6 +46,16 @@ class VDSInstanceAdminFormTest(TestCase):
 
         self.assertFalse(form.is_valid())
         self.assertIn("tls_domain", form.errors)
+
+    def test_web_mode_accepts_blank_tls_domain(self) -> None:
+        form_class = self.admin.get_form(self.request)
+        data = self._form_data(tls_domain="")
+        data["proxy_mode"] = "web"
+        form = form_class(data=data)
+
+        self.assertTrue(form.is_valid(), form.errors)
+        instance = form.save()
+        self.assertEqual(instance.proxy_mode, "web")
 
     def test_duplicate_tls_domain_is_valid_without_dns_lookup(self) -> None:
         VDSInstanceFactory(tls_domain="shared.example")
@@ -75,6 +86,15 @@ class MTPRotoKeyAdminProxyLinkTest(TestCase):
 
         self.assertIn("nl1.mtprotokeys.com", html)
         self.assertIn(key.get_secret_token(tls_domain=vds.tls_domain), html)
+
+    def test_web_preview_uses_web_link(self) -> None:
+        VDSInstanceFactory(name="new", proxy_mode="web", tls_domain="")
+        key = MTPRotoKeyFactory(token="abc123", expired_date=timezone.now() + timedelta(days=5))
+        self._prime_example_server()
+
+        html = self.admin.active_proxy_link(key)
+
+        self.assertIn("tg://webproxy?server=new.mtprotokeys.com&amp;secret=ddabc123", html)
 
     def test_dash_when_key_is_not_valid(self) -> None:
         VDSInstanceFactory(name="nl1")

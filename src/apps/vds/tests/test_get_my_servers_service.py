@@ -63,6 +63,22 @@ class TestGetMyServersService(TestCase):
         secrets = [link.rsplit("&secret=", maxsplit=1)[1] for link in links_by_location.values()]
         self.assertNotEqual(*secrets)
 
+    def test_mixed_modes_return_per_server_links(self, mock_log) -> None:
+        user = SystemUserFactory()
+        VDSInstanceFactory(name="new", location="WEB", proxy_mode="web", tls_domain="")
+        VDSInstanceFactory(name="old", location="FakeTLS", tls_domain="a")
+        MTPRotoKeyFactory(user=user, token="abc123", expired_date=timezone.now() + timedelta(days=1))
+
+        result = self.service(username=user.username)
+
+        self.assertEqual(
+            {server.location: server.proxy_link for server in result.servers},
+            {
+                "WEB": "tg://webproxy?server=new.mtprotokeys.com&secret=ddabc123",
+                "FakeTLS": "tg://proxy?server=old.mtprotokeys.com&port=443&secret=eeabc12361",
+            },
+        )
+
     def test_excludes_inactive_vds(self, mock_log) -> None:
         user = SystemUserFactory(username="22222222")
         VDSInstanceFactory(name="nl1", location="🇳🇱 Нидерланды", is_active=True)

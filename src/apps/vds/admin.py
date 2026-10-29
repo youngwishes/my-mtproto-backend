@@ -85,6 +85,7 @@ class VDSInstanceAdmin(admin.ModelAdmin):
         "pk",
         "name",
         "tls_domain",
+        "proxy_mode",
         "hosting",
         "internal_ip_address",
         "number",
@@ -121,6 +122,7 @@ class MTPRotoKeyAdmin(admin.ModelAdmin):
         link = obj.get_proxy_link(
             server_name=self._example_server.name,
             tls_domain=self._example_server.tls_domain,
+            proxy_mode=self._example_server.proxy_mode,
         )
         return format_html('<a href="{}">{}</a>', link, link)
 

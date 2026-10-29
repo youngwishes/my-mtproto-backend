@@ -46,6 +46,7 @@ class GetMyServersService:
                 proxy_link=key.get_proxy_link(
                     server_name=vds.name,
                     tls_domain=vds.tls_domain,
+                    proxy_mode=vds.proxy_mode,
                 ),
             )
             for vds in get_all_active_vds_instances()

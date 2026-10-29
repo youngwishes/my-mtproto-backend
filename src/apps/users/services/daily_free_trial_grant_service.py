@@ -54,6 +54,7 @@ class DailyFreeTrialGrantService:
                                 url=key.get_proxy_link(
                                     server_name=server.name,
                                     tls_domain=server.tls_domain,
+                                    proxy_mode=server.proxy_mode,
                                 ),
                             )
                         ]

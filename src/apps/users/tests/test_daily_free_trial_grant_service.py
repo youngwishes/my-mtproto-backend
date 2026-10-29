@@ -8,6 +8,7 @@ from django.test import SimpleTestCase
 from apps.users.exceptions import AlreadyUsedFree
 from apps.users.services.daily_free_trial_grant_service import DailyFreeTrialGrantService
 from apps.users.services.dtos import IssuedKeyOut
+from apps.vds.models import MTPRotoKey
 
 
 def _user(username: str) -> SimpleNamespace:
@@ -94,21 +95,19 @@ class TestDailyFreeTrialGrantService(SimpleTestCase):
 
     def test_sends_expiry_and_url_button_for_every_active_server(self) -> None:
         sender = mock.Mock()
-        key = SimpleNamespace(
-            get_proxy_link=lambda *, server_name, tls_domain: (
-                f"tg://proxy?server={server_name}&tls={tls_domain}"
-            )
-        )
+        key = MTPRotoKey(token="abc123")
         servers = [
             SimpleNamespace(
                 name="de",
                 location="🇩🇪 Germany",
                 tls_domain="tls-de.example",
+                proxy_mode="fake_tls",
             ),
             SimpleNamespace(
                 name="nl",
                 location="🇳🇱 Netherlands",
-                tls_domain="tls-nl.example",
+                tls_domain="",
+                proxy_mode="web",
             ),
         ]
         service = self._service(
@@ -136,8 +135,8 @@ class TestDailyFreeTrialGrantService(SimpleTestCase):
         self.assertEqual(
             [row[0].url for row in keyboard],
             [
-                "tg://proxy?server=de&tls=tls-de.example",
-                "tg://proxy?server=nl&tls=tls-nl.example",
+                "tg://proxy?server=de.mtprotokeys.com&port=443&secret=eeabc123746c732d64652e6578616d706c65",
+                "tg://webproxy?server=nl.mtprotokeys.com&secret=ddabc123",
             ],
         )
 
