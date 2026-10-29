@@ -107,7 +107,8 @@ class MTPRotoKey(BaseDjangoModel):
         self, *, server_name: str, tls_domain: str, proxy_mode: ProxyMode = ProxyMode.FAKE_TLS,
     ) -> str:
         if proxy_mode == ProxyMode.WEB:
-            return f"tg://webproxy?server={server_name}.mtprotokeys.com&secret=dd{self.token}"
+            host = server_name if "." in server_name else f"{server_name}.mtprotokeys.com"
+            return f"tg://webproxy?server={host}&secret=dd{self.token}"
         secret = self.get_secret_token(tls_domain=tls_domain)
         return f"tg://proxy?server={server_name}.mtprotokeys.com&port=443&secret={secret}"
 

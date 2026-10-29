@@ -79,6 +79,24 @@ class TestGetMyServersService(TestCase):
             },
         )
 
+    def test_web_full_domain_does_not_change_other_server_links(self, mock_log) -> None:
+        user = SystemUserFactory()
+        VDSInstanceFactory(name="first.water-seven.xyz", location="WEB", proxy_mode="web", tls_domain="")
+        VDSInstanceFactory(name="new", location="Legacy WEB", proxy_mode="web", tls_domain="")
+        VDSInstanceFactory(name="old", location="FakeTLS", tls_domain="a")
+        MTPRotoKeyFactory(user=user, token="abc123", expired_date=timezone.now() + timedelta(days=1))
+
+        result = self.service(username=user.username)
+
+        self.assertEqual(
+            {server.location: server.proxy_link for server in result.servers},
+            {
+                "WEB": "tg://webproxy?server=first.water-seven.xyz&secret=ddabc123",
+                "Legacy WEB": "tg://webproxy?server=new.mtprotokeys.com&secret=ddabc123",
+                "FakeTLS": "tg://proxy?server=old.mtprotokeys.com&port=443&secret=eeabc12361",
+            },
+        )
+
     def test_excludes_inactive_vds(self, mock_log) -> None:
         user = SystemUserFactory(username="22222222")
         VDSInstanceFactory(name="nl1", location="🇳🇱 Нидерланды", is_active=True)
