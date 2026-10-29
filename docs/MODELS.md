@@ -63,7 +63,7 @@
 |------|-----|----------|
 | `hosting` | FK → Hosting? | Хостинг-провайдер сервера. Nullable для постепенного заполнения существующих записей. |
 | `expired_at` | DateField? | Дата, до которой оплачен конкретный VDS-инстанс |
-| `name` | str (unique) | DNS-субдомен сервера в хосте proxy-URL (`{name}.mtprotokeys.com`), напр. `kz`, `nl` |
+| `name` | str (unique) | DNS-субдомен сервера в хосте proxy-URL (`{name}.mtprotokeys.com`), напр. `kz`, `nl`; для WEB также допускается полный домен с точкой, напр. `first.water-seven.xyz` |
 | `tls_domain` | str | TLS-домен для FakeTLS-secret; может быть пустым для WEB, без default и uniqueness constraint |
 | `proxy_mode` | str | `ProxyMode` из `apps/vds/enums.py`: `fake_tls` (FakeTLS, default) или `web` (WEB) |
 | `number` | SmallInt (unique) | Порядковый номер. Задаёт порядок отображения серверов (`Meta.ordering = ["number"]`), в т.ч. порядок кнопок в «Мои серверы». Управляется через админку. |

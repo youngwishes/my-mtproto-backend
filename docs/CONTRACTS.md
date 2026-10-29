@@ -252,10 +252,11 @@ referrer.
 }
 ```
 
-Форма ответа не меняется. В каждом `servers[].proxy_link` хост остаётся
-`{vds.name}.mtprotokeys.com`. Режим VDS определяет ссылку:
+Форма ответа не меняется. По умолчанию хост в `servers[].proxy_link` —
+`{vds.name}.mtprotokeys.com`. Для WEB имя с точкой используется как полный
+домен без добавления суффикса (например, `first.water-seven.xyz`). Режим VDS определяет ссылку:
 - `fake_tls`: `tg://proxy?server={name}.mtprotokeys.com&port=443&secret=ee{token}{hex(tls_domain)}`;
-- `web`: `tg://webproxy?server={name}.mtprotokeys.com&secret=dd{token}` — без порта и TLS-домена.
+- `web`: `tg://webproxy?server={host}&secret=dd{token}` — без порта и TLS-домена.
 
 Raw token пользователя остаётся общим. Режим не меняет VDS API payload:
 режим работы и профили пользователей на VDS задаются окружением самого VDS.
