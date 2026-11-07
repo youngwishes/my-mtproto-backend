@@ -26,15 +26,12 @@ class BuildSubscriptionService:
     ) -> str:
         ordered_instances = list(instances)
         self.shuffle_nodes(ordered_instances)
-        profiles = [
-            self._build_profile(subscription=subscription, instance=instance)
-            for instance in ordered_instances
-        ]
-        uris = [
-            uri
-            for profile in profiles
-            for uri in (profile.vless_uri, profile.hysteria2_uri)
-        ]
+        uris = []
+        for instance in ordered_instances:
+            profile = self._build_profile(subscription=subscription, instance=instance)
+            if instance.vless_enabled:
+                uris.append(profile.vless_uri)
+            uris.append(profile.hysteria2_uri)
         return b64encode("\n".join(uris).encode("utf-8")).decode("ascii")
 
     def _build_profile(

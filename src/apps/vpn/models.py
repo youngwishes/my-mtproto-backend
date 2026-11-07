@@ -57,6 +57,7 @@ class VPNInstance(BaseDjangoModel):
     location = models.CharField("локация", default="", blank=True)
     management_url = models.URLField("URL управления")
     public_host = models.CharField("публичный хост")
+    vless_enabled = models.BooleanField("VLESS включён", default=True)
     vless_port = models.PositiveIntegerField("VLESS порт")
     reality_sni = models.CharField("REALITY SNI")
     reality_public_key = models.CharField("REALITY публичный ключ")

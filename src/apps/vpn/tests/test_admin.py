@@ -22,6 +22,13 @@ class TestVPNInstanceAdmin(TestCase):
         SessionMiddleware(lambda request: None).process_request(self.request)
         setattr(self.request, "_messages", FallbackStorage(self.request))
 
+    def test_vless_can_be_disabled_from_node_changelist(self) -> None:
+        self.assertIn("vless_enabled", self.admin.get_list_display(self.request))
+        self.assertIn(
+            "vless_enabled",
+            self.admin.get_changelist_formset(self.request).form.base_fields,
+        )
+
     def test_new_node_is_saved_inactive_until_admin_manually_activates_it(self) -> None:
         instance = VPNInstanceFactory.build(is_active=True)
 

@@ -38,6 +38,7 @@ class TestVPNReissueMigrationCompatibility(TransactionTestCase):
     def test_existing_subscription_keeps_state_and_gets_null_reissue_timestamp(self) -> None:
         """Catches an additive migration that alters existing VPN credentials or lifecycle state."""
         executor = MigrationExecutor(connection)
+        self.addCleanup(executor.migrate, executor.loader.graph.leaf_nodes())
         migrate_from = [("vpn", "0001_initial")]
         migrate_to = [("vpn", "0002_vpnsubscription_last_reissued_at")]
         executor.migrate(migrate_from)
@@ -68,3 +69,40 @@ class TestVPNReissueMigrationCompatibility(TransactionTestCase):
         self.assertEqual(str(migrated_subscription.expired_at), "2026-09-01 12:00:00+00:00")
         self.assertFalse(migrated_subscription.is_active)
         self.assertIsNone(migrated_subscription.last_reissued_at)
+
+
+class TestVPNVlessMigrationCompatibility(TransactionTestCase):
+    def test_existing_node_keeps_parameters_and_defaults_to_vless_enabled(self) -> None:
+        executor = MigrationExecutor(connection)
+        self.addCleanup(executor.migrate, executor.loader.graph.leaf_nodes())
+        migrate_from = [("vpn", "0002_vpnsubscription_last_reissued_at")]
+        migrate_to = [("vpn", "0003_vpninstance_vless_enabled")]
+        executor.migrate(migrate_from)
+        old_apps = executor.loader.project_state(migrate_from).apps
+        node = old_apps.get_model("vpn", "VPNInstance").objects.create(
+            number=1,
+            name="Existing node",
+            public_host="nl.example.com",
+            management_url="https://management.example.com",
+            vless_port=443,
+            reality_sni="example.com",
+            reality_public_key="public-key",
+            reality_short_id="short-id",
+            hysteria_port=443,
+            hysteria_sni="example.com",
+            hysteria_obfs="obfs",
+            is_active=True,
+        )
+        original = (
+            old_apps.get_model("vpn", "VPNInstance").objects.values().get(pk=node.pk)
+        )
+
+        executor = MigrationExecutor(connection)
+        executor.migrate(migrate_to)
+        new_apps = executor.loader.project_state(migrate_to).apps
+        migrated = (
+            new_apps.get_model("vpn", "VPNInstance").objects.values().get(pk=node.pk)
+        )
+
+        self.assertIs(migrated.pop("vless_enabled"), True)
+        self.assertEqual(migrated, original)

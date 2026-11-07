@@ -36,8 +36,8 @@ class VPNSubscriptionAdmin(admin.ModelAdmin):
 
 @admin.register(VPNInstance)
 class VPNInstanceAdmin(admin.ModelAdmin):
-    list_display = ["pk", "number", "name", "location", "is_active"]
-    list_editable = ["number", "is_active"]
+    list_display = ["pk", "number", "name", "location", "vless_enabled", "is_active"]
+    list_editable = ["number", "vless_enabled", "is_active"]
     ordering = ["number", "pk"]
     actions = ["backfill_profiles"]
 

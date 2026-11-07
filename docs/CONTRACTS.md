@@ -613,6 +613,9 @@ subscription URL или Base64 payload.
 При каждом успешном refresh backend заново перемешивает блоки активных VPN-нод.
 Внутри блока одной ноды профили остаются соседними в порядке `VLESS`, затем
 `Hysteria2`; стабильный порядок нод для пользователя не гарантируется.
+При `VPNInstance.vless_enabled=False` блок содержит только `Hysteria2`.
+Настройка одной ноды не меняет профили остальных нод, subscription URL или
+credentials; исходящий profile PUT по-прежнему передаёт оба credential.
 
 ### POST /api/v1/vpn/payments/buy/
 
