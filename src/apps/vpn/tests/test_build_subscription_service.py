@@ -104,3 +104,47 @@ class TestBuildSubscriptionService(TestCase):
                 "First%20node%20Hysteria2",
             ],
         )
+
+    def test_disabling_germany_vless_preserves_hysteria_and_other_nodes(self) -> None:
+        subscription = VPNSubscriptionFactory()
+        germany = VPNInstanceFactory(name="Germany", public_host="de.example.com")
+        netherlands = VPNInstanceFactory(
+            name="Netherlands", public_host="nl.example.com"
+        )
+        poland = VPNInstanceFactory(name="Poland", public_host="pl.example.com")
+        instances = [germany, netherlands, poland]
+        service = BuildSubscriptionService(shuffle_nodes=lambda nodes: nodes.reverse())
+        before = (
+            b64decode(service(subscription=subscription, instances=instances))
+            .decode()
+            .splitlines()
+        )
+        credentials = (
+            subscription.token,
+            subscription.vless_uuid,
+            subscription.hysteria_secret,
+        )
+
+        germany.vless_enabled = False
+        germany.save()
+        germany.refresh_from_db()
+        after = (
+            b64decode(service(subscription=subscription, instances=instances))
+            .decode()
+            .splitlines()
+        )
+
+        self.assertEqual(
+            after,
+            [
+                uri
+                for uri in before
+                if not uri.startswith("vless://") or "@de.example.com:" not in uri
+            ],
+        )
+        self.assertEqual(len(after), 5)
+        subscription.refresh_from_db()
+        self.assertEqual(
+            (subscription.token, subscription.vless_uuid, subscription.hysteria_secret),
+            credentials,
+        )
