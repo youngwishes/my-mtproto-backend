@@ -10,6 +10,7 @@ from src.bot import bot
 from src.exceptions import VPNReissueRequiresRenewal, VPNSubscriptionDoesNotExist
 from src.handlers.payments import show_crypto_invoice, show_platega_invoice
 from src.messages import (
+    PRODUCT_MENU_MTPROXY_TEXT,
     VPN_ACTIVE_TEXT,
     VPN_EXPIRED_TEXT,
     VPN_MENU_TEXT,
@@ -23,6 +24,19 @@ if TYPE_CHECKING:
     from src.dependencies import Dependencies
 
 router = Router()
+
+
+@router.callback_query.middleware()
+async def check_vpn_availability(handler, event: CallbackQuery, data):
+    deps: Dependencies = data["deps"]
+    if deps.vpn is None or not await deps.vpn.is_enabled():
+        await event.answer()
+        await event.message.edit_text(
+            text=PRODUCT_MENU_MTPROXY_TEXT,
+            reply_markup=keyboards.product_menu(vpn_enabled=False),
+        )
+        return
+    return await handler(event, data)
 
 
 @router.callback_query(F.data == "show_vpn_menu")

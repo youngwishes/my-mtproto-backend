@@ -229,7 +229,14 @@ async def process_gift_platega_sbp(
 
 
 @router.pre_checkout_query()
-async def process_pre_checkout_query(pre_checkout_query: PreCheckoutQuery):
+async def process_pre_checkout_query(pre_checkout_query: PreCheckoutQuery, deps: Dependencies):
+    if pre_checkout_query.invoice_payload == "vpn_stars" and (
+        deps.vpn is None or not await deps.vpn.is_enabled()
+    ):
+        await bot.answer_pre_checkout_query(
+            pre_checkout_query.id, ok=False, error_message="Этот товар больше не доступен",
+        )
+        return
     if pre_checkout_query.currency == "XTR":
         await bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True)
         return
@@ -256,6 +263,8 @@ async def process_successful_payment(message: Message, deps: Dependencies):
                 charge_id=charge_id,
                 provider=provider,
             )
+            if not await deps.vpn.is_enabled():
+                return
             await message.answer(
                 VPN_PURCHASED_TEXT.format(
                     expired_at=format_user_date(purchase.expired_at),
@@ -294,7 +303,7 @@ async def process_successful_payment(message: Message, deps: Dependencies):
         )
     except Exception:
         purchase_item = (
-            "VPN-подписки"
+            "подписки"
             if payload == "vpn_stars"
             else "сертификата"
             if payload.startswith("gift_certificate")

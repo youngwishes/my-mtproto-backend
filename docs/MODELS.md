@@ -364,3 +364,10 @@ VPN-нода. Наследует `BaseDjangoModel`; хранит публичн�
 | `failed_count` | PositiveInt | Ошибок при отправке |
 
 **Методы:** `mark_as_sending()`, `mark_as_completed()`, `mark_as_failed()`, `mark_as_partially_completed()`
+
+## VPNBotSettings (apps/vpn)
+
+Единственная строка с `id=1` (DB check constraint), наследует BaseDjangoModel.
+Унаследованный `is_active` — флаг «VPN доступен в боте». Миграция создаёт строку
+со значением `false`, не изменяя подписки. Админка разрешает только переключение;
+добавление и удаление запрещены. Отсутствие строки означает выключенный флаг.

@@ -8,7 +8,7 @@ from django.utils import timezone
 
 from apps.core.telegram.transport import send_telegram_message
 from apps.notifications.selectors import get_template
-from apps.vpn.selectors import get_vpn_subscriptions_expiring_between
+from apps.vpn.selectors import get_vpn_subscriptions_expiring_between, is_vpn_bot_enabled
 
 if TYPE_CHECKING:
     from apps.notifications.models import NotificationTemplate
@@ -35,8 +35,11 @@ class NotifyVPNExpiryService:
     get_subscriptions_in_window: GetSubscriptionsInWindow
     get_notification_template: GetTemplate
     send_message: SendTelegramMessage
+    is_enabled: Callable[[], bool]
 
     def __call__(self, *, window: VPNExpiryWindow) -> int:
+        if not self.is_enabled():
+            return 0
         now = timezone.now()
         starts_at, ends_at, is_active = self._window_bounds(window=window, now=now)
         template = self.get_notification_template(slug=_TEMPLATE_SLUGS[window])
@@ -76,4 +79,5 @@ def get_notify_vpn_expiry_service() -> NotifyVPNExpiryService:
         get_subscriptions_in_window=get_vpn_subscriptions_expiring_between,
         get_notification_template=get_template,
         send_message=send_telegram_message,
+        is_enabled=is_vpn_bot_enabled,
     )

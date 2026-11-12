@@ -9,8 +9,10 @@ from apps.vpn.api.v1.views import (
     VPNMenuView,
     VPNSubscriptionView,
 )
+from apps.vpn.api.v1.views.bot_settings_views import VPNBotSettingsView
 
 urlpatterns = [
+    path("bot-settings/", VPNBotSettingsView.as_view(), name="vpn-bot-settings"),
     path(
         "agent/profiles/",
         AgentBootstrapProfilesView.as_view(),

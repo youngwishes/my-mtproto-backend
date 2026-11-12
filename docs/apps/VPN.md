@@ -10,6 +10,7 @@
 ## Карта компонентов
 
 - VPNSubscription, VPNInstance — подписка и ноды.
+- VPNBotSettings и bot-settings API — переключатель доступности VPN в боте.
 - purchase/menu/reissue services — lifecycle пользовательской подписки.
 - subscription builder — выдача профилей по публичному token.
 - profile scheduling/infra services — асинхронная доставка на ноды.

@@ -14,6 +14,7 @@ from src.messages import (
     FAQ_TEXT,
     FREE_AVAILABLE_TEXT_MAPPING,
     LEGAL_CONSENT_TEXT,
+    PRODUCT_MENU_MTPROXY_TEXT,
     PRODUCT_MENU_TEXT,
 )
 
@@ -23,8 +24,10 @@ if TYPE_CHECKING:
 router = Router()
 
 
-def _render_start_screen() -> tuple[str, InlineKeyboardMarkup]:
-    return PRODUCT_MENU_TEXT, keyboards.product_menu()
+async def _render_start_screen(deps: Dependencies) -> tuple[str, InlineKeyboardMarkup]:
+    vpn_enabled = deps.vpn is not None and await deps.vpn.is_enabled()
+    text = PRODUCT_MENU_TEXT if vpn_enabled else PRODUCT_MENU_MTPROXY_TEXT
+    return text, keyboards.product_menu(vpn_enabled=vpn_enabled)
 
 
 async def _render_mtproxy_menu(
@@ -69,7 +72,7 @@ async def cmd_start(message: Message, deps: Dependencies):
             telegram_id=message.from_user.id,
         )
     else:
-        text, keyboard = _render_start_screen()
+        text, keyboard = await _render_start_screen(deps)
     await message.answer(text=text, reply_markup=keyboard)
 
 
@@ -98,14 +101,14 @@ async def process_legal_consent(
     if accepted is not True:
         raise APIError(telegram_id, error="Legal consent was not saved.")
 
-    text, keyboard = _render_start_screen()
+    text, keyboard = await _render_start_screen(deps)
     await callback.message.edit_text(text=text, reply_markup=keyboard)
 
 
 @router.callback_query(F.data == "show_start_screen")
-async def cmd_start_inline(callback: CallbackQuery) -> None:
+async def cmd_start_inline(callback: CallbackQuery, deps: Dependencies) -> None:
     await callback.answer()
-    text, keyboard = _render_start_screen()
+    text, keyboard = await _render_start_screen(deps)
     await callback.message.edit_text(text=text, reply_markup=keyboard)
 
 

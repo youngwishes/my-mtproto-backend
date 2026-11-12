@@ -544,6 +544,14 @@ signature или секреты.
 
 ## VPN
 
+### GET /api/v1/vpn/bot-settings/
+
+Требует `Bot-Auth-Token`; без него `403`. Возвращает `200` с
+`{"enabled": false}` или `{"enabled": true}`. Не принимает пользователя и не
+изменяет данные. Бот читает актуальное значение при открытии главного меню,
+обработке VPN-кнопок и VPN Stars pre-checkout, без кэширования между запросами.
+Существующие subscription, fulfilment и node API не меняются.
+
 ### GET /api/v1/vpn/menu/?username=<telegram_id>
 
 Защищён `Bot-Auth-Token`; выполняет только read-only поиск и возвращает ровно:

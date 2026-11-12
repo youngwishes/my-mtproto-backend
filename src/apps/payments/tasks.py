@@ -26,6 +26,7 @@ from apps.payments.selectors.platega import (
     mark_platega_notification_sent,
 )
 from apps.payments.services import get_reconcile_crypto_payments_service
+from apps.vpn.selectors import is_vpn_bot_enabled
 
 
 logger = logging.getLogger(__name__)
@@ -94,6 +95,9 @@ def _send_purchase_result(
         }
         loyalty_block = _render_apple_cashback_block(purchase=purchase)
     elif intent.purchase_kind == PaymentKindEnum.VPN_SUBSCRIPTION:
+        if not is_vpn_bot_enabled():
+            # Consume the notification so enabling VPN later does not replay it.
+            return True
         subscription = intent.payment.user.vpn_subscription
         slug = "crypto_vpn_purchased"
         context = {
