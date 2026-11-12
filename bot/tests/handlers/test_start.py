@@ -112,7 +112,7 @@ async def test_show_start_screen_answers_callback():
     # «🔙 Назад» (show_start_screen) must close the loading spinner in Telegram
     callback = FakeCallback(chat_id=42)
 
-    await cmd_start_inline(callback)
+    await cmd_start_inline(callback, make_deps())
 
     assert callback.answers, "callback.answer() was not called — spinner hangs"
 
@@ -120,7 +120,7 @@ async def test_show_start_screen_answers_callback():
 async def test_show_start_screen_shows_product_root():
     callback = FakeCallback(chat_id=99, user_id=42, username="real_user")
 
-    await cmd_start_inline(callback)
+    await cmd_start_inline(callback, make_deps())
 
     text, markup = callback.message.edits[0]
     assert text == PRODUCT_MENU_TEXT

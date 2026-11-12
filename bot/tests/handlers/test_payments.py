@@ -943,9 +943,9 @@ async def test_pre_checkout_query_accepts_only_stars(
 ):
     fake_bot = FakeBot()
     monkeypatch.setattr(payments_module, "bot", fake_bot)
-    pre_checkout = SimpleNamespace(id="q1", currency=currency)
+    pre_checkout = SimpleNamespace(id="q1", currency=currency, invoice_payload="payment_stars")
 
-    await process_pre_checkout_query(pre_checkout)
+    await process_pre_checkout_query(pre_checkout, make_deps())
 
     args, kwargs = fake_bot.pre_checkout[0]
     assert args[0] == "q1"

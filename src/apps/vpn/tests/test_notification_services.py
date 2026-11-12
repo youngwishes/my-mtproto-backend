@@ -12,6 +12,23 @@ from apps.vpn.tests.factories import VPNSubscriptionFactory
 
 
 class TestNotifyVPNExpiryService(TestCase):
+    def setUp(self):
+        from apps.vpn.models import VPNBotSettings
+        VPNBotSettings.objects.filter(pk=1).update(is_active=True)
+
+    @patch("apps.vpn.services.notify_vpn_expiry_service.send_telegram_message")
+    def test_disabled_flag_suppresses_all_expiry_windows(self, send_message):
+        from apps.vpn.models import VPNBotSettings
+        VPNBotSettings.objects.filter(pk=1).update(is_active=False)
+        now = timezone.now()
+        VPNSubscriptionFactory(user__username="101", expired_at=now + timedelta(hours=24))
+        VPNSubscriptionFactory(user__username="102", expired_at=now + timedelta(hours=1))
+        VPNSubscriptionFactory(user__username="103", is_active=False, expired_at=now - timedelta(minutes=5))
+        with patch("apps.vpn.services.notify_vpn_expiry_service.timezone.now", return_value=now):
+            for window in ("day", "hour", "expired"):
+                self.assertEqual(get_notify_vpn_expiry_service()(window=window), 0)
+        send_message.assert_not_called()
+
     @patch("apps.vpn.services.notify_vpn_expiry_service.send_telegram_message")
     def test_sends_day_notification_only_in_exact_24_hour_five_minute_window(
         self,

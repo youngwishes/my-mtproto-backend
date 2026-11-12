@@ -265,7 +265,9 @@ class FakeVPN:
         purchase: VPNPurchase | None = None,
         reissue: VPNReissue | None = None,
         reissue_error: APIError | None = None,
+        enabled: bool = True,
     ) -> None:
+        self.enabled = enabled
         self._menus = menu if isinstance(menu, list) else [menu]
         self._purchase = purchase or VPNPurchase(
             expired_at="2026-08-31T12:00:00+00:00",
@@ -280,6 +282,9 @@ class FakeVPN:
         self.purchase_calls: list[tuple] = []
         self.reissue_calls: list[str] = []
         self.events: list[str] = []
+
+    async def is_enabled(self):
+        return self.enabled
 
     async def get_menu(self, *, telegram_id):
         self.menu_calls.append(telegram_id)

@@ -68,6 +68,10 @@ class FakeBot:
 
 
 def make_deps(**overrides) -> Dependencies:
-    base = dict(free_trial=None, links=None, referrals=None, payments=None)
+    from tests.handler_support import FakeVPN
+    from src.domains.vpn import VPNMenu
+
+    base = dict(free_trial=None, links=None, referrals=None, payments=None,
+                vpn=FakeVPN(menu=VPNMenu(status="none", expired_at=None, subscription_url=None)))
     base.update(overrides)
     return Dependencies(**base)

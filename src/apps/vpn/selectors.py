@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Literal
 from django.db.models import QuerySet
 from django.utils import timezone
 
-from apps.vpn.models import VPNInstance, VPNSubscription
+from apps.vpn.models import VPNBotSettings, VPNInstance, VPNSubscription
 
 if TYPE_CHECKING:
     from apps.users.models import SystemUser
@@ -83,3 +83,7 @@ def create_vpn_subscription(
 def get_vpn_subscription_by_token(*, token: str) -> VPNSubscription | None:
     """VPN-подписка по постоянному токену, включая неактивные и истёкшие."""
     return VPNSubscription.objects.filter(token=token).first()
+
+
+def is_vpn_bot_enabled() -> bool:
+    return VPNBotSettings.objects.active().exists()

@@ -73,3 +73,17 @@ class VPNInstance(BaseDjangoModel):
         verbose_name = "VPN-нода"
         verbose_name_plural = "VPN-ноды"
         ordering = ["number", "pk"]
+
+
+class VPNBotSettings(BaseDjangoModel):
+    """Единственный переключатель доступности VPN в боте."""
+
+    def __str__(self) -> str:
+        return "VPN доступен в боте"
+
+    class Meta:
+        verbose_name = "настройки VPN в боте"
+        verbose_name_plural = "настройки VPN в боте"
+        constraints = [
+            models.CheckConstraint(condition=models.Q(id=1), name="vpn_bot_settings_singleton"),
+        ]

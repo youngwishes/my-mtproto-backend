@@ -65,7 +65,7 @@ def legal_consent(
     )
 
 
-def product_menu() -> InlineKeyboardMarkup:
+def product_menu(*, vpn_enabled: bool = True) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -75,13 +75,13 @@ def product_menu() -> InlineKeyboardMarkup:
                     style="success",
                 )
             ],
-            [
-                InlineKeyboardButton(
+            *([
+                [InlineKeyboardButton(
                     text="🔐 VPN",
                     callback_data="show_vpn_menu",
                     style="primary",
-                )
-            ],
+                )]
+            ] if vpn_enabled else []),
             [
                 InlineKeyboardButton(
                     text="🤝 Реферальная программа",

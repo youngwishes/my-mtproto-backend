@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+from django import forms
 from django.contrib import admin
 from django.db.models import QuerySet
 from django.http import HttpRequest
 
-from apps.vpn.models import VPNInstance, VPNSubscription
+from apps.vpn.models import VPNBotSettings, VPNInstance, VPNSubscription
 from apps.vpn.services import (
     get_expire_vpn_subscriptions_service,
     get_schedule_profiles_service,
@@ -68,3 +69,23 @@ class VPNInstanceAdmin(admin.ModelAdmin):
 
         get_schedule_profiles_service().backfill(instance_id=instance.pk)
         self.message_user(request, "Backfill VPN-профилей поставлен в очередь.")
+
+
+class VPNBotSettingsForm(forms.ModelForm):
+    class Meta:
+        model = VPNBotSettings
+        fields = ("is_active",)
+        labels = {"is_active": "VPN доступен в боте"}
+        help_texts = {"is_active": "Раздел, покупки и уведомления VPN. Существующие подписки сохраняются."}
+
+
+@admin.register(VPNBotSettings)
+class VPNBotSettingsAdmin(admin.ModelAdmin):
+    form = VPNBotSettingsForm
+    fields = ("is_active",)
+
+    def has_add_permission(self, request: HttpRequest) -> bool:
+        return False
+
+    def has_delete_permission(self, request: HttpRequest, obj=None) -> bool:
+        return False

@@ -39,6 +39,10 @@ class VPNReissue:
 class VPNClient:
     backend: BackendClient
 
+    async def is_enabled(self) -> bool:
+        response = await self.backend.get("/api/v1/vpn/bot-settings/")
+        return response["enabled"]
+
     async def get_menu(self, *, telegram_id: str | int) -> VPNMenu:
         response = await self.backend.get(
             _MENU_PATH.format(telegram_id=telegram_id),

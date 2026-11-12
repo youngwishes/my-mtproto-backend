@@ -104,3 +104,14 @@ async def test_reissue_preserves_backend_cooldown_message(client: VPNClient):
         await client.reissue(telegram_id=42)
 
     assert exc_info.value.message == "🔒 Пожалуйста, подождите 5 минут с последнего обновления."
+
+
+@pytest.mark.parametrize("enabled", [False, True])
+@respx.mock
+async def test_bot_flag_is_read_without_caching(client: VPNClient, enabled):
+    route = respx.get(f"{BASE}/api/v1/vpn/bot-settings/")
+    route.mock(return_value=httpx.Response(200, json={"enabled": enabled}))
+    assert await client.is_enabled() is enabled
+    route.mock(return_value=httpx.Response(200, json={"enabled": not enabled}))
+    assert await client.is_enabled() is not enabled
+    assert route.calls.last.request.headers["Bot-Auth-Token"] == "t"

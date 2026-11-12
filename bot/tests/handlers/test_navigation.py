@@ -78,7 +78,7 @@ async def test_root_navigation_matches_approved_hierarchy():
     ] == expected_rows
 
     start_callback = FakeCallback(chat_id=99, user_id=42, username="bob")
-    await cmd_start_inline(start_callback)
+    await cmd_start_inline(start_callback, make_deps())
     _, start_markup = start_callback.message.edits[0]
     assert [
         [

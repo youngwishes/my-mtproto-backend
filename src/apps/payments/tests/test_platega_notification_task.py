@@ -25,6 +25,7 @@ from apps.payments.tests.factories import (
 from apps.users.tests.factories import SystemUserFactory
 from apps.vds.tests.factories import MTPRotoKeyFactory
 from apps.vpn.tests.factories import VPNSubscriptionFactory
+from apps.vpn.models import VPNBotSettings
 
 
 _TELEGRAM_TRANSPORT = (
@@ -144,6 +145,7 @@ class TestNotifyPlategaPurchaseTask(TestCase):
         self,
         send: mock.Mock,
     ) -> None:
+        VPNBotSettings.objects.filter(pk=1).update(is_active=True)
         user = SystemUserFactory(username="200003")
         subscription = VPNSubscriptionFactory(
             user=user,
@@ -329,3 +331,37 @@ class TestNotifyPlategaPurchaseTask(TestCase):
         send.assert_not_called()
         intent.refresh_from_db()
         self.assertIsNone(intent.notification_sent_at)
+
+    @mock.patch("apps.payments.tasks.send_telegram_message")
+    def test_disabled_vpn_consumes_notification_without_sending_or_replaying(
+        self,
+        send: mock.Mock,
+    ) -> None:
+        VPNBotSettings.objects.filter(pk=1).update(is_active=False)
+        user = SystemUserFactory(username="200003")
+        VPNSubscriptionFactory(
+            user=user,
+            expired_at=datetime(2026, 8, 31, 22, 30, tzinfo=UTC),
+        )
+        payment = PaymentFactory(
+            user=user,
+            kind=PaymentKindEnum.VPN_SUBSCRIPTION,
+            provider=PaymentProviderEnum.PLATEGA,
+        )
+        intent = PlategaPaymentIntentFactory(
+            initiator=user,
+            purchase_kind=PaymentKindEnum.VPN_SUBSCRIPTION,
+            status=PlategaPaymentIntentStatusEnum.FULFILLED,
+            payment=payment,
+            fulfilled_at=timezone.now(),
+            notification_queued_at=timezone.now(),
+        )
+
+        notify_platega_purchase_task.run(intent.pk)
+
+        send.assert_not_called()
+        intent.refresh_from_db()
+        self.assertIsNotNone(intent.notification_sent_at)
+        VPNBotSettings.objects.filter(pk=1).update(is_active=True)
+        notify_platega_purchase_task.run(intent.pk)
+        send.assert_not_called()

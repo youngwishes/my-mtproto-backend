@@ -111,6 +111,8 @@ PRODUCT_MENU_TEXT = (
     "и получай бонусы.\n\n"
     "Выбирай нужный раздел 👇"
 )
+PRODUCT_MENU_MTPROXY_TEXT = PRODUCT_MENU_TEXT.replace(" и <b>VPN</b>", "")
+
 
 _WELCOME_BODY = (
     "⚡️ <b>MTProxy для Telegram</b>\n\n"
