@@ -15,12 +15,14 @@ from rest_framework.test import APITestCase
 from apps.payments.api.v1.serializers import PlategaCallbackSerializer
 from apps.payments.enums import PlategaPaymentIntentStatusEnum
 from apps.payments.exceptions import PlategaPaymentRetryable
+from apps.payments.models import Payment
 from apps.payments.services.dtos import (
     ApplyPlategaPaymentOut,
     PlategaCallbackWarningDTO,
     ValidatePlategaCallbackOut,
 )
 from apps.payments.tests.factories import PlategaPaymentIntentFactory
+from apps.vds.models import MTPRotoKey
 
 
 _VIEW = "apps.payments.api.v1.views.platega_views"
@@ -28,6 +30,67 @@ _URL = "/api/v1/payments/platega/callback/"
 _MERCHANT_ID = "test-merchant"
 _SECRET = "test-secret"
 _TRANSACTION_ID = UUID("6765c89d-4800-4e07-b45d-d886e696e87c")
+
+
+@override_settings(PLATEGA_MERCHANT_ID=_MERCHANT_ID, PLATEGA_SECRET=_SECRET)
+class TestPlategaCallbackContactFields(APITestCase):
+    @mock.patch("apps.payments.tasks.notify_platega_purchase_task.delay")
+    @mock.patch("apps.vds.services.issue_key_service.push_key_to_servers_task.delay")
+    def test_confirmed_callback_with_null_contact_fields_fulfills_once(
+        self, push_key: mock.Mock, notify: mock.Mock,
+    ) -> None:
+        intent = PlategaPaymentIntentFactory(
+            status=PlategaPaymentIntentStatusEnum.ACTIVE,
+            provider_transaction_id=_TRANSACTION_ID,
+        )
+        body = {
+            "id": str(_TRANSACTION_ID),
+            "amount": 99.0,
+            "currency": "RUB",
+            "status": "CONFIRMED",
+            "paymentMethod": 2,
+            "payload": str(intent.public_id),
+            "person": None,
+            "contactPhoneNumber": None,
+        }
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                _URL, body, format="json",
+                HTTP_X_MERCHANTID=_MERCHANT_ID, HTTP_X_SECRET=_SECRET,
+            )
+        self.assertEqual(response.status_code, 200)
+        intent.refresh_from_db()
+        self.assertEqual(intent.status, PlategaPaymentIntentStatusEnum.FULFILLED)
+        self.assertIsNotNone(intent.payment_id)
+        key = MTPRotoKey.objects.get(user=intent.initiator)
+        expired_at = key.expired_date
+        with self.captureOnCommitCallbacks(execute=True):
+            repeated = self.client.post(
+                _URL, body, format="json",
+                HTTP_X_MERCHANTID=_MERCHANT_ID, HTTP_X_SECRET=_SECRET,
+            )
+        self.assertEqual(repeated.status_code, 200)
+        key.refresh_from_db()
+        self.assertEqual(key.expired_date, expired_at)
+        self.assertEqual(Payment.objects.filter(user=intent.initiator).count(), 1)
+        notify.assert_called_once_with(intent.pk)
+
+    def test_optional_contact_fields_do_not_enter_payment_dto(self) -> None:
+        for optional in (
+            {"person": "Example person"},
+            {"contactPhoneNumber": "+70000000000"},
+            {"person": None, "contactPhoneNumber": None},
+        ):
+            with self.subTest(optional=optional):
+                incoming = PlategaCallbackSerializer(data={
+                    "id": str(_TRANSACTION_ID), "amount": 99,
+                    "currency": "RUB", "status": "CONFIRMED", "paymentMethod": 2,
+                    **optional,
+                })
+                self.assertTrue(incoming.is_valid())
+                self.assertEqual(set(incoming.validated_data), {
+                    "transaction_id", "amount", "currency", "status", "payment_method",
+                })
 
 
 @override_settings(

@@ -478,7 +478,7 @@ permissions. До чтения JSON backend извлекает raw headers `X-Me
 Missing/invalid header возвращает пустой `401` без body parsing.
 
 После успешной аутентификации принимается JSON-объект с пятью обязательными
-ключами и необязательным provider echo `payload`:
+ключами и необязательными полями `payload`, `person`, `contactPhoneNumber`:
 
 ```json
 {
@@ -491,8 +491,9 @@ Missing/invalid header возвращает пустой `401` без body parsi
 }
 ```
 
-`payload` не участвует в выборе intent или валидации и не передаётся в доменный
-DTO; callback без него остаётся валидным. Другие дополнительные ключи
+`payload`, `person` и `contactPhoneNumber` игнорируются: не участвуют в выборе
+intent или валидации и не передаются в доменный DTO. Любое из этих полей может
+отсутствовать или быть `null`. Другие дополнительные ключи
 отклоняются до domain processing.
 
 `amount` должен быть конечным JSON-числом. Integer, fraction и finite exponent
