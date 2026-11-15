@@ -13,13 +13,14 @@ class TestPublicDomainConfiguration(SimpleTestCase):
         self.nginx_config = (self.repo_root / "nginx" / "nginx.conf").read_text(encoding="utf-8")
         self.compose_config = (self.repo_root / "docker-compose.yml").read_text(encoding="utf-8")
 
-    def test_django_accepts_only_transition_and_local_hosts(self) -> None:
+    def test_django_accepts_only_configured_hosts(self) -> None:
         expected_hosts = {
             "localhost",
             "127.0.0.1",
             "django",
             "beatvault.ru",
             "dash.mtprotokeys.com",
+            "151.247.25.246",
         }
 
         self.assertSetEqual(set(ALLOWED_HOSTS), expected_hosts)

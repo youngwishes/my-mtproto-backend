@@ -36,6 +36,7 @@ ALLOWED_HOSTS = [
     "django",
     "beatvault.ru",
     "dash.mtprotokeys.com",
+    "151.247.25.246",
 ]
 
 # Application definition
