@@ -126,11 +126,11 @@ _WELCOME_CTA = "\n\n👇 Жми «Мои серверы» и подключай�
 
 WELCOME_TEXT_MONTH = _WELCOME_BODY + "\nПервый месяц — бесплатно." + _WELCOME_CTA
 
-WELCOME_TEXT_WEEK = _WELCOME_BODY + "\nПервая неделя — бесплатно." + _WELCOME_CTA
+WELCOME_TEXT_DIRECT_TRIAL = _WELCOME_BODY + "\nПервые 3 дня — бесплатно." + _WELCOME_CTA
 
-WELCOME_TEXT_TWO_WEEK = (
+WELCOME_TEXT_REFERRED_TRIAL = (
     _WELCOME_BODY
-    + "\nПо приглашению первые две недели — бесплатно."
+    + "\nПо приглашению первые 7 дней — бесплатно."
     + _WELCOME_CTA
 )
 
@@ -138,8 +138,8 @@ WELCOME_TEXT_NOT_FREE = _WELCOME_BODY + _WELCOME_CTA
 
 FREE_AVAILABLE_TEXT_MAPPING = {
     FreeAvailable.MONTH: WELCOME_TEXT_MONTH,
-    FreeAvailable.WEEK: WELCOME_TEXT_WEEK,
-    FreeAvailable.TWO_WEEK: WELCOME_TEXT_TWO_WEEK,
+    FreeAvailable.WEEK: WELCOME_TEXT_DIRECT_TRIAL,
+    FreeAvailable.TWO_WEEK: WELCOME_TEXT_REFERRED_TRIAL,
     FreeAvailable.NOT_AVAILABLE: WELCOME_TEXT_NOT_FREE,
 }
 
@@ -232,7 +232,7 @@ REFERRAL_CABINET = """
 ✅ Получили пробный доступ: <b>{active_referrals_count}</b>
 🍏 На балансе: <b>{apple_balance}</b>
 
-Друг получает <b>14 дней бесплатно</b>, а ты — <b>15 🍏</b> после активации его пробного периода.
+Друг получает <b>7 дней бесплатно</b>, а ты — <b>15 🍏</b> после активации его пробного периода.
 
 <b>Твоя ссылка:</b>
 {referral_link}

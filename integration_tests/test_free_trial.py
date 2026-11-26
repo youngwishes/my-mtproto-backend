@@ -52,7 +52,7 @@ async def test_referred_user_before_limit_gets_30day_key(username):
     await helpers.assert_present_on_all_vds(username, present=True)
 
 
-async def test_referred_user_after_limit_gets_14day_key(username):
+async def test_referred_user_after_limit_gets_7day_key(username):
     clients = helpers.make_clients()
     await db.aw(db.create_user)(username, invited_from_username="999inviter")
     created = await db.aw(db.ensure_free_used_at_least)(
@@ -60,13 +60,13 @@ async def test_referred_user_after_limit_gets_14day_key(username):
     )
     try:
         result = await clients.free_trial.claim(telegram_id=username)
-        assert result.expired_date == _expected_expired(14)
+        assert result.expired_date == _expected_expired(7)
         await helpers.assert_present_on_all_vds(username, present=True)
     finally:
         await db.aw(db.cleanup_users)(created)
 
 
-async def test_exhausted_first_month_limit_gives_7day_key(username):
+async def test_exhausted_first_month_limit_gives_3day_key(username):
     clients = helpers.make_clients()
     # arrange: глобальный лимит бесплатных исчерпан
     created = await db.aw(db.ensure_free_used_at_least)(
@@ -74,7 +74,7 @@ async def test_exhausted_first_month_limit_gives_7day_key(username):
     )
     try:
         result = await clients.free_trial.claim(telegram_id=username)
-        assert result.expired_date == _expected_expired(7)
+        assert result.expired_date == _expected_expired(3)
         await helpers.assert_present_on_all_vds(username, present=True)
     finally:
         await db.aw(db.cleanup_users)(created)

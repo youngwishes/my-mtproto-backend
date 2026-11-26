@@ -68,7 +68,7 @@ class TestFirstFreeLink(APITestCase):
         )
 
     @mock.patch("apps.vds.tasks.push_key_to_servers_task.delay")
-    def test_first_free_link_7days(self, mock_push) -> None:
+    def test_first_free_link_after_limit_3days(self, mock_push) -> None:
         for _ in range(50):
             SystemUserFactory(first_month_free_used=True)
         self.assertFalse(self.user.first_month_free_used)
@@ -85,13 +85,13 @@ class TestFirstFreeLink(APITestCase):
         self.assertFalse(self.user.referral_activated)
         self.assertEqual(
             MTPRotoKey.objects.first().expired_date.date(),
-            (timezone.now() + timedelta(days=7)).date(),
+            (timezone.now() + timedelta(days=3)).date(),
         )
         mock_push.assert_called_once_with(key_id=MTPRotoKey.objects.first().pk)
         self.assertEqual(
             response.json(),
             {
-                "expired_date": (timezone.now() + timedelta(days=7))
+                "expired_date": (timezone.now() + timedelta(days=3))
                 .date()
                 .strftime("%d.%m.%y"),
             },
@@ -117,7 +117,7 @@ class TestFirstFreeLink(APITestCase):
     @mock.patch("apps.vds.tasks.push_key_to_servers_task.delay")
     def test_first_free_link_referral_before_limit_30days(self, mock_push) -> None:
         # Пока лимит бесплатных НЕ исчерпан — 30 дней всем, включая рефералов
-        # (инвайт даёт бонус 14 дней только ПОСЛЕ исчерпания лимита, как в check).
+        # (инвайт даёт бонус 7 дней только ПОСЛЕ исчерпания лимита, как в check).
         self.assertEqual(MTPRotoKey.objects.count(), 0)
         inviter = SystemUserFactory(apple_balance=7)
         self.user.invited_from_username = inviter.username
@@ -141,8 +141,8 @@ class TestFirstFreeLink(APITestCase):
         mock_push.assert_called_once_with(key_id=MTPRotoKey.objects.first().pk)
 
     @mock.patch("apps.vds.tasks.push_key_to_servers_task.delay")
-    def test_first_free_link_referral_after_limit_14days(self, mock_push) -> None:
-        # Лимит исчерпан + пришёл по рефералке → 14 дней.
+    def test_first_free_link_referral_after_limit_7days(self, mock_push) -> None:
+        # Лимит исчерпан + пришёл по рефералке → 7 дней.
         for _ in range(50):
             SystemUserFactory(first_month_free_used=True)
         self.assertEqual(MTPRotoKey.objects.count(), 0)
@@ -159,13 +159,13 @@ class TestFirstFreeLink(APITestCase):
         self.assertTrue(self.user.referral_activated)
         self.assertEqual(
             MTPRotoKey.objects.first().expired_date.date(),
-            (timezone.now() + timedelta(days=14)).date(),
+            (timezone.now() + timedelta(days=7)).date(),
         )
         mock_push.assert_called_once_with(key_id=MTPRotoKey.objects.first().pk)
         self.assertEqual(
             response.json(),
             {
-                "expired_date": (timezone.now() + timedelta(days=14))
+                "expired_date": (timezone.now() + timedelta(days=7))
                 .date()
                 .strftime("%d.%m.%y"),
             },
