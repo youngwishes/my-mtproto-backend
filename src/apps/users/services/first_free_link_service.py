@@ -29,8 +29,8 @@ class FirstFreeLinkService:
 
     Длительность зависит от условий:
     - 30 дней — стандарт
-    - 7 дней — если лимит бесплатных ключей исчерпан
-    - 14 дней — если пользователь пришёл по реферальной ссылке
+    - 3 дня — если лимит бесплатных ключей исчерпан
+    - 7 дней — по реферальной ссылке после исчерпания лимита
     """
 
     issue_key_service: IssueKeyService
@@ -67,10 +67,10 @@ class FirstFreeLinkService:
 
     def _resolve_expired_date(self, *, user: SystemUser) -> timezone.datetime:
         # Пока лимит бесплатных не исчерпан — 30 дней всем. После исчерпания —
-        # реферал 14 дней, обычный пользователь 7. (Зеркалит CheckFirstFreeLinkService;
+        # реферал 7 дней, обычный пользователь 3. (Зеркалит CheckFirstFreeLinkService;
         # инвайт даёт бонус только ПОСЛЕ исчерпания лимита, не раньше.)
         if get_free_used_count() >= settings.FIRST_MONTH_LIMIT:
-            days = 14 if user.invited_from_username else 7
+            days = 7 if user.invited_from_username else 3
         else:
             days = 30
 

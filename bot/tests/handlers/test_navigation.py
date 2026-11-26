@@ -93,10 +93,10 @@ async def test_root_navigation_matches_approved_hierarchy():
     ("period", "free_period_text", "boost_callback"),
     [
         ("MONTH", "Первый месяц — бесплатно.\n", "boost_free"),
-        ("WEEK", "Первая неделя — бесплатно.\n", "boost_free"),
+        ("WEEK", "Первые 3 дня — бесплатно.\n", "boost_free"),
         (
             "TWO_WEEK",
-            "По приглашению первые две недели — бесплатно.\n",
+            "По приглашению первые 7 дней — бесплатно.\n",
             "boost_free",
         ),
         ("NOT_AVAILABLE", "", "boost_paid"),
@@ -127,7 +127,7 @@ async def test_mtproxy_navigation_matches_approved_hierarchy(
         "👇 Жми «Мои серверы» и подключайся!"
     )
     if period == "TWO_WEEK":
-        assert "По приглашению первые две недели — бесплатно." in text
+        assert "По приглашению первые 7 дней — бесплатно." in text
         assert "Вы пришли" not in text
     assert markup.inline_keyboard[0][0].callback_data == boost_callback
     assert [
